@@ -1,0 +1,103 @@
+/*************************************
+ * Author: M. Babai (M.Babai@rug.nl) *
+ * Version:                          *
+ * License:                          *
+ *************************************/
+#include <iostream>
+#include <string>
+#include <sstream>
+#include <vector>
+
+
+#include "TNtuple.h"
+#include "TFile.h"
+#include "TCanvas.h"
+
+#define SAVE_PDF_PLOT 0
+
+void PlotOrientations( std::string const& Infile = "Track3DPositions.root",
+                       Double_t const ww      = 500,
+                       Double_t const hh      = 500,
+                       size_t   const nEv     = 1,
+                       size_t   const dim     = 2,
+                       size_t   const nOrient = 6
+                 )
+{
+  TFile inp(Infile.c_str(),"READ");
+  std::string tpName;
+  std::vector< std::vector<std::string>* >AllEventOrients;
+
+  // Build a list of aal ntuples containing the data for different
+  // orientations.
+  // Event loop
+  for(size_t ev = 0; ev < nEv; ++ev) {
+    std::vector<std::string>* tNames = new std::vector<std::string>();
+    std::stringstream evN;
+    evN << ev;
+    //Orientations
+    for(size_t i = 0; i < nOrient; i++) {
+      std::stringstream oriN;
+      oriN << i;
+      tpName = "Evt_" + evN.str() + "_" + oriN.str();
+      //std::cout << tpName << std::endl;
+      tNames->push_back(tpName);
+    }//End Of orient. loop
+    AllEventOrients.push_back(tNames);
+  }//END event loop
+  // Create NTuples and plot
+    cout<<AllEventOrients.size()<<endl;
+
+  for(size_t i = 0; i < AllEventOrients.size(); ++i) {
+    std::stringstream pltCnt;
+    pltCnt << i;
+    std::string fname = "plot_" + pltCnt.str() + ".pdf";
+    TCanvas *c1 = new TCanvas("AllOrientations", "All Orientations", ww, hh );
+    if( (nOrient%2) == 0 ) {
+      c1->Divide(2, 8);
+    }
+    else{
+      c1->Divide(2, 8);
+    }
+    // Fetch the list of plots for the current event.
+    std::vector<std::string>  *currEvt = AllEventOrients[i];
+    for(size_t j = 0; j < currEvt->size(); ++j) {
+
+      std::string &name = currEvt->at(j);
+
+      c1->cd(j+1);
+
+      TNtuple* plot = (TNtuple*) inp.Get(name.c_str());
+          cout<<name.c_str()<<endl;
+
+      plot->SetMarkerColor(4);
+      plot->SetMarkerStyle(6);
+      // Pos->SetMarkerSize(0.7);
+      if(dim == 2) {
+        plot->Draw("y:x","","");
+      }
+      if(dim == 3) {
+        plot->Draw("y:x:angle","","");
+      }
+      cout<<name.c_str()<<endl;
+
+    }
+    c1->Update();
+#if ( SAVE_PDF_PLOT > 1 )
+    c1->SaveAs(fname.c_str());
+#endif
+  }
+
+  TCanvas *c2 = new TCanvas("FilteredOrient", "Filtered Orientations", ww, hh);
+  TNtuple* plotF = (TNtuple*) inp.Get("OriFilter");
+  plotF->SetMarkerColor(6);
+  plotF->SetMarkerStyle(6);
+  plotF->SetMarkerSize(1.0);
+  if(dim == 2) {
+    plotF->Draw("y:x","","");
+  }
+  if(dim == 3) {
+    plotF->Draw("y:x:z","","");
+  }
+  c2->Update();
+  //exit(0);
+}

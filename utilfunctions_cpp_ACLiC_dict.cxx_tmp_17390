@@ -1,0 +1,233 @@
+// Do NOT change. Changes will be lost next time file is generated
+
+#define R__DICTIONARY_FILENAME dIhomedISimondIDocumentsdIProjectsdINucleardIdiscco_partdIutilfunctions_cpp_ACLiC_dict
+
+/*******************************************************************/
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+#define G__DICTIONARY
+#include "RConfig.h"
+#include "TClass.h"
+#include "TDictAttributeMap.h"
+#include "TInterpreter.h"
+#include "TROOT.h"
+#include "TBuffer.h"
+#include "TMemberInspector.h"
+#include "TInterpreter.h"
+#include "TVirtualMutex.h"
+#include "TError.h"
+
+#ifndef G__ROOT
+#define G__ROOT
+#endif
+
+#include "RtypesImp.h"
+#include "TIsAProxy.h"
+#include "TFileMergeInfo.h"
+#include <algorithm>
+#include "TCollectionProxyInfo.h"
+/*******************************************************************/
+
+#include "TDataMember.h"
+
+// Since CINT ignores the std namespace, we need to do so in this file.
+namespace std {} using namespace std;
+
+// Header files passed as explicit arguments
+#include "/home/Simon/Documents/Projects/Nuclear/discco_part/utilfunctions.cpp"
+
+// Header files passed via #pragma extra_include
+
+namespace ROOT {
+   static TClass *candidateDistobject_Dictionary();
+   static void candidateDistobject_TClassManip(TClass*);
+   static void *new_candidateDistobject(void *p = 0);
+   static void *newArray_candidateDistobject(Long_t size, void *p);
+   static void delete_candidateDistobject(void *p);
+   static void deleteArray_candidateDistobject(void *p);
+   static void destruct_candidateDistobject(void *p);
+
+   // Function generating the singleton type initializer
+   static TGenericClassInfo *GenerateInitInstanceLocal(const ::candidateDistobject*)
+   {
+      ::candidateDistobject *ptr = 0;
+      static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(::candidateDistobject));
+      static ::ROOT::TGenericClassInfo 
+         instance("candidateDistobject", "utilfunctions.h", 47,
+                  typeid(::candidateDistobject), ::ROOT::Internal::DefineBehavior(ptr, ptr),
+                  &candidateDistobject_Dictionary, isa_proxy, 4,
+                  sizeof(::candidateDistobject) );
+      instance.SetNew(&new_candidateDistobject);
+      instance.SetNewArray(&newArray_candidateDistobject);
+      instance.SetDelete(&delete_candidateDistobject);
+      instance.SetDeleteArray(&deleteArray_candidateDistobject);
+      instance.SetDestructor(&destruct_candidateDistobject);
+      return &instance;
+   }
+   TGenericClassInfo *GenerateInitInstance(const ::candidateDistobject*)
+   {
+      return GenerateInitInstanceLocal((::candidateDistobject*)0);
+   }
+   // Static variable to force the class initialization
+   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal((const ::candidateDistobject*)0x0); R__UseDummy(_R__UNIQUE_DICT_(Init));
+
+   // Dictionary for non-ClassDef classes
+   static TClass *candidateDistobject_Dictionary() {
+      TClass* theClass =::ROOT::GenerateInitInstanceLocal((const ::candidateDistobject*)0x0)->GetClass();
+      candidateDistobject_TClassManip(theClass);
+   return theClass;
+   }
+
+   static void candidateDistobject_TClassManip(TClass* theClass){
+      theClass->CreateAttributeMap();
+      TDictAttributeMap* attrMap( theClass->GetAttributeMap() );
+      attrMap->AddProperty("file_name","/home/Simon/Documents/Projects/Nuclear/discco_part/utilfunctions.h");
+   }
+
+} // end of namespace ROOT
+
+namespace ROOT {
+   static TClass *point3D_Dictionary();
+   static void point3D_TClassManip(TClass*);
+   static void *new_point3D(void *p = 0);
+   static void *newArray_point3D(Long_t size, void *p);
+   static void delete_point3D(void *p);
+   static void deleteArray_point3D(void *p);
+   static void destruct_point3D(void *p);
+
+   // Function generating the singleton type initializer
+   static TGenericClassInfo *GenerateInitInstanceLocal(const ::point3D*)
+   {
+      ::point3D *ptr = 0;
+      static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(::point3D));
+      static ::ROOT::TGenericClassInfo 
+         instance("point3D", "utilfunctions.h", 169,
+                  typeid(::point3D), ::ROOT::Internal::DefineBehavior(ptr, ptr),
+                  &point3D_Dictionary, isa_proxy, 4,
+                  sizeof(::point3D) );
+      instance.SetNew(&new_point3D);
+      instance.SetNewArray(&newArray_point3D);
+      instance.SetDelete(&delete_point3D);
+      instance.SetDeleteArray(&deleteArray_point3D);
+      instance.SetDestructor(&destruct_point3D);
+      return &instance;
+   }
+   TGenericClassInfo *GenerateInitInstance(const ::point3D*)
+   {
+      return GenerateInitInstanceLocal((::point3D*)0);
+   }
+   // Static variable to force the class initialization
+   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal((const ::point3D*)0x0); R__UseDummy(_R__UNIQUE_DICT_(Init));
+
+   // Dictionary for non-ClassDef classes
+   static TClass *point3D_Dictionary() {
+      TClass* theClass =::ROOT::GenerateInitInstanceLocal((const ::point3D*)0x0)->GetClass();
+      point3D_TClassManip(theClass);
+   return theClass;
+   }
+
+   static void point3D_TClassManip(TClass* theClass){
+      theClass->CreateAttributeMap();
+      TDictAttributeMap* attrMap( theClass->GetAttributeMap() );
+      attrMap->AddProperty("file_name","/home/Simon/Documents/Projects/Nuclear/discco_part/utilfunctions.h");
+   }
+
+} // end of namespace ROOT
+
+namespace ROOT {
+   static TClass *TubeLayerPairProperty_Dictionary();
+   static void TubeLayerPairProperty_TClassManip(TClass*);
+   static void *new_TubeLayerPairProperty(void *p = 0);
+   static void *newArray_TubeLayerPairProperty(Long_t size, void *p);
+   static void delete_TubeLayerPairProperty(void *p);
+   static void deleteArray_TubeLayerPairProperty(void *p);
+   static void destruct_TubeLayerPairProperty(void *p);
+
+   // Function generating the singleton type initializer
+   static TGenericClassInfo *GenerateInitInstanceLocal(const ::TubeLayerPairProperty*)
+   {
+      ::TubeLayerPairProperty *ptr = 0;
+      static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(::TubeLayerPairProperty));
+      static ::ROOT::TGenericClassInfo 
+         instance("TubeLayerPairProperty", "utilfunctions.h", 212,
+                  typeid(::TubeLayerPairProperty), ::ROOT::Internal::DefineBehavior(ptr, ptr),
+                  &TubeLayerPairProperty_Dictionary, isa_proxy, 4,
+                  sizeof(::TubeLayerPairProperty) );
+      instance.SetNew(&new_TubeLayerPairProperty);
+      instance.SetNewArray(&newArray_TubeLayerPairProperty);
+      instance.SetDelete(&delete_TubeLayerPairProperty);
+      instance.SetDeleteArray(&deleteArray_TubeLayerPairProperty);
+      instance.SetDestructor(&destruct_TubeLayerPairProperty);
+      return &instance;
+   }
+   TGenericClassInfo *GenerateInitInstance(const ::TubeLayerPairProperty*)
+   {
+      return GenerateInitInstanceLocal((::TubeLayerPairProperty*)0);
+   }
+   // Static variable to force the class initialization
+   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal((const ::TubeLayerPairProperty*)0x0); R__UseDummy(_R__UNIQUE_DICT_(Init));
+
+   // Dictionary for non-ClassDef classes
+   static TClass *TubeLayerPairProperty_Dictionary() {
+      TClass* theClass =::ROOT::GenerateInitInstanceLocal((const ::TubeLayerPairProperty*)0x0)->GetClass();
+      TubeLayerPairProperty_TClassManip(theClass);
+   return theClass;
+   }
+
+   static void TubeLayerPairProperty_TClassManip(TClass* theClass){
+      theClass->CreateAttributeMap();
+      TDictAttributeMap* attrMap( theClass->GetAttributeMap() );
+      attrMap->AddProperty("file_name","/home/Simon/Documents/Projects/Nuclear/discco_part/utilfunctions.h");
+   }
+
+} // end of namespace ROOT
+
+namespace ROOT {
+   // Wrappers around operator new
+   static void *new_candidateDistobject(void *p) {
+      return  p ? new(p) ::candidateDistobject : new ::candidateDistobject;
+   }
+   static void *newArray_candidateDistobject(Long_t nElements, void *p) {
+      return p ? new(p) ::candidateDistobject[nElements] : new ::candidateDistobject[nElements];
+   }
+   // Wrapper around operator delete
+   static void delete_candidateDistobject(void *p) {
+      delete ((::candidateDistobject*)p);
+   }
+   static void deleteArray_candidateDistobject(void *p) {
+      delete [] ((::candidateDistobject*)p);
+   }
+   static void destruct_candidateDistobject(void *p) {
+      typedef ::candidateDistobject current_t;
+      ((current_t*)p)->~current_t();
+   }
+} // end of namespace ROOT for class ::candidateDistobject
+
+namespace ROOT {
+   // Wrappers around operator new
+   static void *new_point3D(void *p) {
+      return  p ? new(p) ::point3D : new ::point3D;
+   }
+   static void *newArray_point3D(Long_t nElements, void *p) {
+      return p ? new(p) ::point3D[nElements] : new ::point3D[nElements];
+   }
+   // Wrapper around operator delete
+   static void delete_point3D(void *p) {
+      delete ((::point3D*)p);
+   }
+   static void deleteArray_point3D(void *p) {
+      delete [] ((::point3D*)p);
+   }
+   static void destruct_point3D(void *p) {
+      typedef ::point3D current_t;
+      ((current_t*)p)->~current_t();
+   }
+} // end of namespace ROOT for class ::point3D
+
+namespace ROOT {
+   // Wrappers around operator new
+   static void *new_TubeLayerPairProperty(void *p) {
+      return  p ? new(p) ::TubeLayerPairProperty

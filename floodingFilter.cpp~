@@ -1,0 +1,653 @@
+
+#include <iostream>
+#include <set>
+#include <sstream>
+#include <algorithm>
+#include  <cmath>
+#include <fstream>
+#include <vector>
+
+// Root headers
+#include "TFile.h"
+#include "TNtuple.h"
+#include "TStopwatch.h"
+#include "TH1.h"
+
+// Local headers
+#include "auxiliaryfunctions.h"
+#include "CollectSttMvdPoints.h"
+#include "SttMVDEventDataReader.h"
+#include "pathopen.h"
+#include "hitcoordinate.h"
+#include "floodingFilter.h"
+#include "utilfunctions.h"
+#include "trackObject.h"
+#include "logc.h"
+#include "queue.h"
+//#include "performFilter.h"
+#include "pathCandidate.h"
+
+
+// DEBUG AND STORE definitions
+
+#define EXCLUDE_STTSKEWED_PLOT   0
+#define EXCLUDE_VIRTUALS_IN_PLOT 0
+
+#define WRITE_CONNECTED_COMPONENTS 1
+#define EVALUATE_ERROR 0
+#define VERBOSITY 10 //all
+#define INCLUDE_MVD_INOUTPUT_TRACK 0
+#define PRINT_TRACKS_DEBUG_INFO 1
+#define PRINT_DEBUG_INFO_COMP_MATCH 0
+#define PRINT_ERROR_EXTRA_DEBUG_INFO 1
+#define WRITE_CONNECTED_COMPONENTS_JSON 0
+
+//______________________ BEGIN MCTrackPoints _____________________________
+std::vector< std::vector < MCTrackObject* >* >*
+MCTrackPoints( std::vector < std::vector<HitCoordinate*>* > const &evtData)
+{
+  info("Extracting MC tracks for %d events", evtData.size());
+  //	    << " events.\n";
+  // Output Parameter
+  std::vector< std::vector < MCTrackObject* >* >* outVar =
+    new std::vector< std::vector < MCTrackObject* >* >();
+
+  int numTracks = -1;
+   for(size_t e = 0; e < evtData.size(); ++e) {
+    std::vector<HitCoordinate*> const *Current_Event = evtData[e];
+    // numTracks = 0;
+    // Find out how many MC tracks are available
+    for(size_t i = 0; i < Current_Event->size(); ++i) {
+      HitCoordinate const *currentHit = Current_Event->at(i);
+      if( currentHit->m_trackID > numTracks &&
+	  currentHit->m_trackID != HIT_EXCLUSION) {
+	numTracks = currentHit->m_trackID;
+      }
+    }// END current event loop
+    
+    debug("Event %d contains %d tracks", e,(numTracks + 1));
+    
+   // Now, we know the number of available tracks for the current
+    // event; We can allocate memory.
+    std::vector < MCTrackObject* >* evtTracks = new std::vector < MCTrackObject* >();
+    for(int j = 0; j <= numTracks; ++j) {
+      MCTrackObject *trk = new MCTrackObject(); 
+      evtTracks->push_back(trk);
+    }
+    // Fill the list
+    for(size_t k = 0; k < Current_Event->size(); ++k) {
+      HitCoordinate const *currentHit = Current_Event->at(k);
+      if(currentHit->m_trackID != HIT_EXCLUSION) {
+	int trackPos = currentHit->m_trackID;
+	point3D spacePoint;
+	spacePoint.m_x = currentHit->mx;
+	spacePoint.m_y = currentHit->my;
+	spacePoint.m_z = currentHit->mz;
+	if(currentHit->type == HitCoordinate::STT_TYPE) {
+	  ((evtTracks->at(trackPos))->m_pointSTTCoordList).push_back(spacePoint);
+	  ((evtTracks->at(trackPos))->m_STT_Component).push_back(currentHit->m_detID);
+	}
+	else if(currentHit->type == HitCoordinate::MVD_TYPE) {
+	  ((evtTracks->at(trackPos))->m_pointMVDCoordList).push_back(spacePoint);
+	  ((evtTracks->at(trackPos))->m_MVD_Component).push_back(currentHit->m_detID);
+	}
+      }// END if not HIT_EXCLUSION
+    }// END
+    outVar->push_back(evtTracks);
+  }// END events loop
+  return outVar;
+  /*  int realnumTracks = 0;
+
+  std::vector<int> IDtracks ;
+
+
+  for(size_t e = 0; e < evtData.size(); ++e) {
+    std::vector<HitCoordinate*> const *Current_Event = evtData[e];
+    // numTracks = 0;
+    // Find out how many MC tracks are available
+    for(size_t i = 0; i < Current_Event->size(); ++i) {
+      HitCoordinate const *currentHit = Current_Event->at(i);
+      if (std::find(IDtracks.begin(), IDtracks.end(), currentHit->m_trackID) == IDtracks.end())
+	IDtracks.push_back(currentHit->m_trackID);
+
+      if( currentHit->m_trackID > numTracks &&
+	  currentHit->m_trackID != HIT_EXCLUSION) {
+	numTracks = currentHit->m_trackID;
+      }
+
+    }// END current event loop
+
+#if (PRINT_TRACKS_DEBUG_INFO > 0)
+    std::cout << "\t<-I-> Event " << e
+	      << " Contains " << (IDtracks.size())
+	      << " Tracks.\n";
+#endif
+    // Now, we know the number of available tracks for the current
+    // event; We can allocate memory.
+    std::vector < MCTrackObject* >* evtTracks = new std::vector < MCTrackObject* >();
+    for(int j = 0; j <= numTracks; ++j) {
+      MCTrackObject *trk = new MCTrackObject(); 
+      evtTracks->push_back(trk);
+    }
+    // Fill the list
+    for(size_t k = 0; k < Current_Event->size(); ++k) {
+      HitCoordinate const *currentHit = Current_Event->at(k);
+      if(currentHit->m_trackID != HIT_EXCLUSION) {
+	int trackPos = currentHit->m_trackID;
+	point3D spacePoint;
+	spacePoint.m_x = currentHit->mx;
+	spacePoint.m_y = currentHit->my;
+	spacePoint.m_z = currentHit->mz;
+	if(currentHit->type == HitCoordinate::STT_TYPE) {
+	  ((evtTracks->at(trackPos))->m_pointSTTCoordList).push_back(spacePoint);
+	  ((evtTracks->at(trackPos))->m_STT_Component).push_back(currentHit->m_detID);
+	}
+	else if(currentHit->type == HitCoordinate::MVD_TYPE) {
+	  ((evtTracks->at(trackPos))->m_pointMVDCoordList).push_back(spacePoint);
+	  ((evtTracks->at(trackPos))->m_MVD_Component).push_back(currentHit->m_detID);
+	}
+      }// END if not HIT_EXCLUSION
+    }// END
+    outVar->push_back(evtTracks);
+  }// END events loop
+  return outVar;*/
+}
+//______________________ END MCTrackPoints _______________________________
+
+
+
+
+
+
+
+void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
+{
+  TStopwatch timer;
+
+  // Structure to hold the detector data (grid)
+  std::vector < GridNode > detNodes;
+  // File and structure to hold the output coordinates.
+  TFile Out_Put_File(OutFileName.c_str(),"RECREATE","Outputfile Created by performFilter", 9);
+
+  // Collected coordinates for tracks.
+  TNtuple coord ("CoordCollected" , "Collected Coordinates in x y plane", "x:y:z:x_Det:y_Det:z_Det");
+
+  // Ntuple to hold Error values for all events available in the
+  // current events set. The value is evaluated per image.
+  std::string errorParameter = "Error_underMerge:Error_overMerge:TotalError";
+  errorParameter += ":Error_underMergeNorm:Error_overMergeNorm:TotalErrorNorm";
+  // Create Ntuple to hold parameters.
+  TNtuple ErrorNtuple("ErrorEstimate","Segmentation error values", errorParameter.c_str());
+
+  // Second error type. Per track error value. Based on curvature
+  // data.
+  std::string PerTrkErrPars = "misMatched:BestMatchMCLength:CurrentTrackLength";
+  PerTrkErrPars += ":MCMinCurrentLength:CurrentMinMCLength";
+  PerTrkErrPars += ":UnderMergeError:OverMergeError:MC_a:MC_b:MC_r:MC_E:tr_a:tr_b:tr_r:tr_E";
+  TNtuple ErrorNtuplePerTrack("PerTrackError","Per track values of error", PerTrkErrPars.c_str());
+  
+  // NTuple to hold the coordinates of all connected components.
+  std::string ConnCompPar = "EvtNum:CompNum:tubeId:x:y:z:x_Det:y_Det:z_Det";
+  TNtuple ConnectedCoord ("ConnectedComponents", "Connected component Coordinates",
+			  ConnCompPar.c_str());
+  // Hold number of components per event
+  TNtuple ComponentPerEvt ("ComponentPerEvt", "Component per event","evtNum:numComponents");
+
+
+  /* Read all data directly from sim, digi and parameter files
+     (OLD) */
+  std::vector < std::vector<HitCoordinate*>* >* Hit_coords = 
+    CollectSttMvdPoints(detNodes, Out_Put_File, firstEvt, lastEvt);
+
+  std::vector< std::vector < MCTrackObject* >* > *MC_Tracks = MCTrackPoints(*Hit_coords);
+  
+  // Write event info to output  
+  WriteEventPlotsToFile( (*Hit_coords), Out_Put_File);
+  
+  // Create an empty grid object
+  CoordGrid gr;
+  
+  // Init Grid for STT detector nodes (fill the map).
+  gr.Initialize(detNodes);
+
+  TNtuple Layers("LayerLimits","Layer Limits.","x:y:det_z:z");
+  TNtuple Sections("SectionsLimits","Section Limits.","x:y:det_z:z");
+  // Isolate Sector and Layer Limits
+  isolateSectorAndLayerLimits(gr, Sections, Layers);
+  Sections.Write();
+  Layers.Write();
+
+  TNtuple* OrigGrid = GridToNtuple(detNodes, "OrigGridCoord");
+  OrigGrid->SetMarkerStyle(8);
+  OrigGrid->SetMarkerSize(0.2);
+  OrigGrid->SetMarkerColor(kBlack);
+  OrigGrid->Write();
+
+  std::cout << "<INFO> Fix neighbouring before extension.\n";
+  fixNeighboring(gr);
+  std::vector < GridNode > VNodes;
+  ///Compute_Add_VirtualNodes_Neigbor2(gr, VNodes);// Old method
+  Compute_Add_VirtualNodes_Neigbor(gr, VNodes);
+   TNtuple* virtualTubes = GridToNtuple(VNodes, "VirtualNodes");
+  virtualTubes->SetMarkerStyle(8);
+  virtualTubes->SetMarkerSize(0.2);
+  virtualTubes->SetMarkerColor(kMagenta);
+  virtualTubes->Write();
+      /*
+   * Extend the grid with new virtual points and fix the missing
+   * neighboring relations
+   */
+  // Extend the grid by virtual nodes between the layer.
+  info("Extending the grid by %d virtual nodes between the layers.", VNodes.size());
+  gr.ExtendedGrid(VNodes);
+
+  info("Fixing neighbouring after extension.");
+  fixNeighboring(gr);
+  TNtuple* extendedGrid = GridToNtuple(gr.m_grid, "ExtendedGrid");
+  extendedGrid->SetMarkerStyle(7);//8
+  extendedGrid->SetMarkerSize(0.3);
+  extendedGrid->SetMarkerColor(17);//41
+  extendedGrid->Write();
+
+  info("Total number of tubes after extension = %d", gr.GetNumNodes());
+  // Delete allocated memory
+  delete (OrigGrid);
+  delete virtualTubes;
+  delete extendedGrid;
+  unsigned int totalnumEvt = Hit_coords->size();
+  // Start the timer.
+
+
+  std::vector< std::set<int>* >* connectedComp = 0;
+  connectedComp = new std::vector< std::set<int>* >();
+  
+  timer.Start();
+
+  /* Fill the grid with the current hit points and process. Handles
+     each event separately.*/
+  // Event loop
+
+  for(size_t k = 0; k < Hit_coords->size(); ++k) {
+    // Data for the current event
+    info("Processing event: %d", k);
+    std::vector<HitCoordinate*> const *dd = 0;
+    dd = Hit_coords->at(k);
+    if(dd) {
+      gr.FillGrid(*dd);
+    }
+
+    std::vector< GridNode > &Ingrid = gr.m_grid;
+    std::vector< GridNode > Copygrid = gr.m_grid;
+  
+    std::vector< int > activeId;
+    std::vector< int > remainingActiveId;
+
+    // Store all active nodes in queue and determine min and max layer
+    // PathQueue ActiveNodeQueue;
+    unsigned int max_layer = std::numeric_limits<unsigned int>::min();
+    unsigned int min_layer = std::numeric_limits<unsigned int>::max();
+    PrioQueue *q        = create_prio_queue(Ingrid.size());
+    PrioQueue *q_uncer   = create_prio_queue(Ingrid.size());
+
+    int nactive = 0, nactive_queue = 0;
+    for(unsigned int n = 0; n < Ingrid.size(); ++n) {
+      if( Ingrid[n].m_active){
+	int NodeId = Ingrid[n].m_detID;
+	Ingrid[n].visited= 0;
+	if(Ingrid[n].m_type != GridNode::VIRTUAL_NODE  ) {
+	  activeId.push_back(NodeId);
+	  //	  printf("Node id %d \n", NodeId);
+
+	  //insert_prio_queue(q, NodeId);
+	  nactive_queue++;
+	}
+	nactive++;
+      }
+      
+    }
+    int *visited = (int *) calloc(Ingrid.size(), sizeof(int));
+    int *parents = (int *) calloc(nactive,sizeof(int));
+
+
+    
+    for(unsigned int n = 0; n < nactive_queue; ++n) {
+      int curid =activeId[n];
+      int curindex = gr.Find(curid);
+      GridNode &current_Node =Ingrid[curindex];
+      current_Node.visited = 0;
+      int n_neighbors = current_Node.m_neighbors.size();
+      for  ( int i = 0; i < current_Node.m_neighbors.size(); i++){
+	int neigh_ID = current_Node.m_neighbors[i];
+	int neigh_index = gr.Find(neigh_ID);
+	if(!Ingrid[neigh_index].m_active){
+	  (current_Node.m_neighbors).erase((current_Node.m_neighbors).begin()+i);
+	  i--;
+	}
+      }
+      //  printf("Node %d, Old neighbors %zu, new %zu \n",curid, Copygrid[curindex].m_neighbors.size(), current_Node.m_neighbors.size());
+      //   int vir = current_Node.m_type == GridNode::VIRcurrent_Node.m_neighbors.size()TUAL_NODE ? 1: 0;
+      //  printf("%d = %d \n", curid, vir);
+      //  prio_queue_remove(q);
+    }
+    
+    int candidateId = 0;
+    std::vector < PathCandidate* > temCandid;
+
+     
+    for(unsigned int n = 0; n < nactive_queue; ++n) {
+      int curid =activeId[n];
+      int orid = curid;
+      int curindex = gr.Find(curid);
+      GridNode *current_Node = &Ingrid[curindex];
+      GridNode *first_Node = &Ingrid[curindex];
+
+      int n_neighbors = current_Node->m_neighbors.size();
+      printf("Cur node %d, neighbors %d, visiited %d \n", curid, n_neighbors,current_Node->visited );
+      if(n_neighbors == 1 && current_Node->visited == 0){
+	PathCandidate *cand = new PathCandidate();// Create a new candidate
+	cand->m_id = candidateId++;// Set id
+	(cand->m_memberIdSet)->insert(curid);
+	cand->m_isValid = true;
+	current_Node->m_cm.push_back(cand->m_id);
+	current_Node->visited = 5;
+
+	int neigh_ID = current_Node->m_neighbors[0];
+	int neigh_index = gr.Find(neigh_ID);
+	printf("Neigh node %d, neighbors %d \n", neigh_ID, n_neighbors);
+
+	GridNode *neighnode = &Ingrid[neigh_index];
+	(cand->m_memberIdSet)->insert(neighnode->m_detID);
+	neighnode->m_cm.push_back(cand->m_id);
+	neighnode->visited = 5;
+
+	(neighnode->m_neighbors).erase(std::remove((neighnode->m_neighbors).begin(), (neighnode->m_neighbors).end(), curid), (neighnode->m_neighbors).end());
+
+	neighnode->parent = curid;
+
+	curid = neigh_ID;
+	curindex = neigh_index;
+	current_Node = neighnode;
+	n_neighbors = current_Node->m_neighbors.size();
+	//	for  ( int i = 0; i < current_Node.m_neighbors.size(); i++)
+	//	  printf("NEIGH: %d \n",  current_Node.m_neighbors[i]);
+	bool cond = n_neighbors <= 2? true: false; 
+	while (cond){
+	  if(n_neighbors == 1){
+	    neigh_ID = current_Node->m_neighbors[0];
+	    neigh_index = gr.Find(neigh_ID);
+	    neighnode = &Ingrid[neigh_index];
+	    (cand->m_memberIdSet)->insert(neighnode->m_detID);
+	    neighnode->visited = 5;
+
+	    neighnode->m_cm.push_back(cand->m_id);
+	  
+	    (neighnode->m_neighbors).erase(std::remove((neighnode->m_neighbors).begin(), (neighnode->m_neighbors).end(), curid), (neighnode->m_neighbors).end());
+	    neighnode->parent = curid;
+
+	    //  current_Node->visited = 5;
+	    curid = neigh_ID;
+	    curindex = neigh_index;
+	    current_Node = neighnode;
+	    n_neighbors = current_Node->m_neighbors.size();
+	    printf("while 1 neighbors: Neigh node %d, neighbors %d \n", curid, n_neighbors);
+	    
+	  } else if(n_neighbors == 2){
+	    int neigh_ID1 = current_Node->m_neighbors[0];
+	    int neigh_index1 = gr.Find(neigh_ID1);
+	    GridNode *neighnode1 = &Ingrid[neigh_index1];
+	    
+	    int neigh_ID2 = current_Node->m_neighbors[1];
+	    int neigh_index2 = gr.Find(neigh_ID2);
+	    GridNode *neighnode2 = &Ingrid[neigh_index2];
+	    printf("While 2 neighbors, looking for common neighbors %d, %d \n", neigh_ID1, neigh_ID2);
+
+	    // if(!neighnode1->IsNeighboring(neigh_ID2)){
+	    //   cond = false;
+	      //  } else{
+	    std::vector<int> diff;
+	    std::set_difference(neighnode1->m_neighbors.begin(), neighnode1->m_neighbors.end(), neighnode2->m_neighbors.begin(), neighnode2->m_neighbors.end(),   std::inserter(diff, diff.begin()));
+	    std::set_difference(neighnode2->m_neighbors.begin(), neighnode2->m_neighbors.end(), neighnode1->m_neighbors.begin(), neighnode1->m_neighbors.end(),   std::inserter(diff, diff.begin()));
+	    for(int i =0; i < diff.size(); i++)
+	      info("diff %d is %d", i, diff[i]);
+	      // }
+	    cond = false;
+	  } else {
+	    cond = false;
+	  }
+
+	//std::vector< GridNode > possible;
+	}
+	  //	if (n_neighbors > 2)
+	  // remainingActiveId.push_back(curid);
+
+	//	printf(" %d, %f, %f, %f, %f, %f, %f \n", first_Node->m_detID, first_Node->m_x, first_Node->m_y, first_Node->m_z,	       first_Node->m_xDet, first_Node->m_yDet, first_Node->m_z_Det);
+
+	temCandid.push_back(cand);
+
+      }
+      else
+	remainingActiveId.push_back(curid);
+	
+	
+      
+    }
+
+
+    /* info("GOing into remaining active detectors ");
+
+    for(unsigned int n = 0; n < remainingActiveId.size(); ++n) {
+      int curid =remainingActiveId[n];
+      int orid = curid;
+      int curindex = gr.Find(curid);
+      GridNode *current_Node = &Ingrid[curindex];
+      GridNode *first_Node = &Ingrid[curindex];
+
+      int n_neighbors = current_Node->m_neighbors.size();
+
+      if(n_neighbors == 2 && current_Node->visited == 0 && current_Node->m_cm.size() == 0) {
+	PathCandidate *cand = new PathCandidate();// Create a new candidate
+	cand->m_id = candidateId++;// Set id
+	cand->m_isValid = true;
+
+       	(cand->m_memberIdSet)->insert(curid);
+	current_Node->visited = 5;
+
+	int neigh_ID1 = current_Node->m_neighbors[0];
+	int neigh_index1 = gr.Find(neigh_ID1);
+	GridNode *neighnode1 = &Ingrid[neigh_index1];
+
+	int neigh_ID2 = current_Node->m_neighbors[1];
+	int neigh_index2 = gr.Find(neigh_ID2);
+	GridNode *neighnode2 = &Ingrid[neigh_index2];
+	info("%d THIS IS NICE TO CONNECT, first neigh is %d", curid, neigh_ID1);
+
+	if(!neighnode1->IsNeighboring(neigh_ID2)){
+	
+	  for (int i =0; i < 2; i++){
+	    int neigh_ID = first_Node->m_neighbors[i];
+	    int neigh_index = gr.Find(neigh_ID);
+
+	    GridNode *neighnode = &Ingrid[neigh_index];
+	    printf("Neigh node %d, neighbors %d , 1 %d, 2 %d \n", neigh_ID, n_neighbors,neighnode->m_neighbors[0],neighnode->m_neighbors[1]);
+
+	    (cand->m_memberIdSet)->insert(neighnode->m_detID);
+	    neighnode->m_cm.push_back(cand->m_id);
+	    neighnode->visited = 5;
+	    (neighnode->m_neighbors).erase(std::remove((neighnode->m_neighbors).begin(), (neighnode->m_neighbors).end(), orid), (neighnode->m_neighbors).end());
+
+	    neighnode->parent = orid;
+	    if (i == 0)
+	      current_Node->visited = 5;
+
+	    curid = neigh_ID;
+	    curindex = neigh_index;
+	    current_Node = neighnode;
+	    n_neighbors = current_Node->m_neighbors.size();
+	    //	for  ( int i = 0; i < current_Node.m_neighbors.size(); i++)
+	    //	  printf("NEIGH: %d \n",  current_Node.m_neighbors[i]);
+	    while (n_neighbors == 1){
+	      neigh_ID = current_Node->m_neighbors[0];
+	      neigh_index = gr.Find(neigh_ID);
+	      neighnode = &Ingrid[neigh_index];
+	      (cand->m_memberIdSet)->insert(neighnode->m_detID);
+	      neighnode->m_cm.push_back(cand->m_id);
+	      neighnode->visited = 5;
+
+	      (neighnode->m_neighbors).erase(std::remove((neighnode->m_neighbors).begin(), (neighnode->m_neighbors).end(), curid), (neighnode->m_neighbors).end());
+	      neighnode->parent = curid;
+
+	      // current_Node->visited = 5;
+	      curid = neigh_ID;
+	      curindex = neigh_index;
+	      current_Node = neighnode;
+	      n_neighbors = current_Node->m_neighbors.size();
+	      printf("while: Neigh node %d, neighbors %d \n", curid, n_neighbors);
+	      //std::vector< GridNode > possible;
+	      //  std::string dummy;
+	      //  std::cout << "Enter to continue..." << std::endl;
+	      // std::getline(std::cin, dummy);
+	
+	    }
+	  }
+	  temCandid.push_back(cand);
+	}
+      }
+
+    }
+
+
+
+    for(unsigned int n = 0; n < remainingActiveId.size(); ++n) {
+      int curid =remainingActiveId[n];
+      int curindex = gr.Find(curid);
+      GridNode *current_Node = &Ingrid[curindex];
+
+      std::vector< int > toVisit;
+      std::vector< int > possiCand;
+      std::vector< int > cluster;
+
+      if(!current_Node->visited){
+	info("Remaining node %d", curid);
+	toVisit.push_back(curid);
+	cluster.push_back(curid);
+	current_Node->visited = 1;	      
+
+	while(toVisit.size() != 0){
+	  curid = toVisit[0];
+	  curindex = gr.Find(curid);
+
+	  info("Current Node %d", curid);
+	  toVisit.erase(toVisit.begin());
+	  current_Node = &Ingrid[curindex];
+	  int n_neighbors = current_Node->m_neighbors.size();
+	  for (int i = 0; i < n_neighbors; i++){
+	    int neigh_ID = current_Node->m_neighbors[i];
+	    // info("Neighbor %d", neigh_ID);
+
+	    int neigh_index = gr.Find(neigh_ID);
+	    GridNode *neighnode = &Ingrid[neigh_index];
+	    if (neighnode->visited == 5){
+	      if (!(std::find(possiCand.begin(), possiCand.end(),neighnode->m_cm[0])!=possiCand.end())){
+		possiCand.push_back(neighnode->m_cm[0]);
+		info("Neigh %d, One possible CM is %d",neigh_ID, neighnode->m_cm[0]);
+	      }
+	    }
+	    else if (neighnode->visited == 2){
+	      info("Neighbor %d visited", neigh_ID);
+	      continue;
+	    }
+	    else{
+	      if(neighnode->visited == 0){
+		toVisit.push_back(neigh_ID);
+		cluster.push_back(neigh_ID);
+		info("added node %d", neigh_ID);
+		neighnode->visited = 1;
+	      }
+	    }
+	    //std::string dummy;
+	    //std::cout << "Enter to continue..." << std::endl;
+	    //std::getline(std::cin, dummy);
+	  }
+	  current_Node->visited = 2;	      
+	}
+	info("These nodes are neighbors to %d trackets", possiCand.size());
+	for (int i = 0; i < cluster.size(); i++)
+	  info("%d", cluster[i]);
+	cluster.clear();
+	possiCand.clear();
+      }
+	      
+	  
+      }*/
+
+      
+  
+    
+    printf("ENDED , size %d\n", temCandid.size());
+    
+  
+    for(unsigned int l = 0; l < temCandid.size(); l++){
+      PathCandidate &curCand = *(temCandid[l]);
+      std::set<int> const *trk = curCand.m_memberIdSet;
+      //  if(curCand.m_isValid) {
+      std::set<int> *comp = new std::set<int>((*trk));
+	    
+      connectedComp->push_back(comp);
+
+      //}
+    }
+    
+    int NumConnComp = connectedComp->size();
+    ComponentPerEvt.Fill(k, NumConnComp);
+    // Store the data for each constructed component
+    for(size_t cm = 0 ; cm < connectedComp->size(); ++cm) {
+      std::set<int> const* idset = connectedComp->at(cm);
+      if(!idset){
+	continue;
+      }
+      std::set<int>::iterator it;
+      for( it = idset->begin(); it != idset->end(); ++it) {
+     	int detID = *it;// Id of the current detector
+	//	printf("CM %d, id %d \n", cm, detID);
+     	int d_Index = gr.Find(detID);// Index in the grid
+     	GridNode  &node = Ingrid[d_Index];	
+	// k = event number, cm = component number,....
+	ConnectedCoord.Fill(k, cm, node.m_detID, node.m_x, node.m_y, node.m_z,
+			    node.m_xDet, node.m_yDet, node.m_z_Det);
+	//printf("%d, %d, %d, %f, %f, %f, %f, %f, %f \n", k, cm, node.m_detID, node.m_x, node.m_y, node.m_z,
+	//		    node.m_xDet, node.m_yDet, node.m_z_Det);
+
+
+      }
+    // Print Info
+    }
+    std::cout << "<INFO> Number of connected components: " << NumConnComp
+	      << '\n';
+    CollectGridToTree(gr, coord);
+
+    if(connectedComp != 0) {
+      for(size_t c = 0; c < connectedComp->size(); ++c) {
+        delete connectedComp->at(c);
+      }
+      delete connectedComp;
+    }
+
+  }
+  timer.Stop();
+  ComponentPerEvt.Write();
+  ConnectedCoord.Write();
+  
+  // Write coordinates ntuple
+  coord.Write();
+  Out_Put_File.Close();
+  Double_t rtime = timer.RealTime();
+  Double_t ctime = timer.CpuTime();
+  std::cout <<"=======================================\n"
+            << "Macro finished succesfully.\n"
+            << "Real time " << (rtime/totalnumEvt)
+	    << " (s/Event), CPU time " << (ctime/totalnumEvt)
+            << " (s/Event).\n"
+            << '\n';
+  // Extract MC track values
+  
+}

@@ -1,0 +1,34 @@
+/* ********************************
+ * Author: M. Babai               *
+ * Version:                       *
+ * Licence:                       *
+ * ********************************/
+
+void runEventFileCreator( std::string const &SimInFile= "./macros/sim_complete.root",// Sim input file
+			  std::string const &digiInFile= "./macros/digi_complete.root",// Digi input file
+			  std::string const &SimParamInfile= "./macros/simparams.root",// Simparam inputfile
+			  std::string const &OutFileName= "CompactEventData.root",// Outputfile name
+			  std::string const &TreeName= "EventData", // Output tree name
+			  std::string const &nodetree= "Geometry"
+			  )
+{
+  // Load basic libs and headers.
+  gROOT->LoadMacro("loadLibs.C");
+  loadLibs();
+  
+  // define the Compiler flags
+  std::string CompileOptions = "-O3 -march=native -mtune=native -fPIC";
+  // CompileOptions += " -funroll-loops -fopenmp -malign-double";
+  // CompileOptions += " -Wshadow -Weffc++ -W -Wall -Wextra -Wfloat-equal";
+  // CompileOptions += " -Wredundant-decls";
+  
+  gSystem->SetAclicMode(TSystem::kOpt);
+  gSystem->SetFlagsOpt(CompileOptions.c_str());
+
+  // Compile and load nedded modules.
+  gSystem->CompileMacro("SttMVDPointsToTreeFileWriter.cpp","kO");
+
+  SttMVDParametersToTreeFileWrite(SimInFile, digiInFile, SimParamInfile, OutFileName, TreeName, nodetree);
+
+  exit(0);
+}

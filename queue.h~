@@ -1,0 +1,17 @@
+#pragma once
+#ifndef QUEUE_H
+#define QUEUE_H
+
+typedef struct _PrioQueue {
+  ulong **m_levels;			/* Array of pixels by levels in the queue */
+  ulong m_top;				/* Top pixel */
+  int m_num_levels;			/* Number of levels in queue */
+} PrioQueue;
+
+PrioQueue *create_prio_queue(ulong max_rank, Allocator *work_alloc);
+void insert_prio_queue(PrioQueue *q, ulong prefix);
+void prio_queue_remove(PrioQueue *q);
+void free_prio_queue(PrioQueue *q);
+ulong num_levels(ulong size);
+
+#endif

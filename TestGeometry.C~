@@ -1,0 +1,54 @@
+//#include "SttMVDEventDataReader.h"
+//#include "SttMVDPointsToTreeFileWriter.h"
+#include "loadLibs.C"
+//#include "CustomReader.h"
+//#include "gridNode.h"
+//#include "hitcoordinate.h"
+//#include "SttMVDEventDataReader.h"
+
+void TestGeometry(
+		  std::string const &SimInFile= "rootfiles/evtcomplete_sim.root",// Sim input file
+		  std::string const &digiInFile= "rootfiles/evtcomplete_digi.root",// Digi input file
+		  std::string const &SimParamInfile= "rootfiles/evtcomplete_par.root",// Simparam inputfile
+		  std::string const &OutFileName= "rootfiles/CompactEventData.root",// Outputfile name
+		  std::string const &TreeName= "EventData", // Output tree name
+		  std::string const &nodetree= "Geometry"
+		  )
+{
+  // Load basic libs and headers.
+  loadLibs();
+  // define the Compiler flags
+  // std::string CompileOptions = "-O3 -march=native -mtune=native -fPIC";
+  // CompileOptions += " -funroll-loops -fopenmp -malign-double";
+  // CompileOptions += " -Wshadow -Weffc++ -W -Wall -Wextra -Wfloat-equal";
+  // CompileOptions += " -Wredundant-decls";
+  
+  //  gSystem->SetAclicMode(TSystem::kOpt);
+  // gSystem->SetFlagsOpt(CompileOptions.c_str());
+
+  // Compile and load nedded modules.
+  //gROOT->LoadMacro("CustomReader.cpp"); //gSystem->CompileMacro("CustomReader.cpp","kO");
+  // gROOT->ProcessLine(".x loadLibs.C");
+  // gROOT->ProcessLine(".L CustomReader.cpp++");
+  //gSystem->CompileMacro("CustomReader.cpp","k0");
+  gSystem->CompileMacro("gridNode.cpp","kO");
+  gSystem->CompileMacro("hitcoordinate.cpp","kO");
+  gSystem->CompileMacro("SttMVDEventDataReader.cpp","kO");
+  //gROOT->ProcessLine(Form("TreeToOut(\"%s\", \"%s\",\"%s\",\"%s\" ,\"%s\", \"%s\");",SimInFile.c_str(),digiInFile.c_str(),SimParamInfile.c_str(),OutFileName.c_str(),TreeName.c_str(),nodetree.c_str()));
+
+  // gSystem->CompileMacro("gridNode.cpp","kO");
+  // gSystem->CompileMacro("hitcoordinate.cpp","kO");
+  // gSystem->CompileMacro("SttMVDEventDataReader.cpp","kO");
+
+ 
+
+    std::cout << "Reading geometry\n";
+
+    
+    gROOT->ProcessLine("std::vector < GridNode >* detNodes = (std::vector < GridNode >*) ReadGridGeometry(\"CompactEventData.root\",\"Geometry\");");
+  
+  // for(unsigned int j = 0; j < detNodes->size(); ++j) {
+  // }
+  //  delete detNodes;
+  //exit(0);
+}
