@@ -63,10 +63,11 @@ bool sortNeighbors(CoordGrid *gr, GridNode *currentNode, std::vector<int> *prev,
     
     if(neighNode->m_type == GridNode::VIRTUAL_NODE){
       virt->push_back(neighId);
-      debug("%d is a virtual node, add to list and find next neighbor", neighId);
+      continue;
+      /*  debug("%d is a virtual node, add to list and find next neighbor", neighId);
       neighId    = neighNode->m_neighbors[0] == curId ?  neighNode->m_neighbors[1]: neighNode->m_neighbors[0];
       neighIdx   = gr->Find(neighId);
-      neighNode  = &Ingrid[neighIdx];
+      neighNode  = &Ingrid[neighIdx];*/
     }	 
 
     if(visited[neighId] < 1){
@@ -119,6 +120,8 @@ void removeIdFromNeigh(GridNode *neighNode, std::vector<int> *prevNodes, int cur
   for(int i = 0; i < prevNodes->size(); i++){
     if(prevNodes->at(i) != neighNode->m_detID){ 		
       (neighNode->m_neighbors).erase(std::remove((neighNode->m_neighbors).begin(), (neighNode->m_neighbors).end(),prevNodes->at(i)), (neighNode->m_neighbors).end());
+      // debug("%d removed from  neighbor list of %d ",prevNodes->at(i), neighNode->m_detID);
+
       if(i == 0)
 	neighNode->parent = curId;
     }
@@ -162,33 +165,41 @@ MCTrackPoints( std::vector < std::vector<HitCoordinate*>* > const &evtData)
   std::vector< std::vector < MCTrackObject* >* >* outVar =
     new std::vector< std::vector < MCTrackObject* >* >();
 
-  int numTracks = -1;
+  int numTracks = 0;
+  std::vector< int > idtracks;
+
    for(size_t e = 0; e < evtData.size(); ++e) {
     std::vector<HitCoordinate*> const *Current_Event = evtData[e];
     // numTracks = 0;
     // Find out how many MC tracks are available
     for(size_t i = 0; i < Current_Event->size(); ++i) {
       HitCoordinate const *currentHit = Current_Event->at(i);
-      if( currentHit->m_trackID > numTracks &&
-	  currentHit->m_trackID != HIT_EXCLUSION) {
-	numTracks = currentHit->m_trackID;
+      if( currentHit->m_trackID != HIT_EXCLUSION && !(std::find(idtracks.begin(), idtracks.end(), currentHit->m_trackID) != idtracks.end())) {
+	printf("%d \n", currentHit->m_trackID);
+	//	numTracks = currentHit->m_trackID;
+	idtracks.push_back(currentHit->m_trackID);
       }
     }// END current event loop
-    
-    debug("Event %d contains %d tracks", e,(numTracks + 1));
+    numTracks = idtracks.size();
+    debug("Event %d contains %d tracks", e,(numTracks));
     
    // Now, we know the number of available tracks for the current
     // event; We can allocate memory.
     std::vector < MCTrackObject* >* evtTracks = new std::vector < MCTrackObject* >();
-    for(int j = 0; j <= numTracks; ++j) {
+    for(int j = 0; j < numTracks; ++j) {
       MCTrackObject *trk = new MCTrackObject(); 
       evtTracks->push_back(trk);
     }
     // Fill the list
+
+    int curTrack = 0;
     for(size_t k = 0; k < Current_Event->size(); ++k) {
       HitCoordinate const *currentHit = Current_Event->at(k);
       if(currentHit->m_trackID != HIT_EXCLUSION) {
-	int trackPos = currentHit->m_trackID;
+	std::vector<int>::iterator it = std::find(idtracks.begin(), idtracks.end(), currentHit->m_trackID);
+	int index = std::distance(idtracks.begin(), it);
+	//	printf("%d, %d \n", currentHit->m_trackID,index);
+	int trackPos = std::distance(idtracks.begin(), it); //currentHit->m_trackID;
 	point3D spacePoint;
 	spacePoint.m_x = currentHit->mx;
 	spacePoint.m_y = currentHit->my;
@@ -456,7 +467,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
       
       int dir = 0;
 
-      if(visited[curId] == 0 && (currentNode->m_LayerLimit == 1 ||  currentNode->m_neighbors.size() == 1)){	
+      if(visited[curId] == 0 && ((currentNode->m_LayerLimit == 1 && currentNode->m_neighbors.size() <= 2) ||  currentNode->m_neighbors.size() == 1)){	
 	int n_neighbors = currentNode->m_neighbors.size();
 	int curLayer = currentNode->m_Layer;
 
@@ -493,7 +504,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  /* 1 NEIGHBOR */
 	  
 	  if(n_neighbors == 1){
-	    info("dir %d", dir);
+	    //  info("dir %d", dir);
 	    if (dir == UP){
 	      v = &nextLayer;
 	      info("Going up from node %d to node %d", curId, v->at(0));
@@ -520,7 +531,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		removeIdFromNeigh(neighNode, &prevNodes, curId);
 	      }
 	      
-	      prevNodes.clear();
+	      // prevNodes.clear();
 	      prevNodes.insert(prevNodes.end(),  nextVirt.begin(),  nextVirt.end());
 	      nextVirt.clear();
 	    }
@@ -567,6 +578,12 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 	    v = dir == UP ? &nextLayer: &prevLayer;
 
+	    if(!areAdjacent(&gr, v)){
+	      info("Too many possibilities");
+	      resetLists(visited, &prevLayer, &sameLayer, &nextLayer);
+	      break;
+	    }
+	    
 	    int candId = sameLayer[0];
 	    int candIdx        = gr.Find(candId);
 	    GridNode *candNode = &Ingrid[candIdx];
@@ -578,6 +595,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 	    bool toadd = true;
 	    int cursize = v->size();
+
 	    
 	    for(int i = 0; i < candNode->m_neighbors.size(); i++){
 	      neighId = candNode->m_neighbors[i];
@@ -587,50 +605,38 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      neighNode = &Ingrid[neighIdx];
 	     
 	      if(neighNode->m_type == GridNode::VIRTUAL_NODE){
-		nextVirt.push_back(neighId);
-		neighId = neighNode->m_neighbors[0] == candId ? neighNode->m_neighbors[1]: neighNode->m_neighbors[0];
-		neighIdx = gr.Find(neighId);
-		neighNode  = &Ingrid[neighIdx];
+		//	nextVirt.push_back(neighId);
+		/* neighId = neighNode->m_neighbors[0] == candId ? neighNode->m_neighbors[1]: neighNode->m_neighbors[0];
+		   neighIdx = gr.Find(neighId);
+		   neighNode  = &Ingrid[neighIdx];*/
+		continue;
 	      }
 	      
-	      for (int j  = 0; j < cursize; j++){
+	      int this_neigh = 0;
+	      for (int j  = 0; j < v->size(); j++){
 		debug("Connection between %d and %d ?", neighId, v->at(j));
 
-		if(v->at(j) == neighId)
-		  debug("They are the same");
+		if(v->at(j) == neighId){
+		  //	  debug("They are the same");
+		  this_neigh = 1;
+		}
 		else if(neighNode->IsNeighboring(v->at(j))){
-		  debug("They are neighbors",  neighId, v->at(j));
-		  if(visited[neighId] < 1){
-		    debug("Not visited yet");
-		    if(neighNode->m_Layer > curLayer){
-		      debug("Pushing %d on the list nextLayer", neighId);
-		      nextLayer.push_back(neighId);
-		      dir |= UP;
-		      visited[neighId] = 2;
-		    }  else if( neighNode->m_Layer < curLayer){
-		      debug("Pushing %d on the list prevLayer", neighId);
-		      prevLayer.push_back(neighId);
-		      dir |= DOWN;
-		      visited[neighId] = 2;
-		    } else{
-		      debug("Pushing %d on list sameLayer", neighId);
-		      sameLayer.push_back(neighId);
-		      visited[neighId] = 2;
-		    }
-		  } else
-		    debug("%d has already been visited",neighId);
+		  //	  debug("They are neighbors",  neighId, v->at(j));
+		  this_neigh = 1;
 		} else {
 		  debug("%d and %d are not (obviously) connected", v->at(j), neighId);
-		  toadd = false;
-		  cond = false;
-		  break;
 		}
 	      }
-
-	      if (cond == false) break;
+	      if(this_neigh == 0){
+		toadd = false;
+		cond = false;
+		break;
+	      }
 	    } // for in neighbors
-
+		
 	    if (toadd == true){
+	      info("All neighbors look good !");
+
 	      cand->insertNewNode(candNode);
 	      visited[candId] = 4;
 	      n_connected++;
@@ -641,13 +647,15 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      curId       = candId;
 	      curIdx      = candIdx;
 	      currentNode = candNode;
+	      cond = sortNeighbors(&gr, currentNode, &prevLayer, &sameLayer, &nextLayer, &nextVirt, visited,  &dir);
+
 	      n_neighbors = sameLayer.size()+prevLayer.size()+nextLayer.size();
 	      info("%d nodes were connected,  %d found for the next step \n\n", n_connected, n_neighbors);
 	      n_connected = 0;
 	    }
 	    else {
 
-	      info("To many possibilities, we'll see what's next \n\n", n_connected, n_neighbors);
+	      info("Neighbors not connected... \n\n", n_connected, n_neighbors);
 
 	      visited[candId] = 0;
 
@@ -666,7 +674,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 	  else if (n_neighbors > 1) {
 
-	    info("%d", dir);
+	    //  info("%d", dir);
 	    if (dir == UP){	      
 	      info("Next nodes are up and we have %d of them", nextLayer.size());
 	      v = &nextLayer;
@@ -693,7 +701,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		  removeIdFromNeigh(neighNode, &prevNodes, curId);		  
 		}
 		
-		prevNodes.clear();
+		//	prevNodes.clear();
 		prevNodes.insert(prevNodes.end(),  nextVirt.begin(),  nextVirt.end());
 		nextVirt.clear();
 
@@ -796,7 +804,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 
     
-
+    if(true){
  
     info(" Find remaining obvious tracklets");
 
@@ -811,7 +819,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
       int n_neighbors = currentNode->m_neighbors.size();
 
-      if(n_neighbors == 2 && visited[curId] == 0) {
+      if(n_neighbors == 2 && visited[curId] == 0 && currentNode->m_LayerLimit == 0) {
 
 	int neighId1 = currentNode->m_neighbors[0];
 	int neighIdx1 = gr.Find(neighId1);
@@ -913,7 +921,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		    removeIdFromNeigh(neighNode, &prevNodes, curId);
 		  }
 	      
-		  prevNodes.clear();
+		  //	  prevNodes.clear();
 		  prevNodes.insert(prevNodes.end(),  nextVirt.begin(),  nextVirt.end());
 		  nextVirt.clear();
 		}
@@ -963,7 +971,11 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      else if (sameLayer.size() > 0){
 
 		v = dir == UP ? &nextLayer: &prevLayer;
-
+		if(!areAdjacent(&gr, v)){
+		  info("Too many possibilities");
+		  resetLists(visited, &prevLayer, &sameLayer, &nextLayer);
+		  break;
+		}
 		int candId = sameLayer[0];
 		int candIdx        = gr.Find(candId);
 		GridNode *candNode = &Ingrid[candIdx];
@@ -975,7 +987,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 		bool toadd = true;
 		int cursize = v->size();
-	    
+
 		for(int i = 0; i < candNode->m_neighbors.size(); i++){
 		  neighId = candNode->m_neighbors[i];
 		  if (neighId == curId) continue;
@@ -985,49 +997,39 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	     
 		  if(neighNode->m_type == GridNode::VIRTUAL_NODE){
 		    nextVirt.push_back(neighId);
-		    neighId = neighNode->m_neighbors[0] == candId ? neighNode->m_neighbors[1]: neighNode->m_neighbors[0];
-		    neighIdx = gr.Find(neighId);
-		    neighNode  = &Ingrid[neighIdx];
+		    /* neighId = neighNode->m_neighbors[0] == candId ? neighNode->m_neighbors[1]: neighNode->m_neighbors[0];
+		       neighIdx = gr.Find(neighId);
+		       neighNode  = &Ingrid[neighIdx];*/
+		    continue;
 		  }
 	      
-		  for (int j  = 0; j < cursize; j++){
+
+
+		  int this_neigh = 0;
+		  for (int j  = 0; j < v->size(); j++){
 		    debug("Connection between %d and %d ?", neighId, v->at(j));
 
-		    if(v->at(j) == neighId)
+		    if(v->at(j) == neighId){
 		      debug("They are the same");
+		      this_neigh = 1;
+		    }
 		    else if(neighNode->IsNeighboring(v->at(j))){
 		      debug("They are neighbors",  neighId, v->at(j));
-		      if(visited[neighId] < 1){
-			debug("Not visited yet");
-			if(neighNode->m_Layer > curLayer){
-			  debug("Pushing %d on the list nextLayer", neighId);
-			  nextLayer.push_back(neighId);
-			  dir |= UP;
-			  visited[neighId] = 2;
-			}  else if( neighNode->m_Layer < curLayer){
-			  debug("Pushing %d on the list prevLayer", neighId);
-			  prevLayer.push_back(neighId);
-			  dir |= DOWN;
-			  visited[neighId] = 2;
-			} else{
-			  debug("Pushing %d on list sameLayer", neighId);
-			  sameLayer.push_back(neighId);
-			  visited[neighId] = 2;
-			}
-		      } else
-			debug("%d has already been visited",neighId);
+		      this_neigh = 1;
 		    } else {
 		      debug("%d and %d are not (obviously) connected", v->at(j), neighId);
-		      toadd = false;
-		      cond = false;
-		      break;
 		    }
 		  }
-
-		  if (cond == false) break;
+		  if(this_neigh == 0){
+		    toadd = false;
+		    cond = false;
+		    break;
+		  }
 		} // for in neighbors
-
+		
 		if (toadd == true){
+		  info("All neighbors look good !");
+
 		  cand->insertNewNode(candNode);
 		  visited[candId] = 4;
 		  n_connected++;
@@ -1038,6 +1040,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		  curId       = candId;
 		  curIdx      = candIdx;
 		  currentNode = candNode;
+		  cond = sortNeighbors(&gr, currentNode, &prevLayer, &sameLayer, &nextLayer, &nextVirt, visited,  &dir);
+
 		  n_neighbors = sameLayer.size()+prevLayer.size()+nextLayer.size();
 		  info("%d nodes were connected,  %d found for the next step \n\n", n_connected, n_neighbors);
 		  n_connected = 0;
@@ -1093,7 +1097,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		      removeIdFromNeigh(neighNode, &prevNodes, curId);		  
 		    }
 		
-		    prevNodes.clear();
+		    // prevNodes.clear();
 		    prevNodes.insert(prevNodes.end(),  nextVirt.begin(),  nextVirt.end());
 		    nextVirt.clear();
 
@@ -1197,6 +1201,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
       }
     }
 
+
+    }
   
     
     info("Number of connected components: %d", tracklets.size());    

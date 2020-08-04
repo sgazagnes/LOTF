@@ -84,8 +84,31 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
   tupName = tupName + "_" + evN.str() + "_CoordsTuple";
   tupName = "InputEvents/" + tupName;
 
+  // float *trackID;
+  float_t id;
+  std::vector< int > idtracks;
+
+  TTree* tracknum = (TTree*) inp.Get(tupName.c_str());
+  TBranch *bpx = tracknum->GetBranch("trackID");
+  bpx->SetAddress(&id);
+  
+  Int_t nevent = (Int_t)tracknum->GetEntries();
+  for (Int_t i=0;i<nevent;i++) {    
+    bpx->GetEntry(i); //read branch fTracks.fPx
+ 
+    // printf("ntracks=%f \n",id);
+    int intid =  static_cast<unsigned int>(id);
+    if(!(std::find(idtracks.begin(), idtracks.end(), intid) != idtracks.end()))
+      	idtracks.push_back(intid);
+
+  }
+
+  printf("%d\n", idtracks.size());
+
+  
   TNtuple* pos = (TNtuple*) inp.Get(tupName.c_str());
 
+  
   // Create and set the canvas name and properties
   std::string canvasName = "Event_" + evN.str() + "_PlotCanvas";
   std::string descr = "All Collected Coordinates Event " + evN.str();
@@ -153,19 +176,35 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       ConComps->Draw("y:z_Det", ePlotCondition.c_str(), "same");
     }
     c3->Update();
-    }
+  }
    
   // MC data plots.
-     {
+  {
     TCanvas *c4 = new TCanvas("c4", "MC-Plot", 300, 300 );
     grid->Draw("y:x","","");
     TH2F *htemp = (TH2F*)gPad->GetPrimitive("htemp");
     htemp->GetXaxis()->SetTitle("x [cm]");
     htemp->GetYaxis()->SetTitle("y [cm]");
     htemp->SetTitle("");
-    pos->SetMarkerSize(0.5);
-    pos->Draw("my:mx","my > -10000","same");
+    std::stringstream EeventNumString;
+    EeventNumString << evtNum;
+    std::string ePlotCondition;
+    for(size_t j = 0; j < idtracks.size(); j++) {
+      std::stringstream ecomponentNumber;
+      ecomponentNumber << idtracks[j];
+      color = selectCompColour(j, numColours);
+      pos->SetMarkerColor(color);
+      marker = (j % 34);
+      if( marker < 20) { marker += 20; }
+      if( marker > 34) { marker = 34; }
+      pos->SetMarkerStyle(marker);
+      pos->SetMarkerSize(0.8);
+      ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
+      ePlotCondition += "(trackID == " + ecomponentNumber.str() + ") && my > -10000";
+      pos->Draw("my:mx",ePlotCondition.c_str(),"same");
+    }
     c4->Update();
+    
   }
   // Read data
      {
@@ -175,8 +214,23 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
     htemp->GetXaxis()->SetTitle("x [cm]");
     htemp->GetYaxis()->SetTitle("y [cm]");
     htemp->SetTitle("");
-    pos->SetMarkerSize(0.5);
-    pos->Draw("y:x","my > -10000","same");
+    std::stringstream EeventNumString;
+    EeventNumString << evtNum;
+    std::string ePlotCondition;
+    for(size_t j = 0; j < idtracks.size(); j++) {
+      std::stringstream ecomponentNumber;
+      ecomponentNumber << idtracks[j];
+      color = selectCompColour(j, numColours);
+      pos->SetMarkerColor(color);
+      marker = (j % 34);
+      if( marker < 20) { marker += 20; }
+      if( marker > 34) { marker = 34; }
+      pos->SetMarkerStyle(marker);
+      pos->SetMarkerSize(0.8);
+      ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
+      ePlotCondition += "(trackID == " + ecomponentNumber.str() + ") && my > -10000";
+      pos->Draw("y:x",ePlotCondition.c_str(),"same");
+    }
     c5->Update();
   }
   // MC in Z-coordinate
@@ -187,8 +241,23 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
     htemp->GetXaxis()->SetTitle("z [cm]");
     htemp->GetYaxis()->SetTitle("y [cm]");
     htemp->SetTitle("");
-    pos->SetMarkerSize(0.5);
-    pos->Draw("my:mz","my > -10000","same");
+    std::stringstream EeventNumString;
+    EeventNumString << evtNum;
+    std::string ePlotCondition;
+    for(size_t j = 0; j < idtracks.size(); j++) {
+      std::stringstream ecomponentNumber;
+      ecomponentNumber << idtracks[j];
+      color = selectCompColour(j, numColours);
+      pos->SetMarkerColor(color);
+      marker = (j % 34);
+      if( marker < 20) { marker += 20; }
+      if( marker > 34) { marker = 34; }
+      pos->SetMarkerStyle(marker);
+      pos->SetMarkerSize(0.8);
+      ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
+      ePlotCondition += "(trackID == " + ecomponentNumber.str() + ") && my > -10000";
+      pos->Draw("my:mz",ePlotCondition.c_str(),"same");
+    }
     c6->Update();
     }
     // MC in Z-coordinate
@@ -199,8 +268,23 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
     htemp->GetXaxis()->SetTitle("z [cm]");
     htemp->GetYaxis()->SetTitle("y [cm]");
     htemp->SetTitle("");
-    pos->SetMarkerSize(0.5);
-    pos->Draw("y:z","my > -10000","same");
+    std::stringstream EeventNumString;
+    EeventNumString << evtNum;
+    std::string ePlotCondition;
+    for(size_t j = 0; j < idtracks.size(); j++) {
+      std::stringstream ecomponentNumber;
+      ecomponentNumber << idtracks[j];
+      color = selectCompColour(j, numColours);
+      pos->SetMarkerColor(color);
+      marker = (j % 34);
+      if( marker < 20) { marker += 20; }
+      if( marker > 34) { marker = 34; }
+      pos->SetMarkerStyle(marker);
+      pos->SetMarkerSize(0.8);
+      ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
+      ePlotCondition += "(trackID == " + ecomponentNumber.str() + ") && my > -10000";
+      pos->Draw("y:z",ePlotCondition.c_str(),"same");
+    }
     c8->Update();
     }
     #endif
@@ -215,9 +299,25 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
     htemp->GetXaxis()->SetTitle("x [cm]");
     htemp->GetYaxis()->SetTitle("y [cm]");
     htemp->SetTitle("");
-    pos->Draw("y:x","my > -10000","same");
+        std::stringstream EeventNumString;
+    EeventNumString << evtNum;
+    std::string ePlotCondition;
+    for(size_t j = 0; j < idtracks.size(); j++) {
+      std::stringstream ecomponentNumber;
+      ecomponentNumber << idtracks[j];
+      color = selectCompColour(j, numColours);
+      pos->SetMarkerColor(color);
+      marker = (j % 34);
+      if( marker < 20) { marker += 20; }
+      if( marker > 34) { marker = 34; }
+      pos->SetMarkerStyle(marker);
+      pos->SetMarkerSize(0.8);
+      ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
+      ePlotCondition += "(trackID == " + ecomponentNumber.str() + ") && my > -10000";
+      pos->Draw("my:mx",ePlotCondition.c_str(),"same");
+    }
   }
-  if(dim == 3) {
+  /* if(dim == 3) {
     grid->Draw("y:x:z","","");
     TH3F *htemp = (TH3F*)gPad->GetPrimitive("htemp");
     htemp->GetXaxis()->SetTitle("z [cm]");
@@ -225,7 +325,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
     htemp->GetZaxis()->SetTitle("y [cm]");
     htemp->SetTitle("");
     pos->Draw("y:x:z","my > -10000","same");
-  }
+    }*/
   // MC data
   c1->cd(2);
   if(dim == 2) {
@@ -234,9 +334,25 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
     htemp->GetXaxis()->SetTitle("x [cm]");
     htemp->GetYaxis()->SetTitle("y [cm]");
     htemp->SetTitle("");
-    pos->Draw("my:mx","my > -10000","same");
+        std::stringstream EeventNumString;
+    EeventNumString << evtNum;
+    std::string ePlotCondition;
+    for(size_t j = 0; j < idtracks.size(); j++) {
+      std::stringstream ecomponentNumber;
+      ecomponentNumber << idtracks[j];
+      color = selectCompColour(j, numColours);
+      pos->SetMarkerColor(color);
+      marker = (j % 34);
+      if( marker < 20) { marker += 20; }
+      if( marker > 34) { marker = 34; }
+      pos->SetMarkerStyle(marker);
+      pos->SetMarkerSize(0.8);
+      ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
+      ePlotCondition += "(trackID == " + ecomponentNumber.str() + ") && my > -10000";
+      pos->Draw("y:x",ePlotCondition.c_str(),"same");
+    }
   }
-  if(dim == 3) {
+  /*if(dim == 3) {
     grid->Draw("y:x:z","","");
     TH3F *htemp = (TH3F*)gPad->GetPrimitive("htemp");
     htemp->GetXaxis()->SetTitle("z [cm]");
@@ -244,7 +360,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
     htemp->GetZaxis()->SetTitle("y [cm]");
     htemp->SetTitle("");
     pos->Draw("my:mx:mz","my > -10000","same");
-  }
+    }*/
   
   // Connected components
   c1->cd(3);
@@ -254,6 +370,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
     htemp->GetXaxis()->SetTitle("x [cm]");
     htemp->GetYaxis()->SetTitle("y [cm]");
     htemp->SetTitle("");
+    
   }
   else {
     grid->Draw("y:x:z","","");
@@ -292,10 +409,10 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
   // Merged and Z determined
   c1->cd(4);
   if(dim == 2) {
-    grid->Draw("y:x","","");
+    grid->Draw("y:z","","");
     TH2F *htemp = (TH2F*)gPad->GetPrimitive("htemp");
-    htemp->GetXaxis()->SetTitle("x [cm]");
-    htemp->GetYaxis()->SetTitle("y [cm]");
+    htemp->GetXaxis()->SetTitle("y [cm]");
+    htemp->GetYaxis()->SetTitle("z [cm]");
     htemp->SetTitle("");
   }
   else {
@@ -322,7 +439,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
     PlotCondition  = "(EvtNum == "  + EventNumString.str() + ") && ";
     PlotCondition += "(CompNum == " + componentNumber.str() + ")";
     if(dim == 2) {
-      ConComps->Draw("y:x", PlotCondition.c_str(), "same");
+      ConComps->Draw("y:z_Det", PlotCondition.c_str(), "same");
     }
     if(dim == 3){
       ConComps->Draw("y:x:z_Det", PlotCondition.c_str(), "same");

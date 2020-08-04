@@ -827,10 +827,10 @@ void WriteEventPlotsToFile(std::vector < std::vector<HitCoordinate*>* > const &e
     tupName = tupName + "_" + evN.str() + "_CoordsTuple";
     std::vector<HitCoordinate*> const *currentEvt = evtData[evetNumber];
     //std::cout << tupName << "\n";
-    TNtuple collection (tupName.c_str(), "Collected read data from event.", "EvtNum:x:y:z:mx:my:mz");
+    TNtuple collection (tupName.c_str(), "Collected read data from event.", "EvtNum:trackID:x:y:z:mx:my:mz");
     for(size_t h = 0; h < currentEvt->size(); ++h) {
       HitCoordinate const *CurrentHit = currentEvt->at(h);
-      collection.Fill(evetNumber, CurrentHit->x, CurrentHit->y, CurrentHit->z,
+      collection.Fill(evetNumber,  CurrentHit->m_trackID, CurrentHit->x, CurrentHit->y, CurrentHit->z,
 		      CurrentHit->mx, CurrentHit->my, CurrentHit->mz);
     }// END hit list loop
     collection.SetMarkerColor(2);

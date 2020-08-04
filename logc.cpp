@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 /* verbosity levels are defined in logc.h */
-int verbosity = 0;
+int verbosity = 10;
 
 
 void _error(const char* msg) {

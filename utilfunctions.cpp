@@ -238,12 +238,12 @@ void Compute_Add_VirtualNodes_Neigbor(CoordGrid &hitMap, std::vector < GridNode 
 	Dummy_coord.m_detID      = StartVirtualID + NumTubesAdded;
 	Dummy_coord.m_Orig_detID = Dummy_coord.m_detID;
 	/*
-	  Dummy_coord.m_halfLength = 0;
-	  Dummy_coord.m_type = GridNode::VIRTUAL_NODE;
-	  // Add parents to the neigboring list
-	  (Dummy_coord.m_neighbors).clear();
-	  (Dummy_coord.m_neighbors).push_back(firstNode.m_detID);
-	  (Dummy_coord.m_neighbors).push_back(secondNode.m_detID);
+	Dummy_coord.m_halfLength = 0;
+	Dummy_coord.m_type = GridNode::VIRTUAL_NODE;
+	// Add parents to the neigboring list
+	(Dummy_coord.m_neighbors).clear();
+	(Dummy_coord.m_neighbors).push_back(firstNode.m_detID);
+	(Dummy_coord.m_neighbors).push_back(secondNode.m_detID);
 	*/
 	/*
 	 * We need to fix neighboring relations later using using
@@ -441,8 +441,8 @@ bool IntersectionPoint_NeigborList(CoordGrid const &hitMap,
     (TransA.m_neighbors).push_back(tubeB.m_detID);
 
 
-    (tubeA.m_neighbors).erase(std::remove((tubeA.m_neighbors).begin(), (tubeA.m_neighbors).end(), tubeB.m_detID), (tubeA.m_neighbors).end());
-    (tubeB.m_neighbors).erase(std::remove((tubeB.m_neighbors).begin(), (tubeB.m_neighbors).end(), tubeA.m_detID), (tubeB.m_neighbors).end());
+    // (tubeA.m_neighbors).erase(std::remove((tubeA.m_neighbors).begin(), (tubeA.m_neighbors).end(), tubeB.m_detID), (tubeA.m_neighbors).end());
+    // (tubeB.m_neighbors).erase(std::remove((tubeB.m_neighbors).begin(), (tubeB.m_neighbors).end(), tubeA.m_detID), (tubeB.m_neighbors).end());
     // Fill the output parameter.
     out = TransA;
     //// DEBUG DEBUG
