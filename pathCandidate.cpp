@@ -43,7 +43,9 @@ PathCandidate::PathCandidate()
     m_lastNodeVisited(-1),
     m_firstNodeVisited(-1),
     m_lastNodeVirtual(false),
-    m_lastNodeVirtualId(-1)
+    m_lastNodeVirtualId(-1),
+    m_lpotNeigh(std::vector<int>()),
+    m_rpotNeigh(std::vector<int>())
 {} 
 // Destructor
 PathCandidate::~PathCandidate()
@@ -81,6 +83,8 @@ PathCandidate::PathCandidate(PathCandidate const &ot)
     m_firstNodeVisited(ot.m_lastNodeVisited),
     m_lastNodeVirtual(ot.m_lastNodeVirtual),
     m_lastNodeVirtualId(ot.m_lastNodeVirtualId),
+    m_lpotNeigh(ot.m_lpotNeigh),
+    m_rpotNeigh(ot.m_rpotNeigh),
     m_parents(ot.m_parents),
     m_childeren(ot.m_childeren),
     m_eigevValue1(ot.m_eigevValue1),
@@ -143,7 +147,8 @@ PathCandidate& PathCandidate::operator=(PathCandidate const &ot)
     this->m_minLayer = ot.m_minLayer;
     this->m_lastNodeVirtual = ot.m_lastNodeVirtual;
     this->m_lastNodeVirtualId = ot.m_lastNodeVirtualId;
-    
+    this-> m_lpotNeigh = ot.m_lpotNeigh;
+    this->m_rpotNeigh = ot.m_rpotNeigh;
     this->m_meanVector[0] = ot.m_meanVector[0];
     this->m_meanVector[1] = ot.m_meanVector[1];
     
@@ -186,11 +191,15 @@ void PathCandidate::updateHeadAndTailNodes()
   }
 }
 
-void PathCandidate::insertNewNode(GridNode *node)
+void PathCandidate::insertNewNode(GridNode *node, int direction)
 {
   int id = node->m_detID;
   int layer = node->m_Layer;
   m_memberIdSet->insert(id);
+
+  
+  direction == 1? m_memberList->push_back(id): ( void )m_memberList->insert(m_memberList->begin(),id);
+
   (node->m_cm).push_back(m_id);
   
   if(node->m_type != GridNode::VIRTUAL_NODE){
@@ -207,3 +216,4 @@ void PathCandidate::insertNewNode(GridNode *node)
 	  
   m_lastNodeVisited = id;
 }
+

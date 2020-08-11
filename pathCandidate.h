@@ -31,10 +31,11 @@ struct PathCandidate{
 
   // Member fuctions
   void updateHeadAndTailNodes();
-  void insertNewNode(GridNode *node);
+  void insertNewNode(GridNode *node, int direction);
+  bool compareTwoPathsLength(PathCandidate *a, PathCandidate *b) ;
 
   inline bool isInCandidate(int nodeId) const;
-  
+
   // Comparison functions
   inline friend bool GreaterThanAngle (PathCandidate const &lf, PathCandidate const &rt);
   inline friend bool LessThanAngle (PathCandidate const &lf, PathCandidate const &rt);
@@ -47,7 +48,8 @@ struct PathCandidate{
   inline friend bool GreaterThanMinLayer(PathCandidate const &lf, PathCandidate const &rt);
   inline friend bool LessThanMaxLayer(PathCandidate const &lf, PathCandidate const &rt);
   inline friend bool LessThanMinLayer(PathCandidate const &lf, PathCandidate const &rt);
-  
+  // bool compareTwoPathsLength(PathCandidate lf, PathCandidate rt);
+  bool compareTwoPathsLength (PathCandidate const *lf, PathCandidate const *rt);
   // Member variables and containers
   unsigned int m_id;
   unsigned int m_level;
@@ -86,6 +88,8 @@ struct PathCandidate{
   int    m_lastNodeVisited;
   int    m_firstNodeVisited;
 
+  std::vector<int> m_lpotNeigh;
+  std::vector<int> m_rpotNeigh;
   /* Shape and spread parameters */
   
   std::vector< float > m_meanVector;
@@ -165,4 +169,11 @@ bool PathCandidate::isInCandidate(int nodeId) const
 {
   return( (m_memberIdSet->find(nodeId)) != m_memberIdSet->end() );
 }
+
+bool compareTwoPathsLength (PathCandidate const *lf, PathCandidate const *rt)
+{ 
+  
+    return (lf->m_length > rt->m_length); 
+} 
+
 #endif// END header

@@ -43,7 +43,7 @@ utilfunctions_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/buil
 utilfunctions_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixFUtils.h
 utilfunctions_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixFUtilsfwd.h
 utilfunctions_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMath.h
-utilfunctions_cpp.so: pathCandidate.h
+utilfunctions_cpp.so: pathCandidate.h logc.h
 utilfunctions_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TNtuple.h
 utilfunctions_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TTree.h
 utilfunctions_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/Compression.h

@@ -6,7 +6,7 @@
 #include  <cmath>
 #include <fstream>
 #include <vector>
-
+#include <gsl/gsl_poly.h>
 // Root headers
 #include "TFile.h"
 #include "TNtuple.h"
@@ -26,6 +26,7 @@
 #include "queue.h"
 //#include "performFilter.h"
 #include "pathCandidate.h"
+#include "path_queue.h"
 
 
 // DEBUG AND STORE definitions
@@ -40,12 +41,172 @@
 #define PRINT_DEBUG_INFO_COMP_MATCH 0
 #define PRINT_ERROR_EXTRA_DEBUG_INFO 1
 #define WRITE_CONNECTED_COMPONENTS_JSON 0
-
+#define WRITE_CM_ASCII_FILE 1
 typedef enum {
   DOWN = 1,
   SAME = 2,
   UP = 4
 } Direction;
+
+
+
+int determineSkewed_XYPlane_perso( CoordGrid &hitMap, GridNode const &VNode,
+                            std::vector<int> &ListOfSkewedNodesIndex,
+				   std::vector<int> &ListOfVirtualNodesIndex, char *visited)
+{
+  info("Correcting xy-coordinates of skewed nodes for this instance for node %d", VNode.m_detID);
+	    
+  // Fetch all graph nodes
+  std::vector< GridNode > &Ingrid = hitMap.m_grid;
+  // Neighbours of the input node
+  std::vector<int> const &ListOfNeighbors = VNode.m_neighbors;
+  // Local variables
+  int LastVirtualNodeIdx = -10;
+  std::pair<float, float> Rad_deg;
+  std::vector<int>::iterator FindIt;
+  PathQueue SkewedNodeIndexQueue;
+  // There are exactly 2 neighbours (different slopes). And there are
+  // two types of virtual nodes (Ax_Vi_Sk or Sk_Vi_S).
+  assert( ListOfNeighbors.size() == 2);
+  int FNode_id    = ListOfNeighbors[0];//First ID
+  int FNode_index = hitMap.Find(FNode_id);//First index
+  GridNode &First_Neigh = Ingrid[FNode_index];
+  int SNode_id    = ListOfNeighbors[1];//Second ID
+  int SNode_index = hitMap.Find(SNode_id);//Second Index
+  GridNode &Second_Neigh = Ingrid[SNode_index];
+  // All neighbours must be active
+  assert( First_Neigh.m_active && Second_Neigh.m_active );
+  size_t LocalCurrentLayer, LocalNextLayer;
+  LocalCurrentLayer = LocalNextLayer = 0;
+  //Axial->Virtual->Skewed
+  bool OuterToInner;
+  if( visited[FNode_id] < 4) {
+    SkewedNodeIndexQueue.inQueue(FNode_index);
+    LocalCurrentLayer = First_Neigh.m_Layer;
+    info("First node is %d, visited is %d, current layer %d", FNode_id,visited[FNode_id], LocalCurrentLayer);
+    OuterToInner =  First_Neigh.m_Layer -  Second_Neigh.m_Layer > 0 ? true : false;
+  }
+
+  else{ 
+    SkewedNodeIndexQueue.inQueue(SNode_index);
+    LocalCurrentLayer = Second_Neigh.m_Layer;
+    info("Second node is %d, visited is %d, current layer %d", SNode_id,visited[SNode_id], LocalCurrentLayer);
+    OuterToInner =  Second_Neigh.m_Layer - First_Neigh.m_Layer  > 0 ? true : false;
+
+
+  }
+
+  info("We go in %d direction ( first %d, second %d",OuterToInner, First_Neigh.m_Layer, Second_Neigh.m_Layer);
+  //LocalNextLayer = LocalCurrentLayer + 1;
+  if(OuterToInner){
+    if( LocalCurrentLayer > 0) {
+      LocalNextLayer = LocalCurrentLayer - 1;
+    }
+    else{
+      LocalNextLayer = 0;
+    }
+  }
+  else{// if( !OuterToInner) {// Inner to outer
+    LocalNextLayer = LocalCurrentLayer + 1;
+  }
+  // Process skewed node index queue
+  while( !SkewedNodeIndexQueue.isEmpty() ) {
+    int sk_idx = SkewedNodeIndexQueue.popFront();
+    GridNode &SK_Node = Ingrid[sk_idx];
+    FindIt = std::find(ListOfSkewedNodesIndex.begin(), ListOfSkewedNodesIndex.end(), sk_idx);
+    if( FindIt == ListOfSkewedNodesIndex.end() ) {
+      ListOfSkewedNodesIndex.push_back(sk_idx);
+    }
+    info("Starting with %d", SK_Node.m_detID);
+    // List of neighbours
+    std::vector<int> const &Neighbours = SK_Node.m_neighbors;
+    for( size_t l = 0; l < Neighbours.size(); ++l) {
+      int sknID  = Neighbours[l];
+
+      int sknIdx = hitMap.Find(sknID);
+      GridNode &SK_NeighNode = Ingrid[sknIdx];
+            info("First neighbor is %d on layer %d", sknID, SK_NeighNode.m_Layer);
+
+      // Active and skewed
+      if(  (SK_NeighNode.m_type == GridNode::STT_TYPE_SKEW) ) {
+        // Current or next layer
+        if( (SK_NeighNode.m_Layer == LocalCurrentLayer) ||
+            (SK_NeighNode.m_Layer == LocalNextLayer) ) {
+	  info("Is skewed and on next layer");
+          FindIt = std::find(ListOfSkewedNodesIndex.begin(), ListOfSkewedNodesIndex.end(), sknIdx);
+          // Was not added before
+          if( FindIt == ListOfSkewedNodesIndex.end() ) {
+            SkewedNodeIndexQueue.inQueue(sknIdx);
+            ListOfSkewedNodesIndex.push_back(sknIdx);
+          }// End If not added before
+        }// Current or next layer
+      }// END if active and skewed.
+      // If neighbour node is a virtual node. We can start
+      // correcting and computing the orientations.
+      else if( (SK_NeighNode.m_type == GridNode::VIRTUAL_NODE) ) {
+	info("Is virtual and on next layer");
+	FindIt = std::find(ListOfVirtualNodesIndex.begin(), ListOfVirtualNodesIndex.end(), sknIdx);
+	if( (FindIt == ListOfVirtualNodesIndex.end()) && (sknID != VNode.m_detID) ) {
+	  // Outer -> inner layer
+	  if( (OuterToInner) && (SK_NeighNode.m_Layer <= SK_Node.m_Layer)) {
+	    ListOfVirtualNodesIndex.push_back(sknIdx);
+	    LastVirtualNodeIdx = sknIdx;
+	  }
+	  // Inner -> outer layer
+	  if( (!OuterToInner) && (SK_NeighNode.m_Layer >= SK_Node.m_Layer)) {
+	    ListOfVirtualNodesIndex.push_back(sknIdx);
+	    LastVirtualNodeIdx = sknIdx;
+	  }
+	}
+      }// END if active and virtual
+    }//END neighbour loop
+  }//END WHILE (SkewedNodeIndexQueue)
+  int lastVirtualID = -10;
+  if (LastVirtualNodeIdx >= 0) {
+    GridNode &LastVirtual_node = Ingrid[LastVirtualNodeIdx];
+    lastVirtualID = LastVirtual_node.m_detID;
+    /* A list of all skewed nodes between the two virtual nodes is
+       created by now and we can proceed with corrections of the
+       xy-coordinates. Determine the dx and dy between current node and
+       last virtual node.*/
+    float x_diff = fabs(VNode.m_x - LastVirtual_node.m_x);
+    float y_diff = fabs(VNode.m_y - LastVirtual_node.m_y);
+    x_diff /= static_cast<float>(ListOfSkewedNodesIndex.size()+1);
+    y_diff /= static_cast<float>(ListOfSkewedNodesIndex.size()+1);
+    if( VNode.m_x > LastVirtual_node.m_x ) {
+      x_diff *= -1;
+    }
+    if( VNode.m_y > LastVirtual_node.m_y ) {
+      y_diff *= -1;
+    }
+    ////__________________ DEBUG PRINTS ______________________________________
+    std::cout << "<DEBUG>\tListOfSkewedNodesIndex.size() " << ListOfSkewedNodesIndex.size()
+              << " ListOfVirtualNodesIndex " << ListOfVirtualNodesIndex.size()
+              << " x_diff = " << x_diff << ", y_diff = " << y_diff
+              << '\n';
+    std::cout << " Starting from " << VNode.m_detID << "("<< VNode.m_Layer << "): ";
+    for(size_t v = 0; v < ListOfVirtualNodesIndex.size(); ++v) {
+      int indexof = ListOfVirtualNodesIndex[v];
+      GridNode const &Vnd = Ingrid[indexof];
+      std::cout << Vnd.m_detID << "("<< Vnd.m_Layer << "), ";
+    }
+    std::cout << " Last V_id = " << LastVirtual_node.m_detID << std::endl;
+    ////__________________ DEBUG PRINTS ______________________________________
+    float xInc = VNode.m_x + x_diff;
+    float yInc = VNode.m_y + y_diff;
+    /* Correct xy-coordinates of the skewed nodes */
+    for(size_t m = 0; m < ListOfSkewedNodesIndex.size(); ++m) {
+      GridNode &skewedToproc = Ingrid[ListOfSkewedNodesIndex[m]];
+      skewedToproc.m_xDet = xInc;
+      skewedToproc.m_yDet = yInc;
+      xInc += x_diff;
+      yInc += y_diff;
+    }
+  }
+  /* Skewed nodes are pre-processed. RETURN*/
+  return(lastVirtualID);
+}
+
 
 bool sortNeighbors(CoordGrid *gr, GridNode *currentNode, std::vector<int> *prev, std::vector<int> *same, std::vector<int> *next, std::vector<int> *virt, char *visited, int *dir){
 
@@ -55,14 +216,17 @@ bool sortNeighbors(CoordGrid *gr, GridNode *currentNode, std::vector<int> *prev,
   int curId =  currentNode->m_detID;
   bool cond = true;
 
-  
+  std::vector<int>  ListOfSkewedNodesIndex;
+  std::vector<int>  ListOfVirtualNodesIndex;
   for(int i = 0; i < currentNode->m_neighbors.size(); i++){
     int neighId = currentNode->m_neighbors[i];
     int neighIdx = gr->Find(neighId);
     GridNode *neighNode = &Ingrid[neighIdx];
-    
+    debug("Node %d has one neig %d", curId, neighId);
     if(neighNode->m_type == GridNode::VIRTUAL_NODE){
       virt->push_back(neighId);
+      //determineSkewed_XYPlane_perso( *gr, *neighNode, ListOfSkewedNodesIndex, ListOfVirtualNodesIndex,visited);
+      //error("%d curlaye %d, virtual layer %d", neighId, curLayer, neighNode->m_Layer);
       continue;
       /*  debug("%d is a virtual node, add to list and find next neighbor", neighId);
       neighId    = neighNode->m_neighbors[0] == curId ?  neighNode->m_neighbors[1]: neighNode->m_neighbors[0];
@@ -70,28 +234,31 @@ bool sortNeighbors(CoordGrid *gr, GridNode *currentNode, std::vector<int> *prev,
       neighNode  = &Ingrid[neighIdx];*/
     }	 
 
-    if(visited[neighId] < 1){
+    if(visited[neighId] == 0){
       if(neighNode->m_Layer > curLayer){
-	debug("Node %d has one neigh up %d", curId, neighId);
+	//	debug("Node %d has one neigh up %d", curId, neighId);
 	next->push_back(neighId);
 	curDir |= UP;
 	visited[neighId] = 2;
       } else if( neighNode->m_Layer < curLayer) {
-	debug("Node %d has one neigh down %d", curId, neighId);
+	//	debug("Node %d has one neigh down %d", curId, neighId);
 	prev->push_back(neighId);
 	curDir |= DOWN;
 	visited[neighId] = 2;
       } else {
-	debug("Node %d has one neigh on the same %d", curId, neighId);
+	//	debug("Node %d has one neigh on the same %d", curId, neighId);
 	same->push_back(neighId);
 	//	curDir |= SAME;
 	visited[neighId] = 2;
       }
     } else if(visited[neighId] == 4){
-      debug("Node %d has already been connected, tricky", neighId);
+      //   debug("Node %d has already been connected, tricky", neighId);
       cond = false;
-    } else
-      debug("Node %d has already been added, tricky", neighId);
+      if(!(std::find(same->begin(), same->end(), neighId) != same->end()))
+	same->push_back(neighId);
+
+    }// else
+     //  debug("Node %d has already been added, tricky", neighId);
   }
 
   	
@@ -139,13 +306,13 @@ bool areAdjacent(CoordGrid *gr, std::vector<int> *v){
     //prevNodes.push_back(neighId);
     
     for (int j = i+1; j < v->size (); j++){
-      debug("Are %d and %d connected?", neighId, v->at(j));
+      //   debug("Are %d and %d connected?", neighId, v->at(j));
       if(neighId == v->at(j)) error("HOUSTON");
       else if(neighNode->IsNeighboring(v->at(j))){
-	debug("Yes");
+	//	debug("Yes");
 	adjacent++;
-      } else
-	debug("No");
+      }// else
+      //	debug("No");
     }
   }
   
@@ -153,6 +320,72 @@ bool areAdjacent(CoordGrid *gr, std::vector<int> *v){
     return true;
   else
     return false;
+}
+
+
+double *polyFit(std::vector<double>  x, std::vector<double>  y){
+  int i,j,k,n,N;
+  n = 2;
+  double X[2*n+1];        //Array that will store the values of sigma(xi),sigma(xi^2),sigma(xi^3)....sigma(xi^2n)
+  for (i=0;i<2*n+1;i++)
+    {
+      X[i]=0;
+      for (j=0;j<x.size();j++)
+	X[i]=X[i]+pow(x[j],i);        //consecutive positions of the array will store N,sigma(xi),sigma(xi^2),sigma(xi^3)....sigma(xi^2n)
+    }
+  double B[n+1][n+2];
+  double *a = (double*)calloc(n+1, sizeof(double));//B is the Normal matrix(augmented) that will store the equations, 'a' is for value of the final coefficients
+  for (i=0;i<=n;i++)
+    for (j=0;j<=n;j++)
+      B[i][j]=X[i+j];            //Build the Normal matrix by storing the corresponding coefficients at the right positions except the last column of the matrix
+  double Y[n+1];                    //Array to store the values of sigma(yi),sigma(xi*yi),sigma(xi^2*yi)...sigma(xi^n*yi)
+  for (i=0;i<n+1;i++)
+    {    
+      Y[i]=0;
+      for (j=0;j<x.size();j++)
+        Y[i]=Y[i]+pow(x[j],i)*y[j];        //consecutive positions will store sigma(yi),sigma(xi*yi),sigma(xi^2*yi)...sigma(xi^n*yi)
+    }
+  for (i=0;i<=n;i++)
+    B[i][n+1]=Y[i];                //load the values of Y as the last column of B(Normal Matrix but augmented)
+  n=n+1;                //n is made n+1 because the Gaussian Elimination part below was for n equations, but here n is the degree of polynomial and for n degree we get n+1 equations
+  /*  cout<<"\nThe Normal(Augmented Matrix) is as follows:\n";    
+  for (i=0;i<n;i++)            //print the Normal-augmented matrix
+    {
+      for (j=0;j<=n;j++)
+	cout<<B[i][j]<<setw(16);
+      cout<<"\n";
+      }    */
+  for (i=0;i<n;i++)                    //From now Gaussian Elimination starts(can be ignored) to solve the set of linear equations (Pivotisation)
+    for (k=i+1;k<n;k++)
+      if (B[i][i]<B[k][i])
+	for (j=0;j<=n;j++)
+	  {
+	    double temp=B[i][j];
+	    B[i][j]=B[k][j];
+	    B[k][j]=temp;
+	  }
+     
+  for (i=0;i<n-1;i++)            //loop to perform the gauss elimination
+    for (k=i+1;k<n;k++)
+      {
+	double t=B[k][i]/B[i][i];
+	for (j=0;j<=n;j++)
+	  B[k][j]=B[k][j]-t*B[i][j];    //make the elements below the pivot elements equal to zero or elimnate the variables
+      }
+  for (i=n-1;i>=0;i--)                //back-substitution
+    {                        //x is an array whose values correspond to the values of x,y,z..
+      a[i]=B[i][n];                //make the variable to be calculated equal to the rhs of the last equation
+      for (j=0;j<n;j++)
+	if (j!=i)            //then subtract all the lhs values except the coefficient of the variable whose value                                   is being calculated
+	  a[i]=a[i]-B[i][j]*a[j];
+      a[i]=a[i]/B[i][i];            //now finally divide the rhs by the coefficient of the variable to be calculated
+    }
+   
+  cout<<"The fitted Polynomial is given by:\ny=";
+  for (i=0;i<n;i++)
+    cout<<" + ("<<a[i]<<")"<<"x^"<<i;
+  cout<<"\n";
+  return a;
 }
 
 //______________________ BEGIN MCTrackPoints _____________________________
@@ -349,6 +582,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   std::vector < GridNode > VNodes;
   ///Compute_Add_VirtualNodes_Neigbor2(gr, VNodes);// Old method
   Compute_Add_VirtualNodes_Neigbor(gr, VNodes);
+
+  // Compute_Virtual_InterSector_Nodes(gr, 6,VNodes);
    TNtuple* virtualTubes = GridToNtuple(VNodes, "VirtualNodes");
   virtualTubes->SetMarkerStyle(8);
   virtualTubes->SetMarkerSize(0.2);
@@ -359,8 +594,11 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
    * neighboring relations
    */
   // Extend the grid by virtual nodes between the layer.
+
+
   info("Extending the grid by %d virtual nodes between the layers.", VNodes.size());
   gr.ExtendedGrid(VNodes);
+  Fix_InterSector_Nodes(gr, 6);
 
   info("Fixing neighbouring after extension.");
   fixNeighboring(gr);
@@ -378,6 +616,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   unsigned int totalnumEvt = Hit_coords->size();
   // Start the timer.
 
+  if(true){
 
   std::vector< std::set<int>* >* connectedComp = 0;
   connectedComp = new std::vector< std::set<int>* >();
@@ -489,7 +728,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	PathCandidate *cand = new PathCandidate();// Create a new candidate
 	cand->m_id = candidateId++;// Set id
 	cand->m_isValid = true;
-	cand->insertNewNode(currentNode);
+	cand->insertNewNode(currentNode, 1);
 	cand->m_firstNodeVisited = curId;
 	if(abs(currentNode->m_SectorLimit) > 0)
 	  cand->m_isOnSectorLimit = true;
@@ -518,13 +757,13 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	     
 	    
 	    if(nextVirt.size() > 0){
-	      debug("Handling the virtuals");
+	      // debug("Handling the virtuals");
 	      
 	      for (int i = 0; i <nextVirt.size(); i++){
 		neighId   = nextVirt[i];
 		neighIdx  = gr.Find(neighId);
 		neighNode = &Ingrid[neighIdx];
-		cand->insertNewNode(neighNode);
+		cand->insertNewNode(neighNode,1);
 		visited[neighId] = 4;
 		n_connected++;
 
@@ -541,7 +780,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	    neighId    = v->at(0);
 	    neighIdx   = gr.Find(neighId);
 	    neighNode  = &Ingrid[neighIdx];
-	    cand->insertNewNode(neighNode);
+	    cand->insertNewNode(neighNode,1);
 	    visited[neighId] = 4;
 	    n_connected++;
 	    
@@ -560,14 +799,9 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	    cond = sortNeighbors(&gr, currentNode, &prevLayer, &sameLayer, &nextLayer, &nextVirt, visited,  &dir);
 
 	    n_neighbors = sameLayer.size() + prevLayer.size() + nextLayer.size();
-	    info("%d nodes were connected,  %d found for the next step \n", n_connected, n_neighbors);
+	    info("%d nodes were connected,  %d found for the next step, cond %d \n", n_connected, n_neighbors, cond);
 	    n_connected = 0;
 
-	    if(cond == false){
-	      info("Too many possibilities, let skip it for now");
-	      resetLists(visited, &prevLayer, &sameLayer, &nextLayer);
-	      continue;
-	    }
 	    
 	  }
 
@@ -580,89 +814,91 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 	    if(!areAdjacent(&gr, v)){
 	      info("Too many possibilities");
-	      resetLists(visited, &prevLayer, &sameLayer, &nextLayer);
-	      break;
-	    }
+	      cond = false;
+	      //resetLists(visited, &prevLayer, &sameLayer, &nextLayer);
+	      // break;
+	    } else { 
 	    
-	    int candId = sameLayer[0];
-	    int candIdx        = gr.Find(candId);
-	    GridNode *candNode = &Ingrid[candIdx];
-	    curLayer           = candNode->m_Layer;
-	    sameLayer.clear();
+	      int candId = sameLayer[0];
+	      int candIdx        = gr.Find(candId);
+	      GridNode *candNode = &Ingrid[candIdx];
+	      curLayer           = candNode->m_Layer;
+	      sameLayer.clear();
 
-	    info("Still on the same layer, investigating node %d", candId);
+	      info("Still on the same layer, investigating node %d", candId);
 
 
-	    bool toadd = true;
-	    int cursize = v->size();
+	      bool toadd = true;
+	      int cursize = v->size();
 
 	    
-	    for(int i = 0; i < candNode->m_neighbors.size(); i++){
-	      neighId = candNode->m_neighbors[i];
-	      if (neighId == curId) continue;
+	      for(int i = 0; i < candNode->m_neighbors.size(); i++){
+		neighId = candNode->m_neighbors[i];
+		if (neighId == curId) continue;
 	      
-	      neighIdx = gr.Find(neighId);
-	      neighNode = &Ingrid[neighIdx];
+		neighIdx = gr.Find(neighId);
+		neighNode = &Ingrid[neighIdx];
 	     
-	      if(neighNode->m_type == GridNode::VIRTUAL_NODE){
-		//	nextVirt.push_back(neighId);
-		/* neighId = neighNode->m_neighbors[0] == candId ? neighNode->m_neighbors[1]: neighNode->m_neighbors[0];
-		   neighIdx = gr.Find(neighId);
-		   neighNode  = &Ingrid[neighIdx];*/
-		continue;
-	      }
+		if(neighNode->m_type == GridNode::VIRTUAL_NODE){
+		  //	nextVirt.push_back(neighId);
+		  /* neighId = neighNode->m_neighbors[0] == candId ? neighNode->m_neighbors[1]: neighNode->m_neighbors[0];
+		     neighIdx = gr.Find(neighId);
+		     neighNode  = &Ingrid[neighIdx];*/
+		  continue;
+		}
 	      
-	      int this_neigh = 0;
-	      for (int j  = 0; j < v->size(); j++){
-		debug("Connection between %d and %d ?", neighId, v->at(j));
+		int this_neigh = 0;
+		for (int j  = 0; j < v->size(); j++){
+		  debug("Connection between %d and %d ?", neighId, v->at(j));
 
-		if(v->at(j) == neighId){
-		  //	  debug("They are the same");
-		  this_neigh = 1;
+		  if(v->at(j) == neighId){
+		    //	  debug("They are the same");
+		    this_neigh = 1;
+		  }
+		  else if(neighNode->IsNeighboring(v->at(j))){
+		    //	  debug("They are neighbors",  neighId, v->at(j));
+		    this_neigh = 1;
+		  } else {
+		    debug("%d and %d are not (obviously) connected", v->at(j), neighId);
+		  }
 		}
-		else if(neighNode->IsNeighboring(v->at(j))){
-		  //	  debug("They are neighbors",  neighId, v->at(j));
-		  this_neigh = 1;
-		} else {
-		  debug("%d and %d are not (obviously) connected", v->at(j), neighId);
+		if(this_neigh == 0){
+		  toadd = false;
+		  cond = false;
+		  break;
 		}
-	      }
-	      if(this_neigh == 0){
-		toadd = false;
-		cond = false;
-		break;
-	      }
-	    } // for in neighbors
+	      } // for in neighbors
 		
-	    if (toadd == true){
-	      info("All neighbors look good !");
+	      if (toadd == true){
+		info("All neighbors look good !");
 
-	      cand->insertNewNode(candNode);
-	      visited[candId] = 4;
-	      n_connected++;
+		cand->insertNewNode(candNode,1);
+		visited[candId] = 4;
+		n_connected++;
 
-	      removeIdFromNeigh(candNode, &prevNodes, curId);
+		removeIdFromNeigh(candNode, &prevNodes, curId);
 	      
-	      prevNodes.push_back(candId);
-	      curId       = candId;
-	      curIdx      = candIdx;
-	      currentNode = candNode;
-	      cond = sortNeighbors(&gr, currentNode, &prevLayer, &sameLayer, &nextLayer, &nextVirt, visited,  &dir);
+		prevNodes.push_back(candId);
+		curId       = candId;
+		curIdx      = candIdx;
+		currentNode = candNode;
+		cond = sortNeighbors(&gr, currentNode, &prevLayer, &sameLayer, &nextLayer, &nextVirt, visited,  &dir);
 
-	      n_neighbors = sameLayer.size()+prevLayer.size()+nextLayer.size();
-	      info("%d nodes were connected,  %d found for the next step \n\n", n_connected, n_neighbors);
-	      n_connected = 0;
+		n_neighbors = sameLayer.size()+prevLayer.size()+nextLayer.size();
+		info("%d nodes were connected,  %d found for the next step \n\n", n_connected, n_neighbors);
+		n_connected = 0;
+	      }
+	      else {
+
+		info("Neighbors not connected... \n\n", n_connected, n_neighbors);
+
+		visited[candId] = 0;
+		cand->m_rpotNeigh.push_back(candId);
+
+		//   resetLists(visited, &prevLayer, &sameLayer, &nextLayer);
+
+	      }
 	    }
-	    else {
-
-	      info("Neighbors not connected... \n\n", n_connected, n_neighbors);
-
-	      visited[candId] = 0;
-
-	      resetLists(visited, &prevLayer, &sameLayer, &nextLayer);
-
-	    }
-
 	  }
 
 
@@ -689,12 +925,12 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      info("Adding %d nodes to the CM", v->size());
 
 	      if(nextVirt.size() > 0){
-		debug("Handling the virtual");
+		//	debug("Handling the virtual");
 		for (int i = 0; i < nextVirt.size(); i++){
 		  neighId   = nextVirt[i];
 		  neighIdx  = gr.Find(neighId);
 		  neighNode = &Ingrid[neighIdx];
-		  cand->insertNewNode(neighNode);
+		  cand->insertNewNode(neighNode,1);
 		  visited[neighId] = 4;
 		  n_connected++;
 
@@ -713,7 +949,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		neighId = v->at(i);
 		neighIdx = gr.Find(neighId);
 		neighNode = &Ingrid[neighIdx];
-		cand->insertNewNode(neighNode);
+		cand->insertNewNode(neighNode,1);
 		visited[neighId] = 4;
 		n_connected++;
 		lookneigh.push_back(neighId);
@@ -786,8 +1022,25 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	    
 	  }
 
+	  debug("Cond %d, neigh %d", cond, n_neighbors);
+	  
+	  if(cond == false){
+	    info("We are going out of the boucle");
 
-	}
+	    for (int i = 0; i < sameLayer.size(); i++)
+	      cand->m_rpotNeigh.push_back(sameLayer[i]);
+	      
+	    for (int i = 0; i < nextLayer.size(); i++)
+	      cand->m_rpotNeigh.push_back(nextLayer[i]);
+
+	    for (int i = 0; i < prevLayer.size(); i++)
+	      cand->m_rpotNeigh.push_back(prevLayer[i]);
+	    
+	    resetLists(visited, &prevLayer, &sameLayer, &nextLayer);
+	    //  continue;
+	  }
+
+	}// WHILE COND
 	
        	info("Pushing cm %d: \n               length is %d, \n               Min layer %d, \n              Max layer %d, \n               IsOnSectorLimit %d, \n               Finished ? %d. ", cand->m_id, cand->m_length,  cand->m_minLayer, cand->m_maxLayer, cand->m_isOnSectorLimit, cand->m_finished);
 
@@ -829,7 +1082,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	int neighIdx2 = gr.Find(neighId2);
 	GridNode *neighNode2 = &Ingrid[neighIdx2];
 	
-	if(!neighNode1->IsNeighboring(neighId2)){
+	if(!neighNode1->IsNeighboring(neighId2) && visited[neighId1] == 0 && visited[neighId2] == 0){
 	  
 	  info("%d has two neighbors not connected %d %d, sounds like a good tracklet", curId, neighId1, neighId2);
 
@@ -837,7 +1090,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  PathCandidate *cand = new PathCandidate();// Create a new candIdate
 	  cand->m_id = candidateId++;// Set id
 	  cand->m_isValid = true;
-	  cand->insertNewNode(currentNode);
+	  cand->insertNewNode(currentNode,1);
 	  visited[curId] = 4;
 
 	  for (int k = 0; k < 2; k++){
@@ -856,9 +1109,9 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	    int neighIdx = gr.Find(neighId);
 	    GridNode *neighNode = &Ingrid[neighIdx];
 	    
-	    info("Handling first node %d", neighId);
+	    info("Handling  node %d", neighId);
 
-	    cand->insertNewNode(neighNode);
+	    cand->insertNewNode(neighNode,k==0? 0:1);
 	    visited[neighId] = 4;
 	    
 	    (neighNode->m_neighbors).erase(std::remove((neighNode->m_neighbors).begin(), (neighNode->m_neighbors).end(), oriId), (neighNode->m_neighbors).end());
@@ -875,8 +1128,34 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 	    
 	    if(cond == false){
-	      if(k == 0) cand->m_firstNodeVisited = curId;
-	      else cand->m_lastNodeVisited = curId;	      
+	      //     if(k == 0) cand->m_firstNodeVisited = curId;
+	      //else cand->m_lastNodeVisited = curId;
+
+	      	if(k == 0){
+		  cand->m_firstNodeVisited = curId;
+		  for (int i = 0; i < sameLayer.size(); i++)
+		    cand->m_lpotNeigh.push_back(sameLayer[i]);
+	      
+		  for (int i = 0; i < nextLayer.size(); i++)
+		    cand->m_lpotNeigh.push_back(nextLayer[i]);
+
+		  for (int i = 0; i < prevLayer.size(); i++)
+		    cand->m_lpotNeigh.push_back(prevLayer[i]);
+		}
+		else {
+		  for (int i = 0; i < sameLayer.size(); i++)
+		    cand->m_rpotNeigh.push_back(sameLayer[i]);
+	      
+		  for (int i = 0; i < nextLayer.size(); i++)
+		    cand->m_rpotNeigh.push_back(nextLayer[i]);
+
+		  for (int i = 0; i < prevLayer.size(); i++)
+		    cand->m_rpotNeigh.push_back(prevLayer[i]);
+		  cand->m_lastNodeVisited = curId;
+		}
+	      // add neighbors
+	      resetLists(visited, &prevLayer, &sameLayer, &nextLayer);
+
 	      continue;
 	    }
 
@@ -914,7 +1193,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		    neighId   = nextVirt[i];
 		    neighIdx  = gr.Find(neighId);
 		    neighNode = &Ingrid[neighIdx];
-		    cand->insertNewNode(neighNode);
+		    cand->insertNewNode(neighNode,k==0? 0:1);
 		    visited[neighId] = 4;
 		    n_connected++;
 
@@ -931,7 +1210,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		neighId    = v->at(0);
 		neighIdx   = gr.Find(neighId);
 		neighNode  = &Ingrid[neighIdx];
-		cand->insertNewNode(neighNode);
+		cand->insertNewNode(neighNode,k==0? 0:1);
 		visited[neighId] = 4;
 		n_connected++;
 	    
@@ -953,15 +1232,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		info("%d nodes were connected,  %d found for the next step \n", n_connected, n_neighbors);
 		n_connected = 0;
 
-		if(cond == false){
-		  info("Too many possibilities, let skip it for now");
-		  resetLists(visited, &prevLayer, &sameLayer, &nextLayer);
-		  if(k == 0) cand->m_firstNodeVisited = curId;
-		  else cand->m_lastNodeVisited = curId;	      
-		  
-		  
-		  continue;
-		}
+	    
 	    
 	      }
 
@@ -973,92 +1244,97 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		v = dir == UP ? &nextLayer: &prevLayer;
 		if(!areAdjacent(&gr, v)){
 		  info("Too many possibilities");
-		  resetLists(visited, &prevLayer, &sameLayer, &nextLayer);
-		  break;
-		}
-		int candId = sameLayer[0];
-		int candIdx        = gr.Find(candId);
-		GridNode *candNode = &Ingrid[candIdx];
-		curLayer           = candNode->m_Layer;
-		sameLayer.clear();
+		  //resetLists(visited, &prevLayer, &sameLayer, &nextLayer);
+		  //break;
+		  cond = false;
+		} else{
+		  int candId = sameLayer[0];
+		  int candIdx        = gr.Find(candId);
+		  GridNode *candNode = &Ingrid[candIdx];
+		  curLayer           = candNode->m_Layer;
+		  sameLayer.clear();
 
-		info("Still on the same layer, investigating node %d", candId);
+		  info("Still on the same layer, investigating node %d", candId);
 
 
-		bool toadd = true;
-		int cursize = v->size();
+		  bool toadd = true;
+		  int cursize = v->size();
 
-		for(int i = 0; i < candNode->m_neighbors.size(); i++){
-		  neighId = candNode->m_neighbors[i];
-		  if (neighId == curId) continue;
+		  for(int i = 0; i < candNode->m_neighbors.size(); i++){
+		    neighId = candNode->m_neighbors[i];
+		    if (neighId == curId) continue;
 	      
-		  neighIdx = gr.Find(neighId);
-		  neighNode = &Ingrid[neighIdx];
+		    neighIdx = gr.Find(neighId);
+		    neighNode = &Ingrid[neighIdx];
 	     
-		  if(neighNode->m_type == GridNode::VIRTUAL_NODE){
-		    nextVirt.push_back(neighId);
-		    /* neighId = neighNode->m_neighbors[0] == candId ? neighNode->m_neighbors[1]: neighNode->m_neighbors[0];
-		       neighIdx = gr.Find(neighId);
-		       neighNode  = &Ingrid[neighIdx];*/
-		    continue;
-		  }
+		    if(neighNode->m_type == GridNode::VIRTUAL_NODE){
+		      nextVirt.push_back(neighId);
+		      /* neighId = neighNode->m_neighbors[0] == candId ? neighNode->m_neighbors[1]: neighNode->m_neighbors[0];
+			 neighIdx = gr.Find(neighId);
+			 neighNode  = &Ingrid[neighIdx];*/
+		      continue;
+		    }
 	      
 
 
-		  int this_neigh = 0;
-		  for (int j  = 0; j < v->size(); j++){
-		    debug("Connection between %d and %d ?", neighId, v->at(j));
+		    int this_neigh = 0;
+		    for (int j  = 0; j < v->size(); j++){
+		      debug("Connection between %d and %d ?", neighId, v->at(j));
 
-		    if(v->at(j) == neighId){
-		      debug("They are the same");
-		      this_neigh = 1;
+		      if(v->at(j) == neighId){
+			debug("They are the same");
+			this_neigh = 1;
+		      }
+		      else if(neighNode->IsNeighboring(v->at(j))){
+			debug("They are neighbors",  neighId, v->at(j));
+			this_neigh = 1;
+		      } else {
+			debug("%d and %d are not (obviously) connected", v->at(j), neighId);
+		      }
 		    }
-		    else if(neighNode->IsNeighboring(v->at(j))){
-		      debug("They are neighbors",  neighId, v->at(j));
-		      this_neigh = 1;
-		    } else {
-		      debug("%d and %d are not (obviously) connected", v->at(j), neighId);
+		    if(this_neigh == 0){
+		      toadd = false;
+		      cond = false;
+		      break;
 		    }
-		  }
-		  if(this_neigh == 0){
-		    toadd = false;
-		    cond = false;
-		    break;
-		  }
-		} // for in neighbors
+		  } // for in neighbors
 		
-		if (toadd == true){
-		  info("All neighbors look good !");
+		  if (toadd == true){
+		    info("All neighbors look good !");
 
-		  cand->insertNewNode(candNode);
-		  visited[candId] = 4;
-		  n_connected++;
+		    cand->insertNewNode(candNode,k==0? 0:1);
+		    visited[candId] = 4;
+		    n_connected++;
 
-		  removeIdFromNeigh(candNode, &prevNodes, curId);
+		    removeIdFromNeigh(candNode, &prevNodes, curId);
 	      
-		  prevNodes.push_back(candId);
-		  curId       = candId;
-		  curIdx      = candIdx;
-		  currentNode = candNode;
-		  cond = sortNeighbors(&gr, currentNode, &prevLayer, &sameLayer, &nextLayer, &nextVirt, visited,  &dir);
+		    prevNodes.push_back(candId);
+		    curId       = candId;
+		    curIdx      = candIdx;
+		    currentNode = candNode;
+		    cond = sortNeighbors(&gr, currentNode, &prevLayer, &sameLayer, &nextLayer, &nextVirt, visited,  &dir);
 
-		  n_neighbors = sameLayer.size()+prevLayer.size()+nextLayer.size();
-		  info("%d nodes were connected,  %d found for the next step \n\n", n_connected, n_neighbors);
-		  n_connected = 0;
-		}
-		else {
+		    n_neighbors = sameLayer.size()+prevLayer.size()+nextLayer.size();
+		    info("%d nodes were connected,  %d found for the next step \n\n", n_connected, n_neighbors);
+		    n_connected = 0;
+		  }
+		  else {
 
-		  info("To many possibilities, we'll see what's next \n\n", n_connected, n_neighbors);
+		    info("To many possibilities, we'll see what's next \n\n", n_connected, n_neighbors);
 
-		  visited[candId] = 0;
+		    visited[candId] = 0;
+		    if (k == 0)
+		      cand->m_lpotNeigh.push_back(candId);
+		    else
+		      cand->m_rpotNeigh.push_back(candId);
 
-		  resetLists(visited, &prevLayer, &sameLayer, &nextLayer);
-		  if(k == 0) cand->m_firstNodeVisited = curId;
-		  else cand->m_lastNodeVisited = curId;	      
+		    //		  resetLists(visited, &prevLayer, &sameLayer, &nextLayer);
+		    //		  if(k == 0) cand->m_firstNodeVisited = curId;
+		    //		  else cand->m_lastNodeVisited = curId;	      
 		  
 
+		  }
 		}
-
 	      }
 
 
@@ -1090,7 +1366,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		      neighId   = nextVirt[i];
 		      neighIdx  = gr.Find(neighId);
 		      neighNode = &Ingrid[neighIdx];
-		      cand->insertNewNode(neighNode);
+		      cand->insertNewNode(neighNode,k==0? 0:1);
 		      visited[neighId] = 4;
 		      n_connected++;
 
@@ -1109,7 +1385,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		    neighId = v->at(i);
 		    neighIdx = gr.Find(neighId);
 		    neighNode = &Ingrid[neighIdx];
-		    cand->insertNewNode(neighNode);
+		    cand->insertNewNode(neighNode,k==0? 0:1);
 		    visited[neighId] = 4;
 		    n_connected++;
 		    lookneigh.push_back(neighId);
@@ -1152,11 +1428,6 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		  info("Some of these nodes are node adjacent", v->size());
 		  cond = false;
 		}
-
-		if(cond == false){
-		  if(k == 0) cand->m_firstNodeVisited = curId;
-		  else cand->m_lastNodeVisited = curId;	      
-		}
 	      
 	      } else {
 
@@ -1164,18 +1435,20 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		  info("No more neighbors in sight, are we finished here ? \n\n");
 		  if(cand->m_minLayer == 0 && cand->m_maxLayer > 21){
 		    info("track goes through all layers, likily finished");
-		    cand->m_finished = 1;
+		    cand->m_finished = 2;
 		  } else if(abs(currentNode->m_SectorLimit) > 0 || cand->m_isOnSectorLimit){
 		 
 		    cand->m_isOnSectorLimit= true;
 		    info("Track is on sector limit, might have a connection somewhere else");
+		    cand->m_finished = 1;
+
 		  } else {
 		    int firstId = cand->m_firstNodeVisited;
 		    int firstIdx = gr.Find(firstId);
 		    GridNode *firstNode = &Ingrid[firstIdx];
 		    if(firstNode->m_LayerLimit == 1 && currentNode->m_LayerLimit == 1) {
 		      info("starting and ending on same layer");
-		      cand->m_finished = 1;
+		      cand->m_finished = 2;
 
 		    }
 		  }
@@ -1186,6 +1459,36 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	    
 	      }
 
+	      if(cond == false){
+		info("We are going out of the boucle");
+		if(k == 0){
+		  cand->m_firstNodeVisited = curId;
+		  for (int i = 0; i < sameLayer.size(); i++)
+		    cand->m_lpotNeigh.push_back(sameLayer[i]);
+	      
+		  for (int i = 0; i < nextLayer.size(); i++)
+		    cand->m_lpotNeigh.push_back(nextLayer[i]);
+
+		  for (int i = 0; i < prevLayer.size(); i++)
+		    cand->m_lpotNeigh.push_back(prevLayer[i]);
+		}
+		else {
+		  for (int i = 0; i < sameLayer.size(); i++)
+		    cand->m_rpotNeigh.push_back(sameLayer[i]);
+	      
+		  for (int i = 0; i < nextLayer.size(); i++)
+		    cand->m_rpotNeigh.push_back(nextLayer[i]);
+
+		  for (int i = 0; i < prevLayer.size(); i++)
+		    cand->m_rpotNeigh.push_back(prevLayer[i]);
+		  cand->m_lastNodeVisited = curId;
+		}
+		  
+		resetLists(visited, &prevLayer, &sameLayer, &nextLayer);
+
+		//continue;
+	      }
+	      
 	    }
 	
 
@@ -1203,8 +1506,221 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 
     }
-  
+
+
+
+
+
+
     
+
+    info("Refinement");
+
+    std::sort(tracklets.begin(), tracklets.end(), compareTwoPathsLength); 
+    for(unsigned int l = 0; l < tracklets.size(); l++){
+      PathCandidate &curCand = *(tracklets[l]);
+      info("Length %d", curCand.m_length);
+    }
+
+    char *visitedTrack = (char *) calloc(tracklets.size(), sizeof(char));
+    
+    for(unsigned int l = 0; l < tracklets.size(); l++){
+      PathCandidate &curCand = *(tracklets[l]);
+      if (curCand.m_finished > 0){
+	info("This CM is either finished or has no further close neighbors");
+	//check that it has not pot neighbors
+	
+	debug("size lpotneigh %d, size rpotneigh %d", curCand.m_lpotNeigh.size(), curCand.m_rpotNeigh.size());
+      } else {
+	int first =  curCand.m_firstNodeVisited;
+	int firstIdx = gr.Find(first);
+	GridNode *firstNode = &Ingrid[firstIdx];
+	int n_neighfirst = firstNode->m_neighbors.size();
+
+	int last =  curCand.m_lastNodeVisited;
+	int lastIdx = gr.Find(last);
+	GridNode *lastNode = &Ingrid[lastIdx];
+	int n_neighlast = lastNode->m_neighbors.size();
+	info("This cm has first node %d with %d neighbors and last node %d with %d neighbors", first, n_neighfirst, last, n_neighlast);
+
+	info("left neighbors size %d", curCand.m_lpotNeigh.size());
+	if(curCand.m_lpotNeigh.size() > 0)
+	  for(int i = 0; i  < curCand.m_lpotNeigh.size(); i++)
+	    debug("%d", curCand.m_lpotNeigh[i]);
+
+	info("right neighbors size %d", curCand.m_rpotNeigh.size());
+	if(curCand.m_rpotNeigh.size() > 0)
+	  for(int i = 0; i  < curCand.m_rpotNeigh.size(); i++)
+	    debug("%d", curCand.m_rpotNeigh[i]);
+
+	if(curCand.m_length > 10 && (curCand.m_rpotNeigh.size() > 0 || curCand.m_lpotNeigh.size() > 0 )){
+	  info("Finding potential continuation");
+	  std::vector<int>  *trk = curCand.m_memberList;
+	  std::vector<double> x;
+	  std::vector<double> y;
+	  std::vector<double> p;
+
+	  //storing x and y detections in vectors
+	  for (int i = trk->size() - 10; i < trk->size() ; i++){
+	    int id = trk->at(i);
+	    int idx = gr.Find(id);
+	    GridNode &node = Ingrid[idx];
+	    x.push_back(node.m_x);
+	    y.push_back(node.m_y);
+	  }
+	  
+	  p.push_back(0.);
+	  for (int i = 0; i < x.size() - 1; i++){
+	    double newval = p[i] + sqrt(pow(x[i+1]-x[i],2.) + pow(y[i+1]-y[i],2.));
+	    p.push_back(newval);
+	    // debug("%lf, %lf", p[i+1]);
+
+	  }
+
+	  double *x_coef = polyFit(p, x);
+	  double *y_coef = polyFit(p, y);
+
+	  if(curCand.m_rpotNeigh.size() > 0){
+	    info("Handling right neighbors, %d of them", curCand.m_rpotNeigh.size());
+
+	    bool cond = true;
+	    while (cond){
+	      double minDist = std::numeric_limits<double>::max();
+	      int goodId = -1;
+	      GridNode *goodNode;
+	      int potCm = -1;
+	      for (int i = 0; i < curCand.m_rpotNeigh.size(); i++){
+		int curId = curCand.m_rpotNeigh[i];
+		int curIdx = gr.Find(curId);
+		GridNode &node = Ingrid[curIdx];
+		double xdet = (double) node.m_x;
+		double ydet = (double) node.m_y;
+
+		//  debug("this detector is %lf, %lf", xdet, ydet);
+		double newx_coef[3] = {x_coef[0] - xdet, x_coef[1], x_coef[2]};
+		double newy_coef[3] = {y_coef[0] - ydet, y_coef[1], y_coef[2]};
+
+		double vectortanx[3] = {x_coef[1], 2*x_coef[2], 0.};
+		double vectortany[3] = {y_coef[1], 2*y_coef[2], 0.};
+
+		/*	      debug("new x coeff : %lf + %lf x + %lf x^2",  newx_coef[0],  newx_coef[1],  newx_coef[2]);
+			      debug("new y coeff : %lf + %lf x + %lf x^2",  newy_coef[0],  newy_coef[1],  newy_coef[2]);
+
+			      debug("vector x coeff : %lf + %lf x + %lf x^2",  vectortanx[0],  vectortanx[1],  vectortanx[2]);
+			      debug("vector y coeff : %lf + %lf x + %lf x^2",  vectortany[0],  vectortany[1],  vectortany[2]);*/
+
+	      
+		double d[4] = {newx_coef[0]*vectortanx[0] + newy_coef[0]*vectortany[0],
+			       newx_coef[0]*vectortanx[1] + newx_coef[1]*vectortanx[0] +
+			       newy_coef[0]*vectortany[1] + newy_coef[1]*vectortany[0],
+			       newx_coef[0]*vectortanx[2] + newx_coef[1]*vectortanx[1] + newx_coef[2]*vectortanx[0] +
+			       newy_coef[0]*vectortany[2] + newy_coef[1]*vectortany[1] + newy_coef[2]*vectortany[0],
+			       newx_coef[2]*vectortanx[1] + newy_coef[2]*vectortany[1]};
+
+		double x0= std::numeric_limits<double>::max(), x1= std::numeric_limits<double>::max(), x2= std::numeric_limits<double>::max();
+		int nroot = gsl_poly_solve_cubic(d[2]/d[3], d[1]/d[3], d[0]/d[3], &x0, &x1, &x2);
+
+		//  debug("Polynomial coeff : %lf + %lf x + %lf x^2 + %lf x^3", d[0], d[1], d[2], d[3]);
+		//  debug("Real roots %d : x1 = %lf x2 =  %lf x3 =  %lf \n\n", nroot, x0, x1, x2);
+
+		double goodRoot = MIN(x0,MIN(x1,x2));
+
+		double xIntersect = gsl_poly_eval(x_coef, 3, goodRoot);
+		double yIntersect = gsl_poly_eval(y_coef, 3, goodRoot);
+
+		double currDist = sqrt(pow(xIntersect - xdet,2) + pow(yIntersect - ydet,2));
+		//	debug("Distance to point %lf", currDist);
+
+		if(minDist > currDist){
+		  minDist = currDist;
+		  goodId = curId;
+		  goodNode = &node;
+		}
+	    
+		
+	      } // FOR NEIGHBORS
+	      
+	      info("The good id is %d, and is at distance %lf", goodId, minDist);
+	      
+
+	      // Find next neighbors
+	      std::vector<int> next;
+	      int nonVisited = 0;
+	      std::vector<int> potTracks;
+
+	      for(int i = 0; i < goodNode->m_neighbors.size(); i++){
+		int neighId = goodNode->m_neighbors[i];
+		int neighIdx = gr.Find(neighId);
+		GridNode *neighNode = &Ingrid[neighIdx];
+		if(curCand.m_id == neighNode->m_cm[0]) continue;
+
+		debug("Node %d has one neig %d", goodId, neighId);
+		if(neighNode->m_type == GridNode::VIRTUAL_NODE){
+		  //  virt->push_back(neighId);
+		  //determineSkewed_XYPlane_perso( *gr, *neighNode, ListOfSkewedNodesIndex, ListOfVirtualNodesIndex,visited);
+		  //error("%d curlaye %d, virtual layer %d", neighId, curLayer, neighNode->m_Layer);
+		  continue;
+		  /*  debug("%d is a virtual node, add to list and find next neighbor", neighId);
+		      neighId    = neighNode->m_neighbors[0] == curId ?  neighNode->m_neighbors[1]: neighNode->m_neighbors[0];
+		      neighIdx   = gr->Find(neighId);
+		      neighNode  = &Ingrid[neighIdx];*/
+		}
+		if(visited[neighId] == 0){		  
+		  next.push_back(neighId);
+		  nonVisited++;
+		  debug("Adding Node %d ", neighId);
+
+		  //  visited[neighId] = 2;
+		}
+		else if(visited[neighId] == 4){
+		   debug("Node %d has already been connected, tricky", neighId);
+		  // cond = false;
+		  // if(!(std::find(same->begin(), same->end(), neighId) != same->end()))
+		  next.push_back(neighId);
+		  potTracks.push_back(neighNode->m_cm[0]);
+		}
+		
+	      }// for neighbors
+
+	      if(next.size() == 0){
+		info("we have no more neighbors");
+
+	      }
+	      if(visited[goodId] == 4 && nonVisited == 0){
+		info("The current node already belongs to the track %d, and the next nodes all belong to tracks", goodNode->m_cm[0]);
+		if(potCm == -1)
+		  potCm = goodNode->m_cm[0];
+
+		
+	      } 
+	      
+	      cond = false;
+	    } // WHILE COND
+			     //ptminx*vectortanx + ptminy*vectortany
+
+		/*	print "Equation to solve", d.c
+		root = np.roots(d)
+		root = root[np.isreal(root)]
+		tt = np.min(root)
+		print root, tt
+
+
+		plt.plot(x30(tt), y30(tt), 'gd', markersize = 15)
+
+
+		print x30(tt), y30(tt)
+		print potxhit[idx], potyhit[idx]
+		a = np.asarray([potxhit[idx], potyhit[idx]])
+		b= np.asarray([x30(tt), y30(tt)])
+		dist = np.linalg.norm(a-b)
+		print "Min Distance pt 0", dist*/
+
+
+	  }
+	}
+	
+      }
+    }
     info("Number of connected components: %d", tracklets.size());    
   
     for(unsigned int l = 0; l < tracklets.size(); l++){
@@ -1243,6 +1759,44 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     // Print Info
     }
 
+     // ------------------------------------------------------------------------
+    #if (WRITE_CM_ASCII_FILE > 0)  
+    // Write to an ASCII file
+    //////////// Comments to write to file
+    std::string header = "cm,x,y,z,mx,my,mz\n";
+    //////// End of comments.
+    std::ofstream OutTxtFile;
+    OutTxtFile.open ("ConnectedComponents.csv");
+  
+    if (OutTxtFile.is_open()) {
+      OutTxtFile << header;
+      for(unsigned int l = 0; l < tracklets.size(); l++){
+	PathCandidate &curCand = *(tracklets[l]);
+	std::vector<int>  *trk = curCand.m_memberList;
+	for(size_t cm = 0 ; cm < trk->size(); ++cm) {
+	  int detID = trk->at(cm);// Id of the current detector
+	  //	printf("CM %d, id %d \n", cm, detID);
+	  int d_Index = gr.Find(detID);// Index in the grid
+	  GridNode  &node = Ingrid[d_Index];
+	  OutTxtFile << l << "," << node.m_x <<"," << node.m_y <<"," << node.m_z <<"," <<	  node.m_xDet<<"," << node.m_yDet<<"," << node.m_z_Det<< '\n';
+	  // k = event number, cm = component number,....
+	  //	ConnectedCoord.Fill(k, cm, node.m_detID, node.m_x, node.m_y, node.m_z,
+	  //			    node.m_xDet, node.m_yDet, node.m_z_Det);
+	  //printf("%d, %d, %d, %f, %f, %f, %f, %f, %f \n", k, cm, node.m_detID, node.m_x, node.m_y, node.m_z,
+	  //		    node.m_xDet, node.m_yDet, node.m_z_Det);
+
+
+	}
+	// Print Info
+      }
+      // Writ
+    }
+
+  
+  
+    //OutTxtFile.close();
+    #endif
+
     CollectGridToTree(gr, coord);
 
     if(connectedComp != 0) {
@@ -1256,6 +1810,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   timer.Stop();
   ComponentPerEvt.Write();
   ConnectedCoord.Write();
+
+
   
   // Write coordinates ntuple
   coord.Write();
@@ -1268,6 +1824,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	    << " (s/Event), CPU time " << (ctime/totalnumEvt)
             << " (s/Event).\n"
             << '\n';
+  }
   // Extract MC track values
   
 }

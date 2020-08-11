@@ -144,7 +144,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       // Conditions
       ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
       ePlotCondition += "(CompNum == " + ecomponentNumber.str() + ")";
-      ConComps->Draw("y:x", ePlotCondition.c_str(), "same");
+      ConComps->Draw("y_Det:x_Det", ePlotCondition.c_str(), "same");
     }
     c2->Update();
   }
