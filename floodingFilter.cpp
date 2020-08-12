@@ -225,7 +225,7 @@ bool sortNeighbors(CoordGrid *gr, GridNode *currentNode, std::vector<int> *prev,
     debug("Node %d has one neig %d", curId, neighId);
     if(neighNode->m_type == GridNode::VIRTUAL_NODE){
       virt->push_back(neighId);
-      //determineSkewed_XYPlane_perso( *gr, *neighNode, ListOfSkewedNodesIndex, ListOfVirtualNodesIndex,visited);
+      //  determineSkewed_XYPlane_perso( *gr, *neighNode, ListOfSkewedNodesIndex, ListOfVirtualNodesIndex,visited);
       //error("%d curlaye %d, virtual layer %d", neighId, curLayer, neighNode->m_Layer);
       continue;
       /*  debug("%d is a virtual node, add to list and find next neighbor", neighId);
@@ -1520,10 +1520,14 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     for(unsigned int l = 0; l < tracklets.size(); l++){
       PathCandidate &curCand = *(tracklets[l]);
       info("Length %d", curCand.m_length);
+      computePathCurvature(gr,curCand);
+      info("%lf", (curCand.m_CurV_par).m_r);
     }
 
     char *visitedTrack = (char *) calloc(tracklets.size(), sizeof(char));
-    
+
+    if(true){
+      
     for(unsigned int l = 0; l < tracklets.size(); l++){
       PathCandidate &curCand = *(tracklets[l]);
       if (curCand.m_finished > 0){
@@ -1539,8 +1543,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 	int last =  curCand.m_lastNodeVisited;
 	int lastIdx = gr.Find(last);
-	GridNode *lastNode = &Ingrid[lastIdx];
-	int n_neighlast = lastNode->m_neighbors.size();
+	GridNode &lastNode = Ingrid[lastIdx];
+	int n_neighlast = lastNode.m_neighbors.size();
 	info("This cm has first node %d with %d neighbors and last node %d with %d neighbors", first, n_neighfirst, last, n_neighlast);
 
 	info("left neighbors size %d", curCand.m_lpotNeigh.size());
@@ -1553,48 +1557,60 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  for(int i = 0; i  < curCand.m_rpotNeigh.size(); i++)
 	    debug("%d", curCand.m_rpotNeigh[i]);
 
-	if(curCand.m_length > 10 && (curCand.m_rpotNeigh.size() > 0 || curCand.m_lpotNeigh.size() > 0 )){
+	if(curCand.m_length > 6 && (curCand.m_rpotNeigh.size() > 0 || curCand.m_lpotNeigh.size() > 0 )){
 	  info("Finding potential continuation");
-	  std::vector<int>  *trk = curCand.m_memberList;
-	  std::vector<double> x;
-	  std::vector<double> y;
-	  std::vector<double> p;
+
 
 	  //storing x and y detections in vectors
-	  for (int i = trk->size() - 10; i < trk->size() ; i++){
-	    int id = trk->at(i);
-	    int idx = gr.Find(id);
-	    GridNode &node = Ingrid[idx];
-	    x.push_back(node.m_x);
-	    y.push_back(node.m_y);
-	  }
-	  
-	  p.push_back(0.);
-	  for (int i = 0; i < x.size() - 1; i++){
-	    double newval = p[i] + sqrt(pow(x[i+1]-x[i],2.) + pow(y[i+1]-y[i],2.));
-	    p.push_back(newval);
-	    // debug("%lf, %lf", p[i+1]);
 
-	  }
 
-	  double *x_coef = polyFit(p, x);
-	  double *y_coef = polyFit(p, y);
 
 	  if(curCand.m_rpotNeigh.size() > 0){
 	    info("Handling right neighbors, %d of them", curCand.m_rpotNeigh.size());
+	    std::vector<int> next;
+	    next.insert(next.end(),  (curCand.m_rpotNeigh).begin(),  (curCand.m_rpotNeigh).end());
 
 	    bool cond = true;
+	    int potCm = -1;
+	    
+	    std::vector<int>  *trk = curCand.m_memberList;
+
+	    std::vector<double> x;
+	    std::vector<double> y;
+	    for (int i = trk->size() - MIN(trk->size(), 15) ; i < trk->size() ; i++){
+	      int id = trk->at(i);
+	      int idx = gr.Find(id);
+	      printf("%d \t", id);
+	      GridNode &node = Ingrid[idx];
+	      // if(node.m_type == GridNode::VIRTUAL_NODE)
+		
+	      x.push_back(node.m_xDet);
+	      y.push_back(node.m_yDet);
+	    }
+	    printf("\n");
+	   
+	    
 	    while (cond){
 	      double minDist = std::numeric_limits<double>::max();
 	      int goodId = -1;
 	      GridNode *goodNode;
-	      int potCm = -1;
-	      for (int i = 0; i < curCand.m_rpotNeigh.size(); i++){
-		int curId = curCand.m_rpotNeigh[i];
+	      std::vector<double> p;
+	      p.push_back(0.);
+	      for (int i = 0; i < x.size() - 1; i++){
+		double newval = p[i] + sqrt(pow(x[i+1]-x[i],2.) + pow(y[i+1]-y[i],2.));
+		p.push_back(newval);
+		// debug("%lf, %lf", p[i+1]);
+
+	      }
+	      double *x_coef = polyFit(p, x);
+	      double *y_coef = polyFit(p, y);
+
+	      for (int i = 0; i <next.size(); i++){
+		int curId = next[i];
 		int curIdx = gr.Find(curId);
 		GridNode &node = Ingrid[curIdx];
-		double xdet = (double) node.m_x;
-		double ydet = (double) node.m_y;
+		double xdet = (double) node.m_xDet;
+		double ydet = (double) node.m_yDet;
 
 		//  debug("this detector is %lf, %lf", xdet, ydet);
 		double newx_coef[3] = {x_coef[0] - xdet, x_coef[1], x_coef[2]};
@@ -1617,19 +1633,38 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 			       newy_coef[0]*vectortany[2] + newy_coef[1]*vectortany[1] + newy_coef[2]*vectortany[0],
 			       newx_coef[2]*vectortanx[1] + newy_coef[2]*vectortany[1]};
 
-		double x0= std::numeric_limits<double>::max(), x1= std::numeric_limits<double>::max(), x2= std::numeric_limits<double>::max();
-		int nroot = gsl_poly_solve_cubic(d[2]/d[3], d[1]/d[3], d[0]/d[3], &x0, &x1, &x2);
+		double x0[3];
+		int nroot = gsl_poly_solve_cubic(d[2]/d[3], d[1]/d[3], d[0]/d[3], x0, x0+1, x0+2);
 
-		//  debug("Polynomial coeff : %lf + %lf x + %lf x^2 + %lf x^3", d[0], d[1], d[2], d[3]);
-		//  debug("Real roots %d : x1 = %lf x2 =  %lf x3 =  %lf \n\n", nroot, x0, x1, x2);
+		//debug("Polynomial coeff : %lf + %lf x + %lf x^2 + %lf x^3", d[0], d[1], d[2], d[3]);
+		//	debug("Real roots %d : x1 = %lf x2 =  %lf x3 =  %lf \n\n", nroot, x0[0], x0[1], x0[2]);
 
-		double goodRoot = MIN(x0,MIN(x1,x2));
+		double xIntersect, yIntersect, currDist;
+		if(nroot ==1){
+		   xIntersect = gsl_poly_eval(x_coef, 3, x0[0]);
+		   yIntersect = gsl_poly_eval(y_coef, 3, x0[0]);
+		   currDist = sqrt(pow(xIntersect - xdet,2) + pow(yIntersect - ydet,2));
+		}
 
-		double xIntersect = gsl_poly_eval(x_coef, 3, goodRoot);
-		double yIntersect = gsl_poly_eval(y_coef, 3, goodRoot);
+		
+		for (int j = 0; j < nroot; j++){
+		  double newx = gsl_poly_eval(x_coef, 3, x0[j]);
+		  double newy = gsl_poly_eval(y_coef, 3, x0[j]);
+		  double newdist = sqrt(pow(newx - xdet,2) + pow(newy - ydet,2));
+		  if(j == 0){
+		    xIntersect = newx;
+		    yIntersect = newy;
+		    currDist = newdist;
+		  } else if( currDist > newdist) {
+		    xIntersect = newx;
+		    yIntersect = newy;
+		    currDist = newdist;
+		  }
+		}
 
-		double currDist = sqrt(pow(xIntersect - xdet,2) + pow(yIntersect - ydet,2));
-		//	debug("Distance to point %lf", currDist);
+		debug("Distance to point %d is %lf",curId, currDist);
+		double disttube = distanceBetweenTube(node, lastNode);
+		debug("Tube Distance to point %d is %lf",curId, disttube);
 
 		if(minDist > currDist){
 		  minDist = currDist;
@@ -1638,88 +1673,92 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		}
 	    
 		
-	      } // FOR NEIGHBORS
+	      } // FOR RIGHT NEIGHBORS
 	      
 	      info("The good id is %d, and is at distance %lf", goodId, minDist);
+
 	      
+	      if(visited[goodId] == 4){
+		info(", also this node belongs to this cm %d", goodNode->m_cm[0]);
 
-	      // Find next neighbors
-	      std::vector<int> next;
-	      int nonVisited = 0;
-	      std::vector<int> potTracks;
-
-	      for(int i = 0; i < goodNode->m_neighbors.size(); i++){
-		int neighId = goodNode->m_neighbors[i];
-		int neighIdx = gr.Find(neighId);
-		GridNode *neighNode = &Ingrid[neighIdx];
-		if(curCand.m_id == neighNode->m_cm[0]) continue;
-
-		debug("Node %d has one neig %d", goodId, neighId);
-		if(neighNode->m_type == GridNode::VIRTUAL_NODE){
-		  //  virt->push_back(neighId);
-		  //determineSkewed_XYPlane_perso( *gr, *neighNode, ListOfSkewedNodesIndex, ListOfVirtualNodesIndex,visited);
-		  //error("%d curlaye %d, virtual layer %d", neighId, curLayer, neighNode->m_Layer);
-		  continue;
-		  /*  debug("%d is a virtual node, add to list and find next neighbor", neighId);
-		      neighId    = neighNode->m_neighbors[0] == curId ?  neighNode->m_neighbors[1]: neighNode->m_neighbors[0];
-		      neighIdx   = gr->Find(neighId);
-		      neighNode  = &Ingrid[neighIdx];*/
+		if(std::find((curCand.m_toMerge).begin(), (curCand.m_toMerge).end(), goodNode->m_cm[0]) != (curCand.m_toMerge).end()){
+		  debug("We were already planning to merge these tracks, so we stop");
+		  cond = false;
 		}
-		if(visited[neighId] == 0){		  
-		  next.push_back(neighId);
-		  nonVisited++;
-		  debug("Adding Node %d ", neighId);
-
-		  //  visited[neighId] = 2;
-		}
-		else if(visited[neighId] == 4){
-		   debug("Node %d has already been connected, tricky", neighId);
-		  // cond = false;
-		  // if(!(std::find(same->begin(), same->end(), neighId) != same->end()))
-		  next.push_back(neighId);
-		  potTracks.push_back(neighNode->m_cm[0]);
-		}
-		
-	      }// for neighbors
-
-	      if(next.size() == 0){
-		info("we have no more neighbors");
-
-	      }
-	      if(visited[goodId] == 4 && nonVisited == 0){
-		info("The current node already belongs to the track %d, and the next nodes all belong to tracks", goodNode->m_cm[0]);
-		if(potCm == -1)
+		else if(potCm == -1)
 		  potCm = goodNode->m_cm[0];
-
-		
-	      } 
+		else if( potCm != goodNode->m_cm[0]){
+		  debug("We were visiting different cm, weird");
+		} else {
+		  debug("Two nodes in a row belong to the same cm %d, let's stop and merge them later", potCm);
+		  cond = false;
+		  (curCand.m_toMerge).push_back(potCm);
+		  (tracklets[potCm]->m_toMerge).push_back(curCand.m_id);
+		}
+	      }
 	      
-	      cond = false;
+	      if(cond){
+		// Find next neighbors
+		int nonVisited = 0;
+		std::vector<int> potTracks;
+		next.clear();
+		for(int i = 0; i < goodNode->m_neighbors.size(); i++){
+		  int neighId = goodNode->m_neighbors[i];
+		  debug("Node %d has one neig %d, visited %d", goodId, neighId, visited[neighId]);
+
+		  int neighIdx = gr.Find(neighId);
+		  GridNode *neighNode = &Ingrid[neighIdx];
+		  if(curCand.isInCandidate(neighId)) continue;
+
+		  if(neighNode->m_type == GridNode::VIRTUAL_NODE){
+		    continue;
+		  }
+		  if(visited[neighId] == 0){		  
+		    next.push_back(neighId);
+		    nonVisited++;
+		    debug("Adding Node %d ", neighId);
+		  }
+		  else if(visited[neighId] == 4){
+		    debug("Node %d has already been connected, tricky", neighId);
+		    next.push_back(neighId);
+		    potTracks.push_back(neighNode->m_cm[0]);
+		  }
+		
+		}// for neighbors
+
+		  if(goodNode->parent != -1){
+		    next.push_back(goodNode->parent);
+		    debug("Also adding this node %d", goodNode->parent );
+		  }
+
+		if(next.size() == 0){
+		  info("we have no more neighbors");
+		  cond = false;
+		  if(potCm != -1){
+		    debug("Last node added belonged to a cm %d, let's see if we should merge them", potCm);
+		    (curCand.m_toMerge).push_back(potCm);
+		    (tracklets[potCm]->m_toMerge).push_back(curCand.m_id);
+		  }
+		} else {
+
+		  debug("Let's add this node and continue");
+		  curCand.insertNewNode(goodNode, 1);
+		  x.erase(x.begin());
+		  y.erase(y.begin());
+		  x.push_back(goodNode->m_xDet);
+		  y.push_back(goodNode->m_yDet);
+		}
+		
+	      }
+	      
+	      //   cond = false;
 	    } // WHILE COND
-			     //ptminx*vectortanx + ptminy*vectortany
 
-		/*	print "Equation to solve", d.c
-		root = np.roots(d)
-		root = root[np.isreal(root)]
-		tt = np.min(root)
-		print root, tt
-
-
-		plt.plot(x30(tt), y30(tt), 'gd', markersize = 15)
-
-
-		print x30(tt), y30(tt)
-		print potxhit[idx], potyhit[idx]
-		a = np.asarray([potxhit[idx], potyhit[idx]])
-		b= np.asarray([x30(tt), y30(tt)])
-		dist = np.linalg.norm(a-b)
-		print "Min Distance pt 0", dist*/
-
-
-	  }
-	}
+	  } // right neighbors !
+	} // if size if large enough
 	
-      }
+      } // else curcan finished
+    } // for tracklet ssize
     }
     info("Number of connected components: %d", tracklets.size());    
   

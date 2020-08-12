@@ -102,6 +102,9 @@ struct PathCandidate{
   // The list of parents and childeren
   std::vector<unsigned int> m_parents;
   std::vector<unsigned int> m_childeren;
+
+  std::vector<unsigned int> m_toMerge;
+
   //_________ Protected functions and members _______
   //protected:
 

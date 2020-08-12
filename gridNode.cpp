@@ -53,7 +53,7 @@ GridNode::GridNode()
     m_fitValue(0.00),
     m_mahalanobisDist(0.00),
     visited(0),
-    parent(0),
+    parent(-1),
     m_cm(std::vector<int>())
 
 {}
@@ -104,7 +104,7 @@ GridNode::GridNode( int det_id, bool const act, float const xin, float const yin
     m_fitValue(0.00),
     m_mahalanobisDist(0.00),
     visited(0),
-    parent(0),
+    parent(-1),
     m_cm(std::vector<int>())
 
 {

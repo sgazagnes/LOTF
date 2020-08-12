@@ -45,7 +45,9 @@ PathCandidate::PathCandidate()
     m_lastNodeVirtual(false),
     m_lastNodeVirtualId(-1),
     m_lpotNeigh(std::vector<int>()),
-    m_rpotNeigh(std::vector<int>())
+    m_rpotNeigh(std::vector<int>()),
+    m_toMerge(std::vector<unsigned int>())
+
 {} 
 // Destructor
 PathCandidate::~PathCandidate()
@@ -85,6 +87,7 @@ PathCandidate::PathCandidate(PathCandidate const &ot)
     m_lastNodeVirtualId(ot.m_lastNodeVirtualId),
     m_lpotNeigh(ot.m_lpotNeigh),
     m_rpotNeigh(ot.m_rpotNeigh),
+    m_toMerge(ot.m_toMerge),
     m_parents(ot.m_parents),
     m_childeren(ot.m_childeren),
     m_eigevValue1(ot.m_eigevValue1),
@@ -149,6 +152,8 @@ PathCandidate& PathCandidate::operator=(PathCandidate const &ot)
     this->m_lastNodeVirtualId = ot.m_lastNodeVirtualId;
     this-> m_lpotNeigh = ot.m_lpotNeigh;
     this->m_rpotNeigh = ot.m_rpotNeigh;
+    this->m_toMerge = ot.m_toMerge;
+
     this->m_meanVector[0] = ot.m_meanVector[0];
     this->m_meanVector[1] = ot.m_meanVector[1];
     
@@ -195,13 +200,11 @@ void PathCandidate::insertNewNode(GridNode *node, int direction)
 {
   int id = node->m_detID;
   int layer = node->m_Layer;
-  m_memberIdSet->insert(id);
 
   
-  direction == 1? m_memberList->push_back(id): ( void )m_memberList->insert(m_memberList->begin(),id);
 
-  (node->m_cm).push_back(m_id);
-  
+      (node->m_cm).push_back(m_id);
+
   if(node->m_type != GridNode::VIRTUAL_NODE){
     m_length++;
     m_maxLayerNodeId = MAX(id, m_maxlayerNodeId);
@@ -209,6 +212,9 @@ void PathCandidate::insertNewNode(GridNode *node, int direction)
     m_maxLayer = MAX(layer, m_maxLayer);
     m_minLayer = MIN(layer, m_minLayer);
     m_lastNodeVirtual = false;
+    m_memberIdSet->insert(id);
+    direction == 1? m_memberList->push_back(id): ( void )m_memberList->insert(m_memberList->begin(),id);
+
   } else {
     m_lastNodeVirtual = true;
     m_lastNodeVirtualId = id;
