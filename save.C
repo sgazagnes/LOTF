@@ -453,3 +453,463 @@ for(unsigned int n = 0; n < nactive_queue; ++n) {
       }*/
 
       
+
+
+/* FIND REMAINING TRACKLETS */
+
+
+    
+    if(false){
+ 
+    info(" Find remaining obvious tracklets");
+
+    for(unsigned int n = 0; n < activeId.size(); ++n) {
+      int curId = activeId[n];
+      int oriId = curId;
+      int prevId = curId;
+      int curIdx = gr.Find(curId);
+      GridNode *currentNode = &Ingrid[curIdx];
+      GridNode *firstNode = &Ingrid[curIdx];
+      std::vector<int> *nextIds;// List of members in a vector(delete me)
+
+      int n_neighbors = currentNode->m_neighbors.size();
+
+      if(n_neighbors == 2 && visited[curId] == 0 && currentNode->m_LayerLimit == 0) {
+
+	int neighId1 = currentNode->m_neighbors[0];
+	int neighIdx1 = gr.Find(neighId1);
+	GridNode *neighNode1 = &Ingrid[neighIdx1];
+
+	int neighId2 = currentNode->m_neighbors[1];
+	int neighIdx2 = gr.Find(neighId2);
+	GridNode *neighNode2 = &Ingrid[neighIdx2];
+	
+	if(!neighNode1->IsNeighboring(neighId2) && visited[neighId1] == 0 && visited[neighId2] == 0){
+	  
+	  info("%d has two neighbors not connected %d %d, sounds like a good tracklet", curId, neighId1, neighId2);
+
+	
+	  PathCandidate *cand = new PathCandidate();// Create a new candIdate
+	  cand->m_id = candidateId++;// Set id
+	  cand->m_isValid = true;
+	  cand->insertNewNode(currentNode,1);
+	  visited[curId] = 4;
+
+	  for (int k = 0; k < 2; k++){
+	    std::vector<int> sameLayer;
+	    std::vector<int> nextLayer;
+	    std::vector<int> prevLayer;
+	    std::vector<int> nextVirt;
+	    std::vector<int> prevNodes;
+	    std::vector<int> *v;
+
+	    int dir = 0;
+      
+	    int curLayer = firstNode->m_Layer;
+	    
+	    int neighId =  firstNode->m_neighbors[k];
+	    int neighIdx = gr.Find(neighId);
+	    GridNode *neighNode = &Ingrid[neighIdx];
+	    
+	    info("Handling  node %d", neighId);
+
+	    cand->insertNewNode(neighNode,k==0? 0:1);
+	    visited[neighId] = 4;
+	    
+	    (neighNode->m_neighbors).erase(std::remove((neighNode->m_neighbors).begin(), (neighNode->m_neighbors).end(), oriId), (neighNode->m_neighbors).end());
+
+	    //  prevId = curId;
+	    curId = neighId;
+	    curIdx = neighIdx;
+	    currentNode = neighNode;
+	    curLayer = currentNode->m_Layer;
+	    
+	    bool cond = true;
+	    
+	    cond = sortNeighbors(&gr, currentNode, &prevLayer, &sameLayer, &nextLayer, &nextVirt, visited,  &dir);
+
+	    
+	    if(cond == false){
+	      //     if(k == 0) cand->m_firstNodeVisited = curId;
+	      //else cand->m_lastNodeVisited = curId;
+
+	      	if(k == 0){
+		  cand->m_tailNode = curId;
+		  for (int i = 0; i < sameLayer.size(); i++)
+		    cand->m_tailNeigh.push_back(sameLayer[i]);
+	      
+		  for (int i = 0; i < nextLayer.size(); i++)
+		    cand->m_tailNeigh.push_back(nextLayer[i]);
+
+		  for (int i = 0; i < prevLayer.size(); i++)
+		    cand->m_tailNeigh.push_back(prevLayer[i]);
+		}
+		else {
+		  for (int i = 0; i < sameLayer.size(); i++)
+		    cand->m_headNeigh.push_back(sameLayer[i]);
+	      
+		  for (int i = 0; i < nextLayer.size(); i++)
+		    cand->m_headNeigh.push_back(nextLayer[i]);
+
+		  for (int i = 0; i < prevLayer.size(); i++)
+		    cand->m_headNeigh.push_back(prevLayer[i]);
+		  cand->m_headNode = curId;
+		}
+	      // add neighbors
+	      resetLists(visited, &prevLayer, &sameLayer, &nextLayer);
+
+	      continue;
+	    }
+
+	  
+
+	    prevNodes.push_back(curId);
+	    n_neighbors = prevLayer.size() + sameLayer.size() + nextLayer.size();
+	    int n_connected = 0;
+
+	    info("Next number of neighbors is %d", n_neighbors);
+	    
+	    while(cond){
+
+
+	      /* 1 NEIGHBOR */
+	  
+	      if(n_neighbors == 1){
+		info("dir %d", dir);
+		if (dir == UP){
+		  v = &nextLayer;
+		  info("Going up from node %d to node %d", curId, v->at(0));
+		} else if (dir == DOWN){
+		  v = &prevLayer;
+		  info("Going down from node %d to node %d", curId, v->at(0));
+		} else {
+		  v = &sameLayer;
+		  info("Going same level from node %d to node %d", curId, v->at(0));
+		}
+	     
+	    
+		if(nextVirt.size() > 0){
+		  debug("Handling the virtuals");
+	      
+		  for (int i = 0; i <nextVirt.size(); i++){
+		    neighId   = nextVirt[i];
+		    neighIdx  = gr.Find(neighId);
+		    neighNode = &Ingrid[neighIdx];
+		    cand->insertNewNode(neighNode,k==0? 0:1);
+		    visited[neighId] = 4;
+		    n_connected++;
+
+		    removeIdFromNeigh(neighNode, &prevNodes, curId);
+		  }
+	      
+		  //	  prevNodes.clear();
+		  prevNodes.insert(prevNodes.end(),  nextVirt.begin(),  nextVirt.end());
+		  nextVirt.clear();
+		}
+	      
+	    
+
+		neighId    = v->at(0);
+		neighIdx   = gr.Find(neighId);
+		neighNode  = &Ingrid[neighIdx];
+		cand->insertNewNode(neighNode,k==0? 0:1);
+		visited[neighId] = 4;
+		n_connected++;
+	    
+		removeIdFromNeigh(neighNode, &prevNodes, curId);
+
+		curId       = neighId;
+		curIdx      = neighIdx;
+		currentNode = neighNode;
+		curLayer    = currentNode->m_Layer;
+	    
+		nextLayer.clear();  sameLayer.clear();   prevLayer.clear();
+		dir = 0;
+		prevNodes.clear();
+		prevNodes.push_back(curId);
+	    
+		cond = sortNeighbors(&gr, currentNode, &prevLayer, &sameLayer, &nextLayer, &nextVirt, visited,  &dir);
+
+		n_neighbors = sameLayer.size() + prevLayer.size() + nextLayer.size();
+		info("%d nodes were connected,  %d found for the next step \n", n_connected, n_neighbors);
+		n_connected = 0;
+
+	    
+	    
+	      }
+
+
+	      /* 1 Same layer neighbor */
+
+	      else if (sameLayer.size() > 0){
+
+		v = dir == UP ? &nextLayer: &prevLayer;
+		if(!areAdjacent(&gr, v)){
+		  info("Too many possibilities");
+		  //resetLists(visited, &prevLayer, &sameLayer, &nextLayer);
+		  //break;
+		  cond = false;
+		} else{
+		  int candId = sameLayer[0];
+		  int candIdx        = gr.Find(candId);
+		  GridNode *candNode = &Ingrid[candIdx];
+		  curLayer           = candNode->m_Layer;
+		  sameLayer.clear();
+
+		  info("Still on the same layer, investigating node %d", candId);
+
+
+		  bool toadd = true;
+		  int cursize = v->size();
+
+		  for(int i = 0; i < candNode->m_neighbors.size(); i++){
+		    neighId = candNode->m_neighbors[i];
+		    if (neighId == curId) continue;
+	      
+		    neighIdx = gr.Find(neighId);
+		    neighNode = &Ingrid[neighIdx];
+	     
+		    if(neighNode->m_type == GridNode::VIRTUAL_NODE){
+		      nextVirt.push_back(neighId);
+		      /* neighId = neighNode->m_neighbors[0] == candId ? neighNode->m_neighbors[1]: neighNode->m_neighbors[0];
+			 neighIdx = gr.Find(neighId);
+			 neighNode  = &Ingrid[neighIdx];*/
+		      continue;
+		    }
+	      
+
+
+		    int this_neigh = 0;
+		    for (int j  = 0; j < v->size(); j++){
+		      debug("Connection between %d and %d ?", neighId, v->at(j));
+
+		      if(v->at(j) == neighId){
+			debug("They are the same");
+			this_neigh = 1;
+		      }
+		      else if(neighNode->IsNeighboring(v->at(j))){
+			debug("They are neighbors",  neighId, v->at(j));
+			this_neigh = 1;
+		      } else {
+			debug("%d and %d are not (obviously) connected", v->at(j), neighId);
+		      }
+		    }
+		    if(this_neigh == 0){
+		      toadd = false;
+		      cond = false;
+		      break;
+		    }
+		  } // for in neighbors
+		
+		  if (toadd == true){
+		    info("All neighbors look good !");
+
+		    cand->insertNewNode(candNode,k==0? 0:1);
+		    visited[candId] = 4;
+		    n_connected++;
+
+		    removeIdFromNeigh(candNode, &prevNodes, curId);
+	      
+		    prevNodes.push_back(candId);
+		    curId       = candId;
+		    curIdx      = candIdx;
+		    currentNode = candNode;
+		    cond = sortNeighbors(&gr, currentNode, &prevLayer, &sameLayer, &nextLayer, &nextVirt, visited,  &dir);
+
+		    n_neighbors = sameLayer.size()+prevLayer.size()+nextLayer.size();
+		    info("%d nodes were connected,  %d found for the next step \n\n", n_connected, n_neighbors);
+		    n_connected = 0;
+		  }
+		  else {
+
+		    info("To many possibilities, we'll see what's next \n\n", n_connected, n_neighbors);
+
+		    visited[candId] = 0;
+		    if (k == 0)
+		      cand->m_headNeigh.push_back(candId);
+		    else
+		      cand->m_headNeigh.push_back(candId);
+
+		    //		  resetLists(visited, &prevLayer, &sameLayer, &nextLayer);
+		    //		  if(k == 0) cand->m_firstNodeVisited = curId;
+		    //		  else cand->m_lastNodeVisited = curId;	      
+		  
+
+		  }
+		}
+	      }
+
+
+
+	      /* MORE NEIGHBOOOORS */
+
+
+
+
+	      else if (n_neighbors > 1) {
+
+		info("%d", dir);
+		if (dir == UP){	      
+		  info("Next nodes are up and we have %d of them", nextLayer.size());
+		  v = &nextLayer;
+		}  else if (dir == DOWN){
+		  info("NExt nodes are down and we have %d of them", prevLayer.size());
+		  v = &prevLayer;
+		} else
+		  info("WHAT IS THE DIRECTION NOW?");
+	    
+	    
+		if(areAdjacent(&gr, v)){
+		  info("Adding %d nodes to the CM", v->size());
+
+		  if(nextVirt.size() > 0){
+		    debug("Handling the virtual");
+		    for (int i = 0; i < nextVirt.size(); i++){
+		      neighId   = nextVirt[i];
+		      neighIdx  = gr.Find(neighId);
+		      neighNode = &Ingrid[neighIdx];
+		      cand->insertNewNode(neighNode,k==0? 0:1);
+		      visited[neighId] = 4;
+		      n_connected++;
+
+		      removeIdFromNeigh(neighNode, &prevNodes, curId);		  
+		    }
+		
+		    // prevNodes.clear();
+		    prevNodes.insert(prevNodes.end(),  nextVirt.begin(),  nextVirt.end());
+		    nextVirt.clear();
+
+		  }
+	      
+		  std::vector<int> lookneigh;
+
+		  for (int i = 0; i < v->size(); i++){
+		    neighId = v->at(i);
+		    neighIdx = gr.Find(neighId);
+		    neighNode = &Ingrid[neighIdx];
+		    cand->insertNewNode(neighNode,k==0? 0:1);
+		    visited[neighId] = 4;
+		    n_connected++;
+		    lookneigh.push_back(neighId);
+
+		    removeIdFromNeigh(neighNode, &prevNodes, curId);		  
+		    removeIdFromNeigh(neighNode, v, curId);		  
+
+		  }
+	      
+		  nextLayer.clear();
+		  sameLayer.clear();
+		  prevLayer.clear();
+		  prevNodes.clear();
+	      
+		  dir = 0;
+	     
+		  curId       = lookneigh[0];
+		  curIdx      = gr.Find(curId);
+		  currentNode = &Ingrid[curIdx];
+		  curLayer    = currentNode->m_Layer;
+		  info("New current node is %d, looking for neighbors of %d nodes", curId, lookneigh.size());
+	      
+		  n_neighbors = 0;
+	      
+		  for(int i = 0; i < lookneigh.size(); i++){
+		    int id         = lookneigh[i];
+		    int idx        = gr.Find(id);
+		    GridNode *node = &Ingrid[idx];
+		    prevNodes.push_back(id);
+
+		    cond = sortNeighbors(&gr, node, &prevLayer, &sameLayer, &nextLayer, &nextVirt, visited,  &dir);
+		  }
+
+		  n_neighbors = sameLayer.size()+prevLayer.size()+nextLayer.size();
+		  info("%d nodes were connected,  %d found for the next step \n", n_connected, n_neighbors);
+		  n_connected = 0;
+	     
+
+		} else {
+		  info("Some of these nodes are node adjacent", v->size());
+		  cond = false;
+		}
+	      
+	      } else {
+
+		if(n_neighbors == 0) {
+		  info("No more neighbors in sight, are we finished here ? \n\n");
+		  if(cand->m_minLayer == 0 && cand->m_maxLayer > 21){
+		    info("track goes through all layers, likily finished");
+		    cand->m_finished = 3;
+		  } else if(abs(currentNode->m_SectorLimit) > 0 || cand->m_isOnSectorLimit){
+		 
+		    cand->m_isOnSectorLimit= true;
+		    info("Track is on sector limit, might have a connection somewhere else");
+		    cand->m_finished = 1;
+
+		  } else {
+		    int firstId = cand->m_tailNode;
+		    int firstIdx = gr.Find(firstId);
+		    GridNode *firstNode = &Ingrid[firstIdx];
+		    if(firstNode->m_LayerLimit == 1 && currentNode->m_LayerLimit == 1) {
+		      info("starting and ending on same layer");
+		      cand->m_finished = 3;
+
+		    } else {
+		      info("Candidate has no more neighbors, but doesn't seem finished");
+		      cand->m_finished = 2;
+		    }
+		  }
+		} else {
+		  info("This track has other neighbors, to correct later");
+		}
+		cond = false;
+	    
+	      }
+
+	      if(cond == false){
+		info("We are going out of the boucle");
+		if(k == 0){
+		  cand->m_tailNode = curId;
+		  for (int i = 0; i < sameLayer.size(); i++)
+		    cand->m_tailNeigh.push_back(sameLayer[i]);
+	      
+		  for (int i = 0; i < nextLayer.size(); i++)
+		    cand->m_tailNeigh.push_back(nextLayer[i]);
+
+		  for (int i = 0; i < prevLayer.size(); i++)
+		    cand->m_tailNeigh.push_back(prevLayer[i]);
+		}
+		else {
+		  for (int i = 0; i < sameLayer.size(); i++)
+		    cand->m_headNeigh.push_back(sameLayer[i]);
+	      
+		  for (int i = 0; i < nextLayer.size(); i++)
+		    cand->m_headNeigh.push_back(nextLayer[i]);
+
+		  for (int i = 0; i < prevLayer.size(); i++)
+		    cand->m_headNeigh.push_back(prevLayer[i]);
+		  cand->m_headNode = curId;
+		}
+		  
+		resetLists(visited, &prevLayer, &sameLayer, &nextLayer);
+
+		//continue;
+	      }
+	      
+	    }
+	
+
+	  }
+       	     
+	
+
+	  tracklets.push_back(cand);
+	  info("Pushing cm %d: \n               length is %d, \n               Min layer %d, \n              Max layer %d, \n               IsOnSectorLimit %d, \n               Finished ? %d. ", cand->m_id, cand->m_length,  cand->m_minLayer, cand->m_maxLayer, cand->m_isOnSectorLimit, cand->m_finished);
+
+	}
+
+      }
+    }
+
+
+    }
+
+

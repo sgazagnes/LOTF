@@ -38,15 +38,16 @@ PathCandidate::PathCandidate()
     m_minLayerNodeId(100000),
     m_maxLayer(-1),
     m_minLayer(100000),
-    m_finished(false),
+    m_finished(0),
     m_isOnSectorLimit(false),
-    m_lastNodeVisited(-1),
-    m_firstNodeVisited(-1),
+    m_headNode(-1),
+    m_tailNode(-1),
     m_lastNodeVirtual(false),
     m_lastNodeVirtualId(-1),
-    m_lpotNeigh(std::vector<int>()),
-    m_rpotNeigh(std::vector<int>()),
-    m_toMerge(std::vector<unsigned int>())
+    m_headNeigh(std::vector<int>()),
+    m_tailNeigh(std::vector<int>()),
+    m_toMergeHead(std::vector<unsigned int>()),
+    m_toMergeTail(std::vector<unsigned int>())
 
 {} 
 // Destructor
@@ -81,13 +82,14 @@ PathCandidate::PathCandidate(PathCandidate const &ot)
     m_minLayer(ot.m_minLayer),
     m_finished(ot.m_finished),
     m_isOnSectorLimit(ot.m_isOnSectorLimit),
-    m_lastNodeVisited(ot.m_lastNodeVisited),
-    m_firstNodeVisited(ot.m_lastNodeVisited),
+    m_headNode(ot.m_headNode),
+    m_tailNode(ot.m_tailNode),
     m_lastNodeVirtual(ot.m_lastNodeVirtual),
     m_lastNodeVirtualId(ot.m_lastNodeVirtualId),
-    m_lpotNeigh(ot.m_lpotNeigh),
-    m_rpotNeigh(ot.m_rpotNeigh),
-    m_toMerge(ot.m_toMerge),
+    m_headNeigh(ot.m_headNeigh),
+    m_tailNeigh(ot.m_tailNeigh),
+    m_toMergeHead(ot.m_toMergeHead),
+    m_toMergeTail(ot.m_toMergeTail),
     m_parents(ot.m_parents),
     m_childeren(ot.m_childeren),
     m_eigevValue1(ot.m_eigevValue1),
@@ -143,17 +145,23 @@ PathCandidate& PathCandidate::operator=(PathCandidate const &ot)
     this->m_maxLayernodeLayer = ot.m_maxLayernodeLayer;
     this->m_minlayerNodeLayer = ot.m_minlayerNodeLayer;
 
-
+    /*new*/
     this->m_maxLayerNodeId = ot.m_maxLayerNodeId;
     this->m_minLayerNodeId = ot.m_minLayerNodeId;
     this->m_maxLayer = ot.m_maxLayer;
     this->m_minLayer = ot.m_minLayer;
     this->m_lastNodeVirtual = ot.m_lastNodeVirtual;
     this->m_lastNodeVirtualId = ot.m_lastNodeVirtualId;
-    this-> m_lpotNeigh = ot.m_lpotNeigh;
-    this->m_rpotNeigh = ot.m_rpotNeigh;
-    this->m_toMerge = ot.m_toMerge;
+    this->m_headNeigh = ot.m_headNeigh;
+    this->m_tailNeigh = ot.m_tailNeigh;
+    this->m_toMergeHead = ot.m_toMergeHead;
+    this->m_toMergeTail = ot.m_toMergeTail;
+    this->m_finished = ot.m_finished;
+    this->m_isOnSectorLimit = ot.m_isOnSectorLimit;
+    this->m_headNode = ot.m_headNode ;
+    this->m_tailNode = ot.m_tailNode;
 
+    /**/
     this->m_meanVector[0] = ot.m_meanVector[0];
     this->m_meanVector[1] = ot.m_meanVector[1];
     
@@ -169,10 +177,7 @@ PathCandidate& PathCandidate::operator=(PathCandidate const &ot)
 
     this->m_parents = ot.m_parents;
     this->m_childeren = ot.m_childeren;
-    this->m_finished = ot.m_finished;
-    this->m_isOnSectorLimit = ot.m_isOnSectorLimit;
-    this->m_lastNodeVisited = ot.m_lastNodeVisited ;
-    this->m_firstNodeVisited = ot.m_firstNodeVisited;
+
     this->m_eigenVector1 = ot.m_eigenVector1;
     this->m_eigenVector2 = ot.m_eigenVector2;
   }
@@ -194,6 +199,7 @@ void PathCandidate::updateHeadAndTailNodes()
     m_maxlayerNodeId = *it;
     //m_maxlayerNodeId = *(--it);
   }
+  
 }
 
 void PathCandidate::insertNewNode(GridNode *node, int direction)
@@ -203,7 +209,7 @@ void PathCandidate::insertNewNode(GridNode *node, int direction)
 
   
 
-      (node->m_cm).push_back(m_id);
+  (node->m_cm).push_back(m_id);
 
   if(node->m_type != GridNode::VIRTUAL_NODE){
     m_length++;
@@ -220,6 +226,6 @@ void PathCandidate::insertNewNode(GridNode *node, int direction)
     m_lastNodeVirtualId = id;
   }
 	  
-  m_lastNodeVisited = id;
+  m_headNode = id;
 }
 

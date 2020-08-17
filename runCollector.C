@@ -51,6 +51,7 @@ void runCollector( size_t plength = 1,
   gSystem->CompileMacro("logc.cpp","kO");
   gSystem->CompileMacro("queue.cpp","kO");
   gSystem->CompileMacro("CollectSttMvdPoints.cpp","kO");
+  gSystem->CompileMacro("simon_functions.cpp","kO");
 
   gSystem->CompileMacro("floodingFilter.cpp","kO");
 

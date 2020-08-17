@@ -1,9 +1,6 @@
 
 # DO NOT DELETE
 
-floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/gsl/gsl_poly.h
-floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/gsl/gsl_inline.h
-floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/gsl/gsl_complex.h
 floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TFile.h
 floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/Compression.h
 floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/Rtypes.h
@@ -82,7 +79,8 @@ floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/bui
 floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVectorFfwd.h
 floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVectorDfwd.h
 floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TFitResultPtr.h
-floodingFilter_cpp.so: auxiliaryfunctions.h CollectSttMvdPoints.h
+floodingFilter_cpp.so: simon_functions.h auxiliaryfunctions.h
+floodingFilter_cpp.so: CollectSttMvdPoints.h
 floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TClonesArray.h
 floodingFilter_cpp.so: gridNode.h
 floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVector3.h

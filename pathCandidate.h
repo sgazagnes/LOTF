@@ -75,21 +75,23 @@ struct PathCandidate{
 
   int    m_maxLayerNodeId;//id of node with max layer
   int    m_minLayerNodeId;//id of node with min layer
-  int    m_maxLayer;//id of node with max layer
-  int    m_minLayer;//id of node with min layer
+  int    m_maxLayer; //Layer number of max//id of node with max layer
+  int    m_minLayer;// Layer number of min//id of node with min layer
 
   int    m_lastNodeVirtual;//id of node with min layer
   int    m_lastNodeVirtualId;//id of node with min layer
 
-  bool   m_finished;
+  int    m_finished;
   bool   m_isOnSectorLimit;
   bool   m_startOnSectorLimit;
 
-  int    m_lastNodeVisited;
-  int    m_firstNodeVisited;
+  int    m_headNode;
+  int    m_tailNode;
+  std::vector<unsigned int>	 m_toMergeHead;
+  std::vector<unsigned int> 	 m_toMergeTail;
 
-  std::vector<int> m_lpotNeigh;
-  std::vector<int> m_rpotNeigh;
+  std::vector<int> m_headNeigh;
+  std::vector<int> m_tailNeigh;
   /* Shape and spread parameters */
   
   std::vector< float > m_meanVector;
@@ -103,7 +105,6 @@ struct PathCandidate{
   std::vector<unsigned int> m_parents;
   std::vector<unsigned int> m_childeren;
 
-  std::vector<unsigned int> m_toMerge;
 
   //_________ Protected functions and members _______
   //protected:
