@@ -5,7 +5,6 @@
  *************************************/
 #include <iterator>
 #include "pathCandidate.h"
-
 // Constructors
 PathCandidate::PathCandidate()
   : m_id(0),
@@ -42,12 +41,13 @@ PathCandidate::PathCandidate()
     m_isOnSectorLimit(false),
     m_headNode(-1),
     m_tailNode(-1),
-    m_lastNodeVirtual(false),
-    m_lastNodeVirtualId(-1),
+    m_seenVirtual(false),
+    m_lastVirtual(-1),
     m_headNeigh(std::vector<int>()),
     m_tailNeigh(std::vector<int>()),
     m_toMergeHead(std::vector<unsigned int>()),
-    m_toMergeTail(std::vector<unsigned int>())
+    m_toMergeTail(std::vector<unsigned int>()),
+    m_listSkewed(std::vector<unsigned int>())
 
 {} 
 // Destructor
@@ -84,8 +84,8 @@ PathCandidate::PathCandidate(PathCandidate const &ot)
     m_isOnSectorLimit(ot.m_isOnSectorLimit),
     m_headNode(ot.m_headNode),
     m_tailNode(ot.m_tailNode),
-    m_lastNodeVirtual(ot.m_lastNodeVirtual),
-    m_lastNodeVirtualId(ot.m_lastNodeVirtualId),
+    //m_lastNodeVirtual(ot.m_lastNodeVirtual),
+    // m_lastNodeVirtualId(ot.m_lastNodeVirtualId),
     m_headNeigh(ot.m_headNeigh),
     m_tailNeigh(ot.m_tailNeigh),
     m_toMergeHead(ot.m_toMergeHead),
@@ -150,8 +150,8 @@ PathCandidate& PathCandidate::operator=(PathCandidate const &ot)
     this->m_minLayerNodeId = ot.m_minLayerNodeId;
     this->m_maxLayer = ot.m_maxLayer;
     this->m_minLayer = ot.m_minLayer;
-    this->m_lastNodeVirtual = ot.m_lastNodeVirtual;
-    this->m_lastNodeVirtualId = ot.m_lastNodeVirtualId;
+    //   this->m_lastNodeVirtual = ot.m_lastNodeVirtual;
+    //  this->m_lastNodeVirtualId = ot.m_lastNodeVirtualId;
     this->m_headNeigh = ot.m_headNeigh;
     this->m_tailNeigh = ot.m_tailNeigh;
     this->m_toMergeHead = ot.m_toMergeHead;
@@ -202,10 +202,11 @@ void PathCandidate::updateHeadAndTailNodes()
   
 }
 
-void PathCandidate::insertNewNode(GridNode *node, int direction)
+void PathCandidate::insertNewNode(CoordGrid &gr, GridNode *node,  std::vector<int>::iterator it)
 {
   int id = node->m_detID;
   int layer = node->m_Layer;
+  std::vector< GridNode > &Ingrid  = gr.m_grid;
 
   
 
@@ -217,13 +218,47 @@ void PathCandidate::insertNewNode(GridNode *node, int direction)
     m_minLayerNodeId = MIN(id, m_minlayerNodeId);
     m_maxLayer = MAX(layer, m_maxLayer);
     m_minLayer = MIN(layer, m_minLayer);
-    m_lastNodeVirtual = false;
+    //m_lastNodeVirtual = false;
     m_memberIdSet->insert(id);
-    direction == 1? m_memberList->push_back(id): ( void )m_memberList->insert(m_memberList->begin(),id);
-
+    m_memberList->insert(it,id);
+    if(node->m_type == GridNode::STT_TYPE_SKEW  && m_seenVirtual )
+       m_listSkewed.push_back(id);
+    
   } else {
-    m_lastNodeVirtual = true;
-    m_lastNodeVirtualId = id;
+    printf("New node %d is virtual, %d, %d\n",id); 
+
+    if(m_seenVirtual == true && m_listSkewed.size() > 0){
+      // Correcting skewed
+      int virtIdx = gr.Find(m_lastVirtual);
+      GridNode &lastVirtNode = Ingrid[virtIdx];
+      if(layer != lastVirtNode.m_Layer){
+	float x_diff = node->m_x - lastVirtNode.m_x;
+	float y_diff = node->m_y - lastVirtNode.m_y;
+	x_diff /= static_cast<float>(m_listSkewed.size()+1);
+	y_diff /= static_cast<float>(m_listSkewed.size()+1);
+	/*	if( node->m_x > m_lastVirtual.m_x ) {
+	  x_diff *= -1;
+	}
+	if( node->m_y > m_lastVirtual.m_y ) {
+	  y_diff *= -1;
+	  }*/
+	float xInc = lastVirtNode.m_x + x_diff;
+	float yInc = lastVirtNode.m_y + y_diff;
+	/* Correct xy-coordinates of the skewed nodes */
+	for(size_t m = 0; m < m_listSkewed.size(); ++m) {
+	  int idx = gr.Find(m_listSkewed[m]);
+	  GridNode &skewedToproc = Ingrid[idx];
+	  skewedToproc.m_xDet = xInc;
+	  skewedToproc.m_yDet = yInc;
+	  printf("New node %d with %lf and %lf \n",m_listSkewed[m], skewedToproc.m_xDet ,  skewedToproc.m_yDet); 
+	  xInc += x_diff;
+	  yInc += y_diff;
+	}
+      }
+      m_listSkewed.clear();
+    }
+    m_seenVirtual = true;
+    m_lastVirtual = node->m_detID;
   }
 	  
   m_headNode = id;

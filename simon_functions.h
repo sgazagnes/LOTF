@@ -52,4 +52,5 @@ double distanceBetweenTube(GridNode & tubeA, GridNode & tubeB);
 void Fix_InterSector_Nodes(CoordGrid &hitMap, size_t const numSectors);
 
 
+void addTracklets (CoordGrid &gr, PathCandidate *newCand, PathCandidate &mergeCand,  int curdir, int mergedir);
 #endif

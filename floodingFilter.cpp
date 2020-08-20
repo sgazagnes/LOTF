@@ -363,7 +363,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	cand->m_tailNode 	= curId;
 	visited[curId] 		= 4;
 
-	cand->insertNewNode(currentNode, 1);
+	cand->insertNewNode(gr,currentNode, cand->m_memberList->end());
 	prevNodes.push_back(curId);
 
 
@@ -391,7 +391,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		neighId   = nextVirt[i];
 		neighIdx  = gr.Find(neighId);
 		neighNode = &Ingrid[neighIdx];
-		cand->insertNewNode(neighNode,1);
+		cand->insertNewNode(gr,neighNode,cand->m_memberList->end());
 		visited[neighId] = 4;
 		n_connected++;
 
@@ -408,7 +408,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	    neighId    = v->at(0);
 	    neighIdx   = gr.Find(neighId);
 	    neighNode  = &Ingrid[neighIdx];
-	    cand->insertNewNode(neighNode,1);
+	    cand->insertNewNode(gr,neighNode,cand->m_memberList->end());
 	    visited[neighId] = 4;
 	    n_connected++;
 	    
@@ -494,7 +494,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		
 		info("All neighbors look good, let's insert this one !");
 
-		cand->insertNewNode(candNode,1);
+		cand->insertNewNode(gr,candNode,cand->m_memberList->end());
 		visited[candId] = 4;
 		n_connected++;
 
@@ -551,7 +551,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		  neighId   = nextVirt[i];
 		  neighIdx  = gr.Find(neighId);
 		  neighNode = &Ingrid[neighIdx];
-		  cand->insertNewNode(neighNode,1);
+		  cand->insertNewNode(gr, neighNode, cand->m_memberList->end());
 		  visited[neighId] = 4;
 		  n_connected++;
 
@@ -570,7 +570,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		neighId   = v->at(i);
 		neighIdx  = gr.Find(neighId);
 		neighNode = &Ingrid[neighIdx];
-		cand->insertNewNode(neighNode,1);
+		cand-> insertNewNode(gr,neighNode, cand->m_memberList->end());
 		visited[neighId] = 4;
 		n_connected++;
 		lookneigh.push_back(neighId);
@@ -706,101 +706,102 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     if(true){
       
       for(unsigned int l = 0; l < tracklets.size(); l++){
+	
 	PathCandidate &curCand = *(tracklets[l]);
 	debug("Cur track %d Is finished ? %d", curCand.m_id, curCand.m_finished);
-	if (curCand.m_finished == 3) continue;
+	
+	if (curCand.m_finished >= 2 || curCand.m_length < 6 ) continue;
 	
 	int first =  curCand.m_tailNode;
 	int firstIdx = gr.Find(first);
 	GridNode &firstNode = Ingrid[firstIdx];
-	int n_neighfirst = firstNode.m_neighbors.size();
 
 	int last =  curCand.m_headNode;
 	int lastIdx = gr.Find(last);
 	GridNode &lastNode = Ingrid[lastIdx];
-	int n_neighlast = lastNode.m_neighbors.size();
-	info("This cm has first node %d with %d neighbors and last node %d with %d neighbors", first, n_neighfirst, last, n_neighlast);
+	
+	debug("This cm has tail node %d  and head node %d", first, last);;
 
-	/*	  info("left neighbors size %d", curCand.m_lpotNeigh.size());
-		  if(curCand.m_lpotNeigh.size() > 0)
-		  for(int i = 0; i  < curCand.m_lpotNeigh.size(); i++)
-		  debug("%d", curCand.m_lpotNeigh[i]);
-	*/
 
-	std::vector<int> next;
-	int prevId;
+	for(int k = 0; k < 2; k++){
+	  std::vector<int> next;
+	  int prevId;
 
-	if(curCand.m_length > 6 && (curCand.m_headNeigh.size() > 0) && visitedTracks[curCand.m_id] == 0 ){
-	  info("Finding potential continuation with previsou neighbors: ");
+	  if(k == 1 && curCand.m_headNeigh.size() > 0 && curCand.m_toMergeHead.size() == 0 ){
+	  
+	    info("HEAD : Finding potential continuation with previous neighbors in head direction ");
 
-	  for(int i = 0; i  < curCand.m_headNeigh.size(); i++)
-	    debug("%d", curCand.m_headNeigh[i]);
-	  //storing x and y detections in vectors
-	  next.insert(next.end(),  (curCand.m_headNeigh).begin(),  (curCand.m_headNeigh).end());
-	  prevId = curCand.m_headNode;
-	} /*else if (curCand.m_rpotNeigh.size() == 0) {
-	  debug("Let's find potentially close neighbors ?");
-	  for (int i =0; i < activeId.size(); i++){
-	    if (visited[activeId[i]] == 0){
-	      int potId = activeId[i];
-	      int potIdx = gr.Find(i);
-	      GridNode &potNode = Ingrid[potIdx];
-		
-	      double currDist =distanceBetweenTube(lastNode, potNode);
-	      debug("This node %d is at distance %lf", potId, currDist);
+	    for(int i = 0; i  < curCand.m_headNeigh.size(); i++)
+	      debug("%d", curCand.m_headNeigh[i]);
+
+	    next.insert(next.end(),  (curCand.m_headNeigh).begin(),  (curCand.m_headNeigh).end());
+	    prevId = curCand.m_headNode;
+	  
+	  } else if (k == 0 && curCand.m_tailNeigh.size() > 0 && curCand.m_toMergeTail.size() == 0 ){
+	  
+	    info("TAIL : Finding potential continuation with previous neighbors in tail direction ");
+
+	    for(int i = 0; i  < curCand.m_tailNeigh.size(); i++)
+	      debug("%d", curCand.m_tailNeigh[i]);
+
+	    next.insert(next.end(),  (curCand.m_tailNeigh).begin(),  (curCand.m_tailNeigh).end());
+	    prevId = curCand.m_tailNode;
+	  
+	  }
+	    
+	  bool cond = next.size() > 0? true: false;
+	  int potCm = -1;
+	    
+	  std::vector<int>  *trk = curCand.m_memberList;
+
+	  std::vector<double> x;
+	  std::vector<double> y;
+
+	  if(k == 1){
+	    for (int i = trk->size() - MIN(trk->size(), 10) ; i < trk->size() ; i++){
+	      int id = trk->at(i);
+	      int idx = gr.Find(id);
+	      GridNode &node = Ingrid[idx];		
+	      x.push_back(node.m_xDet);
+	      y.push_back(node.m_yDet);
+	    }
+	  } else {
+	    for (int i = MIN(trk->size(), 10) ; i >= 0 ; i--){
+	      int id = trk->at(i);
+	      int idx = gr.Find(id);
+	      GridNode &node = Ingrid[idx];		
+	      x.push_back(node.m_xDet);
+	      y.push_back(node.m_yDet);
 	    }
 	  }
 
-	  }*/
+	  // finding previous direction //
+	  while (cond){
 	    
-	bool cond = next.size() > 0? true: false;
-	int potCm = -1;
+	    GridNode *goodNode;
+	    int goodId = fitNextId(gr, x, y, next, 1);
 	    
-	std::vector<int>  *trk = curCand.m_memberList;
-
-	std::vector<double> x;
-	std::vector<double> y;
-	for (int i = trk->size() - MIN(trk->size(), 10) ; i < trk->size() ; i++){
-	  int id = trk->at(i);
-	  int idx = gr.Find(id);
-	  printf("%d \t", id);
-	  GridNode &node = Ingrid[idx];
-	  // if(node.m_type == GridNode::VIRTUAL_NODE)
-		
-	  x.push_back(node.m_xDet);
-	  y.push_back(node.m_yDet);
-	}
-	printf("\n");
-
-	// finding previous direction //
-	while (cond){
-	  GridNode *goodNode;
-	  int goodId =fitNextId(gr, x, y, next, 1);
-	  
-	  if(goodId != -1){
+	    if (goodId == -1) {
+	      info("No good candidates have been found, stop");
+	      curCand.m_finished = 2;
+	      cond = false;
+	      break;
+	    }
+	    
+	      
 	    int goodIdx = gr.Find(goodId);
 	    goodNode = &Ingrid[goodIdx];
 
 	    if(visited[goodId] == 4){
-	      info(", also this node belongs to this cm %d", goodNode->m_cm[0]);
+	      info("This node already belongs to a CM (%d)", goodNode->m_cm[0]);
 
-	      /* if(std::find((curCand.m_toMerge).begin(), (curCand.m_toMerge).end(), goodNode->m_cm[0]) != (curCand.m_toMerge).end()){
-		debug("We were already planning to merge these tracks, so we stop");
-		
-		cond = false;
-		}*/
-	    
-	      if(potCm == -1)
-		potCm = goodNode->m_cm[0];
-	      else if( potCm != goodNode->m_cm[0]){
-		debug("We were visiting different cm, weird");
-		potCm = goodNode->m_cm[0];
-	      } else {
+	      if(potCm == goodNode->m_cm[0]){
+		  
 		debug("Two nodes in a row belong to the same cm %d, let's stop and merge them later", potCm);
 		cond = false;
-		const auto p = std::find_if(tracklets.begin(), tracklets.end(), [potCm](const PathCandidate *obj){ return obj->m_id == potCm; } );
+		const auto p = std::find_if(tracklets.begin(), tracklets.end(),
+					    [potCm](const PathCandidate *obj){ return obj->m_id == potCm; } );
 		
-		debug("Previous id is %d, belong to %d, head and tail are %d and %d", prevId,(*p)->m_id, (*p)->m_headNode,(*p)->m_tailNode);
 
 		curCand.m_toMergeHead.push_back(potCm);
 
@@ -808,10 +809,13 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		  (*p)->m_toMergeHead.push_back(curCand.m_id);
 		  debug("Merging head to head");
 		}
+		  
 		else if(prevId ==  (*p)->m_tailNode){
 		  (*p)->m_toMergeTail.push_back(curCand.m_id);
 		  debug("Merging head to tail");
-		} else{
+		}
+
+		else {
 		  std::vector<int>::iterator it = std::find(((*p)->m_memberList)->begin(), ((*p)->m_memberList)->end(), prevId);
 		  int index = std::distance(((*p)->m_memberList)->begin(), it);
 		  if(index >= (tracklets[potCm]->m_memberList)->size()/2){
@@ -822,29 +826,28 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		    ( (*p)->m_toMergeTail).push_back(curCand.m_id);
 		  }
 		}
-		visitedTracks[curCand.m_id] = 1;
-		visitedTracks[potCm] = 1;
-	      }
-	    } else
+		break; 
+		//visitedTracks[curCand.m_id] = 1;
+		// visitedTracks[potCm] = 1;
+	      } else {
+		potCm = goodNode->m_cm[0];
+	      }		
+	    } // Visited good id 4
+	    else
 	      potCm = -1;
-	  } else {
-	    info("No good candidates have been found, stop");
-	    curCand.m_finished = 2;
-	    cond = false;
-	  }
 	      
-	  if(cond){
-	    // Find next neighbors
-	    //	int nonVisited = 0;
-	    //std::vector<int> potTracks;
+	  
 	    next.clear();
+	    
 	    for(int i = 0; i < goodNode->m_neighbors.size(); i++){
+	      
 	      int neighId = goodNode->m_neighbors[i];
+	      if(curCand.isInCandidate(neighId)) continue;
+
 	      debug("Node %d has one neig %d, visited %d", goodId, neighId, visited[neighId]);
 
 	      int neighIdx = gr.Find(neighId);
 	      GridNode *neighNode = &Ingrid[neighIdx];
-	      if(curCand.isInCandidate(neighId)) continue;
 
 	      if(neighNode->m_type == GridNode::VIRTUAL_NODE)
 		continue;
@@ -865,17 +868,31 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      debug("Also adding this node %d", goodNode->parent );
 	    }
 
-	    if(next.size() == 0){
+	    if(next.size() > 0) {
+
+	      debug("Let's add this node and continue");
+	      curCand.insertNewNode(gr,goodNode, k == 0? curCand.m_memberList->begin(): curCand.m_memberList->end());
+	      visited[goodId] = 4;
+	      prevId = goodId;
+	      x.erase(x.begin());
+	      y.erase(y.begin());
+	      x.push_back(goodNode->m_xDet);
+	      y.push_back(goodNode->m_yDet);		
+	    }
+
+	    else {
+	      
 	      info("we have no more neighbors");
 	      cond = false;
+	      
 	      if(potCm != -1){
+		
 		debug("Last node added belonged to a cm %d, let's see if we should merge them", potCm);
 		
 		curCand.m_toMergeHead.push_back(potCm);
 
 		const auto p = std::find_if(tracklets.begin(), tracklets.end(), [potCm](const PathCandidate *obj){ return obj->m_id == potCm; } );
 		
-		debug("Previous id is %d, head and tail are %d and %d", goodId,(*p)->m_headNode,(*p)->m_tailNode);
 
 		if(goodId == (*p)->m_headNode){
 		  ((*p)->m_toMergeHead).push_back(curCand.m_id);
@@ -895,170 +912,334 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		    ((*p)->m_toMergeTail).push_back(curCand.m_id) ;
 		  }
 		}
-		visitedTracks[curCand.m_id] = 1;
-		visitedTracks[potCm] = 1;
+		//	visitedTracks[curCand.m_id] = 1;
+		//	visitedTracks[potCm] = 1;
 	      } else {
 		info("No potential neighbors ?");
 		curCand.m_finished = 2;
 	      }
 		     
-	    } else {
-
-	      debug("Let's add this node and continue");
-	      curCand.insertNewNode(goodNode, 1);
-	      visited[goodId] = 4;
-	      prevId = goodId;
-	      x.erase(x.begin());
-	      y.erase(y.begin());
-	      x.push_back(goodNode->m_xDet);
-	      y.push_back(goodNode->m_yDet);
-	    }
+	    } // next,size() == 0
 		
-	  }
+	  
 	      
-	  //   cond = false;
-	} // WHILE COND
-	
-      } // right neighbors !
-    } // if size if large enough
+	    //   cond = false;
+	  } // WHILE COND
+	} // for k 2
+      } // for k trackets
+      
+    } // if true
 	
 
 
-    // Merging potential candidates
+
+
+    // Assigning remaining nodes
+
+    for(unsigned int n = 0; n < nactiveReal; ++n) {
+	
+      int curId      	= activeId[n];
+      std::vector< int > toAdd;
+      std::vector< int > possiCand;
+      std::vector< double > distToCand;
+      std::vector< int > nodeId;
+      std::vector< int > curr;
+      std::vector< int > next;
+
+	
+      if(visited[curId] != 0) continue;
+	
+      info("Remaining node %d", curId);
+      int curIdx = gr.Find(curId);
+      GridNode *currentNode = &Ingrid[curIdx];
+	
+      int n_neighbors = currentNode->m_neighbors.size();
+      if(n_neighbors == 0){
+	debug("LOST CHILD");
+	visited[curId] = 4;
+	continue;
+      }
+	
+      curr.insert(curr.end(),  currentNode->m_neighbors.begin(),   currentNode->m_neighbors.end());
+      toAdd.push_back(curId);
+
+      bool cond = true;
+	
+      while(cond){
+	
+	std::sort (curr.begin(), curr.end());
+	    
+	for (int i = 0; i < curr.size(); i++){
+	  int neighId = curr[i];
+	  int neighIdx = gr.Find(neighId);
+	  GridNode *neighNode = &Ingrid[neighIdx];
+	  
+	  // debug("Neighbor %d", neighId);
+	  
+	  if (visited[neighId] == 4){
+	    double dist = distanceBetweenTube(*currentNode, *neighNode);
+	    info("Neigh %d, One possible CM is %d, tube distance %lf",neighId, neighNode->m_cm[0], dist);
+	    possiCand.push_back(neighNode->m_cm[0]);
+	    distToCand.push_back(dist);
+	    nodeId.push_back(neighId);
+	  }
+	  else if(!(std::find(toAdd.begin(), toAdd.end(),neighId)!= toAdd.end())){	      
+	    toAdd.push_back(neighId);
+	    next.push_back(neighId);
+	    info("Node %d added for next loop", neighId);
+	  }
+	    
+	  //std::string dummy;
+	  //std::cout << "Enter to continue..." << std::endl;
+	  //std::getline(std::cin, dummy);
+	}
+
+	if(possiCand.size() == 1){
+	  debug("We found a path candidate for this node");
+	  int potCm = possiCand[0];
+	  const auto p = std::find_if(tracklets.begin(), tracklets.end(), [potCm](const PathCandidate *obj){ return obj->m_id == potCm; } );
+	  std::vector<int>::iterator it = std::find(((*p)->m_memberList)->begin(), ((*p)->m_memberList)->end(), nodeId[0]);
+
+	  (*p)->insertNewNode(gr,currentNode, it+1);
+	  visited[curId]= 4;
+	  cond = false;
+	}
+
+	    
+	else if (possiCand.size() > 1) {
+	  debug("We found several path candidates for this node");
+	  std::vector<double>::iterator result = std::min_element(distToCand.begin(),distToCand.end());
+	  int minEltIdx = std::distance(distToCand.begin(), result);
+	  // int minElement = *std::min_element(v.begin(), v.end());
+	  debug("Node %d is closer with dist %lf and belongs to cm %d", nodeId[minEltIdx], distToCand[minEltIdx], possiCand[minEltIdx]);
+	  int potCm = possiCand[minEltIdx];
+	  const auto p = std::find_if(tracklets.begin(), tracklets.end(), [potCm](const PathCandidate *obj){ return obj->m_id == potCm; } );
+	  debug("HERE");
+	  std::vector<int>::iterator it = std::find(((*p)->m_memberList)->begin(), ((*p)->m_memberList)->end(), nodeId[minEltIdx]);
+	  int EltIdx = std::distance(((*p)->m_memberList)->begin(), it);
+
+
+	  (*p)->insertNewNode(gr,currentNode, it);
+	  visited[curId]= 4;
+	  cond = false;
+	}
+
+	    
+	else if (next.size() > 0){
+	  debug("WELL let's contiinue");
+	  curr.clear();
+	  curr.insert(curr.end(),  next.begin(),   next.end());
+	  next.clear();
+	}
+
+	else {
+	  debug("Seems that no neighbors belongs to track?, let's create a new one");
+	  PathCandidate *cand 	= new PathCandidate();// Create a new candidate
+	  cand->m_id 		= candidateId++;// Set id
+	  cand->m_tailNode 	        = curId;
+	  visited[curId] 		= 4;
+
+	  for (int i = 0; i < toAdd.size(); i++){
+	    int nId = toAdd[i];
+	    int nIdx = gr.Find(nId);
+	    GridNode *nNode = &Ingrid[nIdx];
+	    cand->insertNewNode(gr,nNode, cand->m_memberList->end());
+	    visited[nId] = 4;
+	  }
+
+	  info("Pushing cm %d: \n               length is %d, \n     tail node %d \n     head node %d \n       Min layer %d, \n              Max layer %d, \n               IsOnSectorLimit %d, \n               Finished ? %d. ", cand->m_id, cand->m_length, cand->m_tailNode, cand->m_headNode,cand->m_minLayer, cand->m_maxLayer, cand->m_isOnSectorLimit, cand->m_finished);
+
+	  tracklets.push_back(cand);
+	  cond = false;
+	      
+	}	      
+	     	    	    
+      } // WHILE COND
+    } // for nodes
+  
+
+    
+    if(true){
+
+    
+      // Merging potential candidates
 
     for(unsigned int l = 0; l < tracklets.size(); l++){
+      
       PathCandidate &curCand = *(tracklets[l]);
       debug("Current tracklet %d", curCand.m_id);
+      
       if (curCand.m_finished ==  3){
 	info("This CM is either finished or has no further close neighbors");
 	//check that it has not merging candidates
 	if (tracklets[l]->m_toMergeHead.size() != 0  ||tracklets[l]->m_toMergeTail.size() != 0)
-	  debug("This looks fiinished but has to be merged ???? ");
+	  debug("This looks finished but has to be merged ???? ");
 	else
 	  debug("No potential merging candidates, we're done");
 	curCand.m_isValid = 1;
 	
-      } else if (curCand.m_finished ==  3){
+      }
+      else if (curCand.m_finished ==  2){
 	info("This CM needs to be checked");
 	curCand.m_isValid = 1;
-
       }
+
+      else if (curCand.m_isMerged == 1){
+	info("This CM has already been merged");
+	curCand.m_isValid = 0;
+      }
+
       else {
  
 	int sizeMergeHead =  curCand.m_toMergeHead.size();
 	int sizeMergeTail =  curCand.m_toMergeTail.size();
 
+	if(sizeMergeHead == 0 && sizeMergeTail == 0)
+	  error("NEW CAND FOR NOTHIIIING");
+	
 	//int idToMergeHead = curCand.m_toMergeHead;
 	//int idToMergeTail = curCand.m_toMergeTail;
 
-	if(sizeMergeHead != 0)
-	  debug("Tracklets %d needs to be merged in head with %d trackelts", curCand.m_id, sizeMergeHead);
-	else if (sizeMergeTail != 0){	 
-	  debug("Tracklets %d needs to be merged in head with %d trackelts", curCand.m_id, sizeMergeTail);
-	} else
-	  error("ISSUE");
-	int idToMerge;
-
-	if(sizeMergeHead != 0 || sizeMergeTail != 0){
-	if(sizeMergeHead == 1){
-	   idToMerge = curCand.m_toMergeHead[0];
-	  int end = 0;
-	  debug("Head merging %d and %d",  curCand.m_id, idToMerge);
-	  const auto p = std::find_if(tracklets.begin(), tracklets.end(), [idToMerge](const PathCandidate *obj){ return obj->m_id == idToMerge; } );
-	  PathCandidate &mergeCand = *(*p);
-	  if(std::find(mergeCand.m_toMergeHead.begin(), mergeCand.m_toMergeHead.end(), curCand.m_id) != mergeCand.m_toMergeHead.end()) {
-	    debug("Merging head with head");
-	    for(int i =  (mergeCand.m_memberList)->size()-1; i >=0; i--){
-	      int curid = (mergeCand.m_memberList)->at(i);
-	      debug("id %d", curid);
-	      if(curCand.isInCandidate(curid)) continue;
-	      // debug("id %d", curid);
-
-	      int curidx = gr.Find(curid);
-	      GridNode* node = &Ingrid[curidx];
-	      curCand.insertNewNode(node, 1);
-	    }
-	    (mergeCand.m_toMergeHead).erase(std::remove((mergeCand.m_toMergeHead).begin(), (mergeCand.m_toMergeHead).end(),curCand.m_id), (mergeCand.m_toMergeHead).end());
-
-
-	    if(mergeCand.m_toMergeTail.size() != 0)
-	      debug("ONE MORE TO PUSH");
-
-	  } else {
-	    debug("Merging head with tail");
-	    for(int i =  0; i < mergeCand.m_memberList->size(); i++){
-	      int curid = mergeCand.m_memberList->at(i);
-	      if(curCand.isInCandidate(curid)) continue;
-	      int curidx = gr.Find(curid);
-	      GridNode* node = &Ingrid[curidx];
-	      curCand.insertNewNode(node, 1);
-	    }
-	    (mergeCand.m_toMergeTail).erase(std::remove((mergeCand.m_toMergeTail).begin(), (mergeCand.m_toMergeTail).end(),curCand.m_id), (mergeCand.m_toMergeTail).end());
-	    if(mergeCand.m_toMergeHead.size() != 0)
-	      debug("ONE MORE TO PUSH");
-	  }
-	  mergeCand.m_isMerged = 1;
-	  mergeCand.m_isValid = 0;
-
-	  (curCand.m_toMergeHead).erase(std::remove((curCand.m_toMergeHead).begin(), (curCand.m_toMergeHead).end(),mergeCand.m_id), (curCand.m_toMergeHead).end());
-
+	PathCandidate *newCand 	= new PathCandidate();// Create a new candidate
+	newCand->m_id 		= candidateId++;// Set id
+	newCand->m_tailNode 	= curCand.m_tailNode;
+	//	cand->m_memberList      
+	for(int i = 0; i < (curCand.m_memberList)->size(); i++){
+	  int curid = (curCand.m_memberList)->at(i);
+	  int curidx = gr.Find(curid);
+	  GridNode* node = &Ingrid[curidx];
+	  newCand->insertNewNode(gr,node,newCand->m_memberList->end());
 	}
+
+	int curCandId =  curCand.m_id;
+
+	if(sizeMergeHead != 0){
+
+	  int idToMerge = curCand.m_toMergeHead[0];
+	  bool continu = true;
 	  
-	if(sizeMergeTail == 1){
-	  idToMerge = curCand.m_toMergeTail[0];
-	  int end = 0;
-	  debug("Tail merging %d and %d",  curCand.m_id, idToMerge);
+	  while(continu){
+	    
+	    debug("Tracklets %d needs to be merged in head with %d", curCand.m_id, idToMerge);
+	    const auto p = std::find_if(tracklets.begin(), tracklets.end(),
+					[idToMerge](const PathCandidate *obj){ return obj->m_id == idToMerge; } );
+	    
+	    PathCandidate &mergeCand = *(*p);
+	  
+	    if(std::find(mergeCand.m_toMergeHead.begin(), mergeCand.m_toMergeHead.end(), curCandId) != mergeCand.m_toMergeHead.end()) {
 
-	  const auto p = std::find_if(tracklets.begin(), tracklets.end(), [idToMerge](const PathCandidate *obj){ return obj->m_id == idToMerge; } );
-	  PathCandidate &mergeCand = *(*p);
-	  if(std::find(mergeCand.m_toMergeHead.begin(), mergeCand.m_toMergeHead.end(), curCand.m_id) != mergeCand.m_toMergeHead.end()) {
-	    debug("Merging tail with head");
-	    for(int i =  mergeCand.m_memberList->size()-1; i >=0; i--){
-	      int curid = mergeCand.m_memberList->at(i);
-	      if(curCand.isInCandidate(curid)) continue;
-	      int curidx = gr.Find(curid);
-	      GridNode* node = &Ingrid[curidx];
-	      curCand.insertNewNode(node, 0);
+	      
+	      debug("Merging head with head");
+	    
+	      addTracklets(gr, newCand, mergeCand, 1, 1);
+	    
+	      // (mergeCand.m_toMergeHead).erase(std::remove((mergeCand.m_toMergeHead).begin(), (mergeCand.m_toMergeHead).end(), curCandId), (mergeCand.m_toMergeHead).end());
+
+	      if(mergeCand.m_toMergeTail.size() > 0){
+		curCandId = mergeCand.m_id;
+		idToMerge = mergeCand.m_toMergeTail[0];
+		debug("ONE MORE TO PUSH %d", idToMerge);
+	      } else
+		continu = false;
+
+	      
+	    } else {
+	      
+	      debug("Merging head with tail");
+	    
+	      addTracklets(gr, newCand, mergeCand, 1, 0);
+
+	    
+	      //(mergeCand.m_toMergeTail).erase(std::remove((mergeCand.m_toMergeTail).begin(), (mergeCand.m_toMergeTail).end(),curCand.m_id), (mergeCand.m_toMergeTail).end());
+	    
+	      if(mergeCand.m_toMergeHead.size()){
+		curCandId = mergeCand.m_id;
+
+		idToMerge = mergeCand.m_toMergeHead[0];
+		debug("ONE MORE TO PUSH %d", idToMerge);
+	      } else
+		continu = false;
+
 	    }
-	    (mergeCand.m_toMergeHead).erase(std::remove((mergeCand.m_toMergeHead).begin(), (mergeCand.m_toMergeHead).end(),curCand.m_id), (mergeCand.m_toMergeHead).end());
+	  } // while continu
+	} // HEAD MERGING
 
-	    if(mergeCand.m_toMergeTail.size() != 0)
-	      debug("ONE MORE TO PUSH");
+	if(sizeMergeTail != 0){
 
-	  } else {
-	    debug("Merging tail with tail");
-	    for(int i =  0; i < mergeCand.m_memberList->size(); i++){
-	      int curid = mergeCand.m_memberList->at(i);
-	      if(curCand.isInCandidate(curid)) continue;
-	      int curidx = gr.Find(curid);
-	      GridNode* node = &Ingrid[curidx];
-	      curCand.insertNewNode(node, 1);
+	  int idToMerge = curCand.m_toMergeTail[0];
+	  bool continu = true;
+	  
+	  while(continu){
+
+	    debug("Tracklets %d needs to be merged in tail with %d", curCand.m_id, idToMerge);
+
+	    const auto p = std::find_if(tracklets.begin(), tracklets.end(),
+					[idToMerge](const PathCandidate *obj){ return obj->m_id == idToMerge; } );
+	    
+	    PathCandidate &mergeCand = *(*p);
+	  
+	    if(std::find(mergeCand.m_toMergeHead.begin(), mergeCand.m_toMergeHead.end(), curCandId) != mergeCand.m_toMergeHead.end()) {
+
+	      
+	      debug("Merging tail with head");
+	    
+	      addTracklets(gr, newCand, mergeCand, 0, 1);
+	    
+	      // (mergeCand.m_toMergeHead).erase(std::remove((mergeCand.m_toMergeHead).begin(), (mergeCand.m_toMergeHead).end(), curCandId), (mergeCand.m_toMergeHead).end());
+
+	      if(mergeCand.m_toMergeTail.size() > 0 ){
+		curCandId = mergeCand.m_id;
+		idToMerge = mergeCand.m_toMergeTail[0];
+		debug("ONE MORE TO PUSH %d", idToMerge);
+	      } else
+		continu = false;
+
+	      
+	    } else {
+	      
+	      debug("Merging head with tail");
+	    
+	      addTracklets(gr, newCand, mergeCand, 0, 0);
+
+	    
+	      //(mergeCand.m_toMergeTail).erase(std::remove((mergeCand.m_toMergeTail).begin(), (mergeCand.m_toMergeTail).end(),curCand.m_id), (mergeCand.m_toMergeTail).end());
+	    
+	      if(mergeCand.m_toMergeHead.size() > 0){
+		curCandId = mergeCand.m_id;
+
+		idToMerge = mergeCand.m_toMergeHead[0];
+		debug("ONE MORE TO PUSH %d", idToMerge);
+	      } else
+		continu = false;
+
 	    }
-	    (mergeCand.m_toMergeTail).erase(std::remove((mergeCand.m_toMergeTail).begin(), (mergeCand.m_toMergeTail).end(),curCand.m_id), (mergeCand.m_toMergeTail).end());
-	    if(mergeCand.m_toMergeHead.size() != 0)
-	      debug("ONE MORE TO PUSH");
-	  }
-	  mergeCand.m_isMerged = 1;
-	  mergeCand.m_isValid = 0;
-
-	  (curCand.m_toMergeTail).erase(std::remove((curCand.m_toMergeTail).begin(), (curCand.m_toMergeTail).end(),mergeCand.m_id), (curCand.m_toMergeTail).end());
-	}
-	curCand.m_isValid = 1;
-      } // HEAD MERGED
-      }
+	  } // while continu
+	} // Tail MERGING
+	  
+	//	else
+	//	  error("ISSUE, no one to merge with ?");
 	
-    }
+	curCand.m_isValid = 0;
+	curCand.m_isMerged = 1;
+	newCand->m_isValid = 1;
+	newCand->m_finished = 3;
+	
+	info("Pushing new merged cm %d: \n               length is %d, \n     tail node %d \n     head node %d \n       Min layer %d, \n              Max layer %d, \n               IsOnSectorLimit %d, \n               Finished ? %d. ", newCand->m_id, newCand->m_length, newCand->m_tailNode, newCand->m_headNode,newCand->m_minLayer, newCand->m_maxLayer, newCand->m_isOnSectorLimit, newCand->m_finished);
+
+	tracklets.push_back(newCand);
+      } // ELSE NOT FINISHED
+
+    } // FOR TRACKLETS
     // }
-	  
+    }	  
   
     for(unsigned int l = 0; l < tracklets.size(); l++){
       PathCandidate &curCand = *(tracklets[l]);
       std::set<int> const *trk = curCand.m_memberIdSet;
+      
        if(curCand.m_isValid) {
-      std::set<int> *comp = new std::set<int>((*trk));
-	    
-      connectedComp->push_back(comp);
-
+	 std::set<int> *comp = new std::set<int>((*trk));	    
+	 connectedComp->push_back(comp);    
       }
     }
     

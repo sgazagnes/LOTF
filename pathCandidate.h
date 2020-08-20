@@ -13,6 +13,7 @@
 #include "auxiliaryfunctions.h"
 #include "utilfunctions.h"
 #include "gridNode.h"
+#include "CoordGrid.h"
 
 //_________________________  PathCandidate ________________
 struct PathCandidate{
@@ -31,7 +32,7 @@ struct PathCandidate{
 
   // Member fuctions
   void updateHeadAndTailNodes();
-  void insertNewNode(GridNode *node, int direction);
+  void insertNewNode(CoordGrid &gr, GridNode *node,  std::vector<int>::iterator it);
   bool compareTwoPathsLength(PathCandidate *a, PathCandidate *b) ;
 
   inline bool isInCandidate(int nodeId) const;
@@ -79,7 +80,7 @@ struct PathCandidate{
   int    m_minLayer;// Layer number of min//id of node with min layer
 
   int    m_lastNodeVirtual;//id of node with min layer
-  int    m_lastNodeVirtualId;//id of node with min layer
+  // int    m_lastNodeVirtualId;//id of node with min layer
 
   int    m_finished;
   bool   m_isOnSectorLimit;
@@ -87,11 +88,17 @@ struct PathCandidate{
 
   int    m_headNode;
   int    m_tailNode;
+
+  int    m_seenVirtual;//id of node with min layer
+  int    m_lastVirtual;
   std::vector<unsigned int>	 m_toMergeHead;
   std::vector<unsigned int> 	 m_toMergeTail;
 
   std::vector<int> m_headNeigh;
   std::vector<int> m_tailNeigh;
+
+  std::vector<unsigned int> 	 m_listSkewed;
+
   /* Shape and spread parameters */
   
   std::vector< float > m_meanVector;
