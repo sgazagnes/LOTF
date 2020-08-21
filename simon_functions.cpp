@@ -382,7 +382,7 @@ int returnDirection(double prev, double cur){
 
 /* fitNextId */
 
-int fitNextId(CoordGrid &gr, std::vector<double> &x, std::vector<double> &y, std::vector<int> &next, int method){
+int fitNextId(CoordGrid &gr, std::vector<double> &x, std::vector<double> &y, std::vector<int> &next, int curLayer, int layerCurDir, int method){
   
   std::vector< GridNode > &Ingrid = gr.m_grid;
   int goodId     = -1;
@@ -414,6 +414,8 @@ int fitNextId(CoordGrid &gr, std::vector<double> &x, std::vector<double> &y, std
       int curId = next[i];
       int curIdx = gr.Find(curId);
       GridNode *node = &Ingrid[curIdx];
+      int    nextLayer = node->m_Layer;
+      int    layerNewDir =  nextLayer - curLayer;
       double xdet = (double) node->m_xDet;
       double ydet = (double) node->m_yDet;
 
@@ -466,11 +468,11 @@ int fitNextId(CoordGrid &gr, std::vector<double> &x, std::vector<double> &y, std
       int newxDir = returnDirection(  x[x.size()-1], xdet);
       int newyDir = returnDirection(  y[y.size()-1], ydet);
 
-      debug("Distance between %d and fitted line is %lf, xdir %d, ydir %d", curId, currDist, newxDir, newyDir);
+      debug("Distance between %d and fitted line is %lf, xdir %d, ydir %d, curlayer %d, newlayer %d", curId, currDist, newxDir, newyDir, layerCurDir, layerNewDir);
 
 		
       if(minDist > currDist){
-	if(labs(newxDir - xDir) > 1 || labs(newyDir - yDir) > 1){
+	if(labs(newxDir - xDir) > 1 || labs(newyDir - yDir) > 1 || labs(layerNewDir - layerCurDir) > 1) {
 	  debug("Let's avoid going back if we can");
 	} else{
 	  minDist = currDist;		  

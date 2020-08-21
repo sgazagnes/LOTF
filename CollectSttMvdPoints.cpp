@@ -699,7 +699,7 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, TFile &OutFile,
   OutTxtFile.open ("HitCoordinates.csv");
   
   if (OutTxtFile.is_open()) {
-    OutTxtFile << format;
+    // OutTxtFile << format;
     OutTxtFile << header;
 
     // Write

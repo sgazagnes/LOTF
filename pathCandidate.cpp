@@ -208,7 +208,9 @@ void PathCandidate::insertNewNode(CoordGrid &gr, GridNode *node,  std::vector<in
   int layer = node->m_Layer;
   std::vector< GridNode > &Ingrid  = gr.m_grid;
 
-  
+  m_memberIdSet->insert(id);
+   m_memberList->insert(it,id);
+
 
   (node->m_cm).push_back(m_id);
 
@@ -219,8 +221,8 @@ void PathCandidate::insertNewNode(CoordGrid &gr, GridNode *node,  std::vector<in
     m_maxLayer = MAX(layer, m_maxLayer);
     m_minLayer = MIN(layer, m_minLayer);
     //m_lastNodeVirtual = false;
-    m_memberIdSet->insert(id);
-    m_memberList->insert(it,id);
+    //m_memberIdSet->insert(id);
+    //  m_memberList->insert(it,id);
     if(node->m_type == GridNode::STT_TYPE_SKEW  && m_seenVirtual )
        m_listSkewed.push_back(id);
     
@@ -231,30 +233,42 @@ void PathCandidate::insertNewNode(CoordGrid &gr, GridNode *node,  std::vector<in
       // Correcting skewed
       int virtIdx = gr.Find(m_lastVirtual);
       GridNode &lastVirtNode = Ingrid[virtIdx];
-      if(layer != lastVirtNode.m_Layer){
-	float x_diff = node->m_x - lastVirtNode.m_x;
-	float y_diff = node->m_y - lastVirtNode.m_y;
-	x_diff /= static_cast<float>(m_listSkewed.size()+1);
-	y_diff /= static_cast<float>(m_listSkewed.size()+1);
-	/*	if( node->m_x > m_lastVirtual.m_x ) {
-	  x_diff *= -1;
-	}
-	if( node->m_y > m_lastVirtual.m_y ) {
-	  y_diff *= -1;
-	  }*/
-	float xInc = lastVirtNode.m_x + x_diff;
-	float yInc = lastVirtNode.m_y + y_diff;
-	/* Correct xy-coordinates of the skewed nodes */
-	for(size_t m = 0; m < m_listSkewed.size(); ++m) {
-	  int idx = gr.Find(m_listSkewed[m]);
-	  GridNode &skewedToproc = Ingrid[idx];
+     
+      float x_diff = node->m_x - lastVirtNode.m_x;
+      float y_diff = node->m_y - lastVirtNode.m_y;
+      float z_diff = node->m_z - lastVirtNode.m_z;
+
+      x_diff /= static_cast<float>(m_listSkewed.size()+1);
+      y_diff /= static_cast<float>(m_listSkewed.size()+1);
+      z_diff /= static_cast<float>(m_listSkewed.size()+1);
+
+      /*	if( node->m_x > m_lastVirtual.m_x ) {
+		x_diff *= -1;
+		}
+		if( node->m_y > m_lastVirtual.m_y ) {
+		y_diff *= -1;
+		}*/
+      float xInc = lastVirtNode.m_x + x_diff;
+      float yInc = lastVirtNode.m_y + y_diff;
+      float zInc = lastVirtNode.m_z + z_diff;
+
+      /* Correct xy-coordinates of the skewed nodes */
+      for(size_t m = 0; m < m_listSkewed.size(); ++m) {
+	int idx = gr.Find(m_listSkewed[m]);
+	GridNode &skewedToproc = Ingrid[idx];
+	if(layer != lastVirtNode.m_Layer){
 	  skewedToproc.m_xDet = xInc;
 	  skewedToproc.m_yDet = yInc;
-	  printf("New node %d with %lf and %lf \n",m_listSkewed[m], skewedToproc.m_xDet ,  skewedToproc.m_yDet); 
-	  xInc += x_diff;
-	  yInc += y_diff;
 	}
+	skewedToproc.m_z_Det = zInc;
+
+	printf("New node %d with %lf and %lf \n",m_listSkewed[m], skewedToproc.m_xDet ,  skewedToproc.m_yDet); 
+	xInc += x_diff;
+	yInc += y_diff;
+	//	  zInc += z_diff;
+
       }
+      
       m_listSkewed.clear();
     }
     m_seenVirtual = true;

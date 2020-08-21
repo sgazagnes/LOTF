@@ -45,7 +45,7 @@ double *polyFit(std::vector<double>  x, std::vector<double>  y);
 
 int returnDirection(double prev, double cur);
 
-int fitNextId(CoordGrid &gr, std::vector<double> &x, std::vector<double> &y, std::vector<int> &next, int method);
+int fitNextId(CoordGrid &gr, std::vector<double> &x, std::vector<double> &y, std::vector<int> &next, int curLayer, int layerCurDir, int method);
 
 double distanceBetweenTube(GridNode & tubeA, GridNode & tubeB);
 

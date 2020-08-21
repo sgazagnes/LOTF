@@ -3133,12 +3133,12 @@ void TrackZ_CoordinatesDistNorm(CoordGrid &hitMap, std::vector<TrackObject*>* tr
       GridNode const &node = Ingrid[Node_Index];
       // Doe we really need to modify virtuals as well?
       //if( node.m_type != GridNode::VIRTUAL_NODE ) {
-      totaldist += sqrt( (node.m_x - prevPoint.m_x) * (node.m_x - prevPoint.m_x) +
-			 (node.m_y - prevPoint.m_y) * (node.m_y - prevPoint.m_y) );
+      totaldist += sqrt( (node.m_xDet - prevPoint.m_x) * (node.m_xDet - prevPoint.m_x) +
+			 (node.m_yDet - prevPoint.m_y) * (node.m_yDet - prevPoint.m_y) );
       //}
       // Update prevPoint
-      prevPoint.m_x = node.m_x;
-      prevPoint.m_y = node.m_y;
+      prevPoint.m_x = node.m_xDet;
+      prevPoint.m_y = node.m_yDet;
     }
     //std::cout << " Total dist is " << totaldist << std::endl;
     // Process Queue
@@ -3150,15 +3150,15 @@ void TrackZ_CoordinatesDistNorm(CoordGrid &hitMap, std::vector<TrackObject*>* tr
       GridNode &node = Ingrid[nodeIndex];
 
       // We do not need to modify virtuals
-      Node_distance += sqrt( (node.m_x - prevNodeCoord.m_x) * (node.m_x - prevNodeCoord.m_x) +
-			     (node.m_y - prevNodeCoord.m_y) * (node.m_y - prevNodeCoord.m_y) );
+      Node_distance += sqrt( (node.m_xDet - prevNodeCoord.m_x) * (node.m_xDet - prevNodeCoord.m_x) +
+			     (node.m_yDet - prevNodeCoord.m_y) * (node.m_yDet - prevNodeCoord.m_y) );
       
       if( node.m_type != GridNode::VIRTUAL_NODE) {
 	// node.m_z_Det = (Node_distance / totaldist) * lastVirtualZCoord;
 	node.m_z_Det = (Node_distance / totaldist) * maxVirtZVal;
       }
-      prevNodeCoord.m_x = node.m_x;
-      prevNodeCoord.m_y = node.m_y;
+      prevNodeCoord.m_x = node.m_xDet;
+      prevNodeCoord.m_y = node.m_yDet;
     }
 #else
 #if(Z_DETERMINATION_DEBUG > 0)

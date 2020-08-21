@@ -353,7 +353,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	cond = sortNeighbors(gr, currentNode, prevLayer, sameLayer, nextLayer, nextVirt, visited,  &dir);
 	
 	if(cond == false){
-	  info("Cond is false, we go to next node");
+	  // info("Cond is false, we go to next node");
 	  resetLists(visited, prevLayer, sameLayer, nextLayer);
 	  continue;
 	}
@@ -374,13 +374,13 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 	    if (dir == UP){
 	      v = &nextLayer;
-	      info("Going up from node %d to node %d", curId, v->at(0));
+	      //  info("Going up from node %d to node %d", curId, v->at(0));
 	    } else if (dir == DOWN){
 	      v = &prevLayer;
-	      info("Going down from node %d to node %d", curId, v->at(0));
+	      //  info("Going down from node %d to node %d", curId, v->at(0));
 	    } else {
 	      v = &sameLayer;
-	      info("Going same level from node %d to node %d", curId, v->at(0));
+	      //  info("Going same level from node %d to node %d", curId, v->at(0));
 	    }
 	     
 	    
@@ -443,7 +443,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 	    if( !areAdjacent(gr, v) ){
 	      
-	      info("Not all further nodes are adjacent, we must stop");
+	      //info("Not all further nodes are adjacent, we must stop");
 	      cond = false;
 	      
 	    } else { 
@@ -472,7 +472,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		
 		for (int j = 0; j < v->size(); j++){
 		  
-		  debug("Connection between %d and %d ?", neighId, v->at(j));
+		  //	  debug("Connection between %d and %d ?", neighId, v->at(j));
 
 		  if(v->at(j) == neighId || (neighNode->IsNeighboring(v->at(j))))
 		    haveNeigh = 1;
@@ -483,7 +483,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 		
 		if(haveNeigh == 0){
-		  debug("Not neighbor found for %d", neighId);
+		  //  debug("Not neighbor found for %d", neighId);
 		  cond = false;
 		  break;
 		}
@@ -532,10 +532,10 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  else if (n_neighbors > 1) {
 
 	    if (dir == UP){	      
-	      info("Next nodes are up and we have %d of them", nextLayer.size());
+	      //   info("Next nodes are up and we have %d of them", nextLayer.size());
 	      v = &nextLayer;
 	    }  else if (dir == DOWN){
-	      info("NExt nodes are down and we have %d of them", prevLayer.size());
+	      //   info("NExt nodes are down and we have %d of them", prevLayer.size());
 	      v = &prevLayer;
 	    } else
 	      error("WHAT IS THE DIRECTION NOW?");
@@ -591,7 +591,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      curIdx      = gr.Find(curId);
 	      currentNode = &Ingrid[curIdx];
 	      curLayer    = currentNode->m_Layer;
-	      info("New current node is %d, looking for neighbors of %d nodes", curId, lookneigh.size());
+	      // info("New current node is %d, looking for neighbors of %d nodes", curId, lookneigh.size());
 	      
 	      n_neighbors = 0;
 	      
@@ -634,7 +634,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      
 	      if((cand->m_minLayer == 0 && cand->m_maxLayer > 21) || (firstNode->m_LayerLimit == 1 && lastNode->m_LayerLimit == 1)){
 		 
-		info("track goes through all layers ormakes a loop, likily finished");		 
+		info("track goes through all layers or makes a loop, likily finished");		 
 		cand->m_finished = 3;
 		 
 	      } else if(abs(currentNode->m_SectorLimit) > 0 || cand->m_isOnSectorLimit){
@@ -656,7 +656,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 	  	  
 	  if(cond == false){
-	    info("We are going out of the boucle");
+	    //    info("We are going out of the boucle");
 
 	    for (int i = 0; i < sameLayer.size(); i++)
 	      cand->m_headNeigh.push_back(sameLayer[i]);
@@ -708,7 +708,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
       for(unsigned int l = 0; l < tracklets.size(); l++){
 	
 	PathCandidate &curCand = *(tracklets[l]);
-	debug("Cur track %d Is finished ? %d", curCand.m_id, curCand.m_finished);
+	debug("Cur track %d Is finished ? %d, length %d", curCand.m_id, curCand.m_finished,curCand.m_length  );
 	
 	if (curCand.m_finished >= 2 || curCand.m_length < 6 ) continue;
 	
@@ -720,13 +720,14 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	int lastIdx = gr.Find(last);
 	GridNode &lastNode = Ingrid[lastIdx];
 	
-	debug("This cm has tail node %d  and head node %d", first, last);;
+	debug("This cm has tail node %d  and head node %d, size head neigh %d tail %d", first, last,curCand.m_headNeigh.size() , curCand.m_tailNeigh.size());
 
 
 	for(int k = 0; k < 2; k++){
 	  std::vector<int> next;
-	  int prevId;
-
+	  int prevId, curLayer, layerCurDiff;
+	  GridNode *prevNode;
+	  
 	  if(k == 1 && curCand.m_headNeigh.size() > 0 && curCand.m_toMergeHead.size() == 0 ){
 	  
 	    info("HEAD : Finding potential continuation with previous neighbors in head direction ");
@@ -736,7 +737,9 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 	    next.insert(next.end(),  (curCand.m_headNeigh).begin(),  (curCand.m_headNeigh).end());
 	    prevId = curCand.m_headNode;
-	  
+	    prevNode = &lastNode;
+	    curLayer = lastNode.m_Layer;
+	    
 	  } else if (k == 0 && curCand.m_tailNeigh.size() > 0 && curCand.m_toMergeTail.size() == 0 ){
 	  
 	    info("TAIL : Finding potential continuation with previous neighbors in tail direction ");
@@ -746,8 +749,11 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 	    next.insert(next.end(),  (curCand.m_tailNeigh).begin(),  (curCand.m_tailNeigh).end());
 	    prevId = curCand.m_tailNode;
-	  
-	  }
+	    prevNode = &firstNode;
+	    curLayer = firstNode.m_Layer;
+
+	  } else
+	    continue;
 	    
 	  bool cond = next.size() > 0? true: false;
 	  int potCm = -1;
@@ -756,6 +762,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 	  std::vector<double> x;
 	  std::vector<double> y;
+	  std::vector<int> virt;
 
 	  if(k == 1){
 	    for (int i = trk->size() - MIN(trk->size(), 10) ; i < trk->size() ; i++){
@@ -764,6 +771,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      GridNode &node = Ingrid[idx];		
 	      x.push_back(node.m_xDet);
 	      y.push_back(node.m_yDet);
+	      if(i == trk->size() -2)
+		layerCurDiff = curLayer - node.m_Layer;
 	    }
 	  } else {
 	    for (int i = MIN(trk->size(), 10) ; i >= 0 ; i--){
@@ -772,6 +781,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      GridNode &node = Ingrid[idx];		
 	      x.push_back(node.m_xDet);
 	      y.push_back(node.m_yDet);
+	      if(i == trk->size() -1)
+		layerCurDiff = curLayer - node.m_Layer;
 	    }
 	  }
 
@@ -779,7 +790,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  while (cond){
 	    
 	    GridNode *goodNode;
-	    int goodId = fitNextId(gr, x, y, next, 1);
+	    int goodId = fitNextId(gr, x, y, next, curLayer, layerCurDiff, 1);
 	    
 	    if (goodId == -1) {
 	      info("No good candidates have been found, stop");
@@ -849,8 +860,10 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      int neighIdx = gr.Find(neighId);
 	      GridNode *neighNode = &Ingrid[neighIdx];
 
-	      if(neighNode->m_type == GridNode::VIRTUAL_NODE)
+	      if(neighNode->m_type == GridNode::VIRTUAL_NODE){
+		virt.push_back(neighId);
 		continue;
+	      }
 		  
 	      if(visited[neighId] == 4){
 		debug("Node %d has already been connected, let see", neighId);
@@ -870,14 +883,32 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 	    if(next.size() > 0) {
 
-	      debug("Let's add this node and continue");
+	      if(virt.size() > 0){
+		for(int i = 0; i < virt.size(); i++){
+		  if(goodNode->IsNeighboring(virt[i]) && prevNode->IsNeighboring(virt[i])){
+		    
+		    debug("Node %d is common neighbor, add before", virt[i]);
+		    int virtIdx = gr.Find(virt[i]);
+		    GridNode *virtNode = &Ingrid[virtIdx];
+		    curCand.insertNewNode(gr,virtNode, k == 0? curCand.m_memberList->begin(): curCand.m_memberList->end());
+		  }
+		}
+	      }
+
+		
+	      debug("Let's add this new node and continue");
+	      
 	      curCand.insertNewNode(gr,goodNode, k == 0? curCand.m_memberList->begin(): curCand.m_memberList->end());
 	      visited[goodId] = 4;
 	      prevId = goodId;
+	      layerCurDiff = goodNode->m_Layer - curLayer;
+	      curLayer = goodNode->m_Layer;
+	      prevNode = goodNode;
 	      x.erase(x.begin());
 	      y.erase(y.begin());
 	      x.push_back(goodNode->m_xDet);
-	      y.push_back(goodNode->m_yDet);		
+	      y.push_back(goodNode->m_yDet);
+	      virt.clear();
 	    }
 
 	    else {
@@ -928,7 +959,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	} // for k 2
       } // for k trackets
       
-    } // if true
+     // if true
 	
 
 
@@ -936,7 +967,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
     // Assigning remaining nodes
 
-    for(unsigned int n = 0; n < nactiveReal; ++n) {
+      /*   for(unsigned int n = 0; n < nactiveReal; ++n) {
 	
       int curId      	= activeId[n];
       std::vector< int > toAdd;
@@ -1014,7 +1045,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  debug("Node %d is closer with dist %lf and belongs to cm %d", nodeId[minEltIdx], distToCand[minEltIdx], possiCand[minEltIdx]);
 	  int potCm = possiCand[minEltIdx];
 	  const auto p = std::find_if(tracklets.begin(), tracklets.end(), [potCm](const PathCandidate *obj){ return obj->m_id == potCm; } );
-	  debug("HERE");
+
 	  std::vector<int>::iterator it = std::find(((*p)->m_memberList)->begin(), ((*p)->m_memberList)->end(), nodeId[minEltIdx]);
 	  int EltIdx = std::distance(((*p)->m_memberList)->begin(), it);
 
@@ -1056,10 +1087,12 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	     	    	    
       } // WHILE COND
     } // for nodes
-  
+      */
+
+    } // IF TRUE
 
     
-    if(true){
+    if(false){
 
     
       // Merging potential candidates
@@ -1231,7 +1264,9 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
     } // FOR TRACKLETS
     // }
-    }	  
+    }
+
+
   
     for(unsigned int l = 0; l < tracklets.size(); l++){
       PathCandidate &curCand = *(tracklets[l]);
@@ -1245,7 +1280,11 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     
     int NumConnComp = connectedComp->size();
     info("Number of connected components: %d", NumConnComp);    
+    std::vector<TrackObject*>* MVDMergedTraks = MergeConnectedComponentsWithMVD(gr, connectedComp);
 
+    //__________________ Determind eth Z-coordinate values.
+   TrackZ_CoordinatesDistNorm(gr, MVDMergedTraks);
+    
     ComponentPerEvt.Fill(k, NumConnComp);
     // Store the data for each constructed component
     for(size_t cm = 0 ; cm < connectedComp->size(); ++cm) {
