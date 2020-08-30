@@ -194,6 +194,8 @@ bool sortNeighbors(CoordGrid &gr, GridNode *currentNode, std::vector<int> &prev,
     
     if(neighNode.m_type == GridNode::VIRTUAL_NODE){
       virt.push_back(neighId);
+      // if(neighId == 12454)
+//	debug("%d %d", neighNode.m_neighbors[0],  neighNode.m_neighbors[1]);
       //   determineSkewed_XYPlane_perso( *gr, *neighNode, ListOfSkewedNodesIndex, ListOfVirtualNodesIndex,visited);
       //error("%d curlaye %d, virtual layer %d", neighId, curLayer, neighNode->m_Layer);
       continue;
@@ -382,11 +384,24 @@ int returnDirection(double prev, double cur){
 
 /* fitNextId */
 
-int fitNextId(CoordGrid &gr, std::vector<double> &x, std::vector<double> &y, std::vector<int> &next, int curLayer, int layerCurDir, int method){
+int fitNextId(CoordGrid &gr, std::vector<double> *mx, std::vector<double> *my, std::vector<int> &next, int curLayer, int layerCurDir, int method, int k){
   
   std::vector< GridNode > &Ingrid = gr.m_grid;
   int goodId     = -1;
 
+  std::vector<double> x =  std::vector<double>( *mx );
+  std::vector<double> y =  std::vector<double>( *my ); 
+
+
+  x.erase(std::remove(x.begin(), x.end(), -1), x.end());
+  y.erase(std::remove(y.begin(), y.end(), -1), y.end());
+
+  if(k == 0){
+    std::reverse(x.begin(),x.end());
+    std::reverse(y.begin(),y.end());
+  }
+  
+  debug("Number of points with determined coordinates: %d", x.size());
   if(method == 0){ // linear
 
     /* TODADD  */
@@ -401,7 +416,7 @@ int fitNextId(CoordGrid &gr, std::vector<double> &x, std::vector<double> &y, std
     double minDist = std::numeric_limits<double>::max();
     
     p.push_back(0.);
-    for (int i = 0; i < x.size() - 1; i++){
+    for (int i = 0; i <  MIN(x.size()-1, 10); i++){  //x.size() - 1
       double newval = p[i] + sqrt(pow(x[i+1]-x[i],2.) + pow(y[i+1]-y[i],2.));
       p.push_back(newval);
     }
@@ -743,7 +758,7 @@ void addTracklets (CoordGrid &gr, PathCandidate *newCand, PathCandidate &mergeCa
   if(mergedir == 1){
     for(int i =  (mergeCand.m_memberList)->size()-1; i >=0; i--){
       int curid = (mergeCand.m_memberList)->at(i);
-      debug("id %d", curid);
+      //   debug("adding id %d", curid);
       if(newCand->isInCandidate(curid)) continue;
       int curidx = gr.Find(curid);
       GridNode* node = &Ingrid[curidx];
@@ -754,6 +769,8 @@ void addTracklets (CoordGrid &gr, PathCandidate *newCand, PathCandidate &mergeCa
 
     for(int i =  0; i < mergeCand.m_memberList->size(); i++){
       int curid = mergeCand.m_memberList->at(i);
+      // debug("adding id %d", curid);
+
       if(newCand->isInCandidate(curid)) continue;
       int curidx = gr.Find(curid);
       GridNode* node = &Ingrid[curidx];

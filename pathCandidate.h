@@ -98,6 +98,9 @@ struct PathCandidate{
   std::vector<int> m_tailNeigh;
 
   std::vector<unsigned int> 	 m_listSkewed;
+  std::vector<double> m_x;// List of x
+  std::vector<double> m_y;// List of y
+  std::vector<double> m_z;// List of z
 
   /* Shape and spread parameters */
   

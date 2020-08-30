@@ -391,7 +391,6 @@ bool IntersectionPoint_NeigborList(CoordGrid const &hitMap,
   GridNode TransA(tubeA);// Dit kan beter maar voor nu .... FIXME Later
   TransA.m_x = tubeA.m_x + dx;
   TransA.m_y = tubeA.m_y + dy;
-
   // Compose the line equations for (X,Y,Z) for each center point and
   // direction vector of the tube.
   TVector3 directionA = TVector3(tubeA.m_WireDirection);// Direction vector of tube A
@@ -421,9 +420,12 @@ bool IntersectionPoint_NeigborList(CoordGrid const &hitMap,
 		      (tubeB.m_z - Z_intersect) * (tubeB.m_z - Z_intersect)
 		      );
   // !(>) => (<=, using <= is not safe for floats)
-  if( !( DistA > tubeA.m_halfLength ) &&
-      !( DistB > tubeB.m_halfLength ) 
-      ) {
+  // if( !( DistA > tubeA.m_halfLength ) &&
+  //   !( DistB > tubeB.m_halfLength ) 
+	//   ) {
+    if(tubeA.m_detID == 2406 || tubeB.m_detID == 2406)
+      info("There was a good pair %d, %d",tubeA.m_detID,tubeB.m_detID);
+    
     // FIXME FIXME Not really optimal (correct??)
     TransA.m_x     = (tubeA.m_x + tubeB.m_x)/2.0;
     TransA.m_y     = (tubeA.m_y + tubeB.m_y)/2.0;
@@ -454,8 +456,12 @@ bool IntersectionPoint_NeigborList(CoordGrid const &hitMap,
     // 	      << "Out: ("   << out.m_x << ", " << out.m_y << ", " << out.m_z << ")\n\n";
     ////////////
     return true;
-  }// END IF
-  return false;
+    // }// END IF
+    // if(tubeA.m_detID == 2406 || tubeB.m_detID == 2406)
+    //  info("There was a wrong pair %d, %d",tubeA.m_detID,tubeB.m_detID);
+
+  
+    //return false;
 }
 //__________________________ END IntersectionPoint_neigborList _____________
 //__________________________ IntersectionPoint_SectorList___________________
