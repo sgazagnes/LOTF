@@ -41,7 +41,7 @@ void removeIdFromNeigh(GridNode *neighNode, std::vector<int> *prevNodes, int cur
 bool areAdjacent(CoordGrid &gr, std::vector<int> *v);
 
 
-double *polyFit(std::vector<double>  x, std::vector<double>  y);
+double *polyFit(std::vector<double>  x, std::vector<double>  y, int n);
 
 int returnDirection(double prev, double cur);
 

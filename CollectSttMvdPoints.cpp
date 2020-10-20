@@ -162,6 +162,17 @@ void CollectSttDetecorCoords(TClonesArray const &TubeArray, // In par
     node.m_y      = nodePosition.Y();
     node.m_z      = nodePosition.Z();
     // OutTxtFile << node.m_x <<"," <<node.m_y <<","<< node.m_z <<",";
+    std::pair<float, float> r_Theta;
+    float theta_deg;
+    r_Theta.first = r_Theta.second = theta_deg = 0.00;
+
+          // Polar coordinates Data.
+    theta_deg = Cartesian_To_Polar( node.m_x, node.m_y, r_Theta);
+
+    // Update point
+    node.m_r = r_Theta.first;
+    node.m_theta = r_Theta.second;
+    node.m_thetaDeg = theta_deg;
 
     
     node.m_xDet   = node.m_x;
@@ -827,11 +838,10 @@ void WriteEventPlotsToFile(std::vector < std::vector<HitCoordinate*>* > const &e
     tupName = tupName + "_" + evN.str() + "_CoordsTuple";
     std::vector<HitCoordinate*> const *currentEvt = evtData[evetNumber];
     //std::cout << tupName << "\n";
-    TNtuple collection (tupName.c_str(), "Collected read data from event.", "EvtNum:trackID:x:y:z:mx:my:mz");
+    TNtuple collection (tupName.c_str(), "Collected read data from event.", "EvtNum:trackID:x:y:z:r:thetaDeg:mx:my:mz:mr:mthetaDeg");
     for(size_t h = 0; h < currentEvt->size(); ++h) {
       HitCoordinate const *CurrentHit = currentEvt->at(h);
-      collection.Fill(evetNumber,  CurrentHit->m_trackID, CurrentHit->x, CurrentHit->y, CurrentHit->z,
-		      CurrentHit->mx, CurrentHit->my, CurrentHit->mz);
+      collection.Fill(evetNumber,  CurrentHit->m_trackID, CurrentHit->x, CurrentHit->y, CurrentHit->z,CurrentHit->r,CurrentHit->thetaDeg,CurrentHit->mx, CurrentHit->my, CurrentHit->mz,CurrentHit->mr,CurrentHit->mthetaDeg);
     }// END hit list loop
     collection.SetMarkerColor(2);
     collection.SetMarkerStyle(6);

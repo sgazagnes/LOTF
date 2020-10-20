@@ -211,6 +211,9 @@ struct GridNode {
   float m_yDet;// Y coordinate(determined)
   float m_z;   // Z coordinate (tube half length)
   float m_z_Det; // Z coordinate (determined)
+  float m_r;
+  float m_theta;
+  float m_thetaDeg;
   TVector3 m_WireDirection;// Direction of the internal wire
   float  m_halfLength;// Tube half length
   float  m_Slope;// Slope of the tube in mounting frame.

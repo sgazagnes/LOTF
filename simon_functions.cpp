@@ -310,9 +310,8 @@ bool areAdjacent(CoordGrid &gr, std::vector<int> *v){
 
 /* polyFit */
 
-double *polyFit(std::vector<double>  x, std::vector<double>  y){
-  int i,j,k,n,N;
-  n = 2;
+double *polyFit(std::vector<double>  x, std::vector<double>  y, int n){
+  int i,j,k,N;
   double X[2*n+1];        //Array that will store the values of sigma(xi),sigma(xi^2),sigma(xi^3)....sigma(xi^2n)
   for (i=0;i<2*n+1;i++)
     {
@@ -400,30 +399,126 @@ int fitNextId(CoordGrid &gr, std::vector<double> *mx, std::vector<double> *my, s
     std::reverse(x.begin(),x.end());
     std::reverse(y.begin(),y.end());
   }
-  
+  /* if(x.size()> 15){
+    x.erase (x.begin(), x.end()-15);
+    y.erase (y.begin(), y.end()-15);
+    }*/
+  /*for (int i = 0; i < x.size(); i++){  //x.size() - 1
+    printf("%lf, %lf\t", x[i], y[i]);
+    }*/
+  // printf("\n");
+
   debug("Number of points with determined coordinates: %d", x.size());
+
+  double len1 = sqrt(pow(x[0]-x[x.size()-1],2)+pow(y[0]-y[y.size()-1],2));
+  double len2 = sqrt(pow(x[x.size()/2]-x[x.size()-1],2)+pow(y[y.size()/2]-y[y.size()-1],2));
+  double len3 = sqrt(pow(x[0]-x[x.size()/2],2)+pow(y[0]-y[y.size()/2],2));
+  double area = fabs(x[0]*(y[y.size()/2] - y[y.size()-1])+ x[x.size()/2]*(y[y.size()-1]-y[0]) + x[x.size()-1]*(y[0]-y[y.size()/2]))/2.;
+  double curv = area/(len1*len2*len3);
+  error("curvature %lf",curv);
+
+  if(curv < 0.015 && x.size() < 15){
+    method = 0;
+    
+  }
+
+  int xDir = returnDirection(  x[x.size()-2],  x[x.size()-1]);
+  int yDir = returnDirection(  y[y.size()-2],  y[y.size()-1]);
+
+  debug("We are going in x dir %d and y dir %d", xDir, yDir);
+
+  std::vector<double> p;
+  double minDist = std::numeric_limits<double>::max();
+    
+  p.push_back(0.);
+  for (int i = 0; i <  x.size()-1; i++){  //x.size() - 1
+    double newval = p[i] + sqrt(pow(x[i+1]-x[i],2.) + pow(y[i+1]-y[i],2.));
+      printf("%lf\t", x[i]);
+    p.push_back(newval);
+  }
+  printf("\n");
+
   if(method == 0){ // linear
 
-    /* TODADD  */
     
+    double *x_coef = polyFit(p, x, 1);
+    double *y_coef = polyFit(p, y, 1);
+
+    for (int i = 0; i <next.size(); i++){
+      int curId = next[i];
+      int curIdx = gr.Find(curId);
+      GridNode *node = &Ingrid[curIdx];
+      int    nextLayer = node->m_Layer;
+      int    layerNewDir =  nextLayer - curLayer;
+      double xdet = (double) node->m_xDet;
+      double ydet = (double) node->m_yDet;
+
+      double newx_coef[2] = {x_coef[0] - xdet, x_coef[1]};
+      double newy_coef[2] = {y_coef[0] - ydet, y_coef[1]};
+
+      double vectortanx[2] = {x_coef[1], 0.};
+      double vectortany[2] = {y_coef[1], 0.};
+	      
+      double d[3] = {newx_coef[0]*vectortanx[0] + newy_coef[0]*vectortany[0],
+		     newx_coef[0]*vectortanx[1] + newx_coef[1]*vectortanx[0] +
+		     newy_coef[0]*vectortany[1] + newy_coef[1]*vectortany[0],
+		     newx_coef[1]*vectortanx[1] + newy_coef[1]*vectortany[1]  };
+
+      double x0[2];
+      int nroot = gsl_poly_solve_quadratic(d[2], d[1], d[0], x0, x0+1);
+
+     debug("Polynomial coeff : %lf + %lf x + %lf x^2", d[0], d[1], d[2]);
+     debug("Real roots %d : x1 = %lf x2 =  %lf\n\n", nroot, x0[0], x0[1]);
+
+      double xIntersect, yIntersect, currDist;
+      if(nroot ==1){
+	xIntersect = gsl_poly_eval(x_coef, 2, x0[0]);
+	yIntersect = gsl_poly_eval(y_coef, 2, x0[0]);
+	currDist = sqrt(pow(xIntersect - xdet,2) + pow(yIntersect - ydet,2));
+      }
+
+		
+      for (int j = 0; j < nroot; j++){
+	double newx = gsl_poly_eval(x_coef, 2, x0[j]);
+	double newy = gsl_poly_eval(y_coef, 2, x0[j]);
+	double newdist = sqrt(pow(newx - xdet,2) + pow(newy - ydet,2));
+	if(j == 0){
+	  xIntersect = newx;
+	  yIntersect = newy;
+	  currDist = newdist;
+	} else if( currDist > newdist) {
+	  xIntersect = newx;
+	  yIntersect = newy;
+	  currDist = newdist;
+	}
+      }
+
+      int newxDir = returnDirection(  x[x.size()-1], xdet);
+      int newyDir = returnDirection(  y[y.size()-1], ydet);
+
+      debug("Distance between %d and fitted line is %lf, xdir %d, ydir %d, curlayer %d, newlayer %d", curId, currDist, newxDir, newyDir, layerCurDir, layerNewDir);
+
+		
+      if(minDist > currDist){
+	if(labs(newxDir - xDir) > 1 || labs(newyDir - yDir) > 1 || labs(layerNewDir - layerCurDir) > 1) {
+	  debug("Let's avoid going back if we can");
+	} else{
+	  minDist = currDist;		  
+	  goodId = curId;
+	  //goodNode = ;
+	}
+      }
+        
+      if(goodId != -1) info("The good id is %d, and is at distance %lf", goodId,minDist);
+      else info("No good ID found");
+    
+    }  
+
   }  else if(method == 1){ // quadratic
-    int xDir = returnDirection(  x[x.size()-2],  x[x.size()-1]);
-    int yDir = returnDirection(  y[y.size()-2],  y[y.size()-1]);
-
-    debug("We are going in x dir %d and y dir %d", xDir, yDir);
-
-    std::vector<double> p;
-    double minDist = std::numeric_limits<double>::max();
-    
-    p.push_back(0.);
-    for (int i = 0; i <  MIN(x.size()-1, 10); i++){  //x.size() - 1
-      double newval = p[i] + sqrt(pow(x[i+1]-x[i],2.) + pow(y[i+1]-y[i],2.));
-      p.push_back(newval);
-    }
 
 
-    double *x_coef = polyFit(p, x);
-    double *y_coef = polyFit(p, y);
+    double *x_coef = polyFit(p, x, 2);
+    double *y_coef = polyFit(p, y, 2);
 
     for (int i = 0; i <next.size(); i++){
       int curId = next[i];

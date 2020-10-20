@@ -20,6 +20,9 @@ GridNode::GridNode()
     m_yDet(0.00),
     m_z(0.00),
     m_z_Det(0.00),
+    m_r(0.00),
+    m_theta(0.00),
+    m_thetaDeg(0.00),
     m_WireDirection(TVector3(0.0, 0.0, 0.0)),
     m_halfLength(0.00),
     m_Slope(0.00),
@@ -71,6 +74,9 @@ GridNode::GridNode( int det_id, bool const act, float const xin, float const yin
     m_yDet(yin),
     m_z(zin),
     m_z_Det(-100.0),
+    m_r(0.00),
+    m_theta(0.00),
+    m_thetaDeg(0.00),
     m_WireDirection(Wdirect),
     m_halfLength(halfLength),
     m_Slope(0.0),
@@ -122,6 +128,9 @@ GridNode::GridNode (GridNode const &ot)
   this->m_yDet = ot.m_yDet;
   this->m_z = ot.m_z;
   this->m_z_Det = ot.m_z_Det;
+  this->m_r = ot.m_r;
+  this->m_theta=ot.m_theta;
+  this->m_thetaDeg=ot.m_thetaDeg;
   this->m_WireDirection = TVector3(ot.m_WireDirection);
   this->m_halfLength = ot.m_halfLength;
   this->m_Slope = ot.m_Slope;
@@ -175,6 +184,9 @@ GridNode& GridNode::operator=(GridNode const &ot)
     this->m_yDet         = ot.m_yDet;
     this->m_z         = ot.m_z;
     this->m_z_Det     = ot.m_z_Det;
+    this->m_r = ot.m_r;
+    this->m_theta=ot.m_theta;
+    this->m_thetaDeg=ot.m_thetaDeg;
     this->m_WireDirection = TVector3(ot.m_WireDirection);
     this->m_halfLength = ot.m_halfLength;
     this->m_Slope      = ot.m_Slope;
