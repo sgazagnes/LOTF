@@ -345,10 +345,10 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     
     if(fitting){
       
-      for(unsigned int l = 0; l < tracklets.size(); l++){
+      for(unsigned int l = 0; l < tracklets.size(); l++){ // Go for each tracklet
 	
 	PathCandidate &curCand = *(tracklets[l]);
-	debug("Cur track %d Is finished ? %d, length %d", curCand.m_id, curCand.m_finished,curCand.m_length  );
+	info("Track %d, status %d, length %d", curCand.m_id, curCand.m_finished,curCand.m_length  );
 	
 	if (curCand.m_finished >= 2 || curCand.m_length < 6 ) continue;
 	
@@ -360,108 +360,64 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	int lastIdx = gr.Find(last);
 	GridNode &lastNode = Ingrid[lastIdx];
 	
-	debug("This cm has tail node %d  and head node %d, size head neigh %d tail %d", first, last,curCand.m_headNeigh.size() , curCand.m_tailNeigh.size());
+	info("Tail node %d (num neigh %d),  head node %d (num neigh %d)", first, curCand.m_headNeigh.size(), last, curCand.m_tailNeigh.size());
 
 
-	for(int k = 0; k < 2; k++){
+	for(int k = 0; k < 2; k++){ // First Tail, then Head
+	  int prevId = k == 1? curCand.m_headNode: curCand.m_tailNode;
+	  int curLayer = k == 1? lastNode.m_Layer: firstNode.m_Layer;
+	  int layerCurDiff;
+	  GridNode *prevNode = k == 1? &lastNode: &firstNode;
+	
+	  std::vector<int> *curNeigh = k == 1? &(curCand.m_headNeigh): &(curCand.m_tailNeigh);
+	  std::vector<unsigned int> *curMerge = k == 1? &(curCand.m_toMergeHead):&(curCand.m_toMergeTail);
 	  std::vector<int> next;
-	  int prevId, curLayer, layerCurDiff;
-	  GridNode *prevNode;
-	  
-	  if(k == 1 && curCand.m_headNeigh.size() > 0 && curCand.m_toMergeHead.size() == 0 ){
-	  
-	    info("HEAD : Finding potential continuation with previous neighbors in head direction ");
 
-	    for(int i = 0; i  < curCand.m_headNeigh.size(); i++){
-	      int id = curCand.m_headNeigh[i];
-	      int idx = gr.Find(id);
-	      GridNode &node = Ingrid[idx];
-	      for (int j = 0; j < node.m_neighbors.size(); j++)
-		//debug("CHECKING neigh %d, %d", node.m_neighbors[j], node.m_neighbors[j]);
-	      if(node.m_type == GridNode::VIRTUAL_NODE){
-		int neigh1 = node.m_neighbors[0];
-		int neigh2 = node.m_neighbors[1];
-		//	debug("CHECKING VIRT %d, %d", neigh1, neigh2);
-	       	curCand.m_headNeigh.erase(std::remove(curCand.m_headNeigh.begin(), curCand.m_headNeigh.end(), neigh1), curCand.m_headNeigh.end());
-		curCand.m_headNeigh.erase(std::remove(curCand.m_headNeigh.begin(), curCand.m_headNeigh.end(), neigh2), curCand.m_headNeigh.end());
-	      }
-	      //debug("%d", curCand.m_headNeigh[i]);
-	    }
-	    
-	    next.insert(next.end(),  (curCand.m_headNeigh).begin(),  (curCand.m_headNeigh).end());
-	    prevId = curCand.m_headNode;
-	    prevNode = &lastNode;
-	    curLayer = lastNode.m_Layer;
-	    
-	  } else if (k == 0 && curCand.m_tailNeigh.size() > 0 && curCand.m_toMergeTail.size() == 0 ){
-	  
-	    info("TAIL : Finding potential continuation with previous neighbors in tail direction ");
-
-	    for(int i = 0; i  < curCand.m_tailNeigh.size(); i++){
-	      int id = curCand.m_tailNeigh[i];
-	      int idx = gr.Find(id);
-	      GridNode &node = Ingrid[idx];
-	      for (int j = 0; j < node.m_neighbors.size(); j++)
-		//debug("CHECKING neigh %d, %d", node.m_neighbors[j], node.m_neighbors[j]);
-	      if(node.m_type == GridNode::VIRTUAL_NODE){
-		int neigh1 = node.m_neighbors[0];
-		int neigh2 = node.m_neighbors[1];
-		//	debug("CHECKING VIRT %d, %d", neigh1, neigh2);
-	       	curCand.m_tailNeigh.erase(std::remove(curCand.m_tailNeigh.begin(), curCand.m_tailNeigh.end(), neigh1), curCand.m_tailNeigh.end());
-		curCand.m_tailNeigh.erase(std::remove(curCand.m_tailNeigh.begin(), curCand.m_tailNeigh.end(), neigh2), curCand.m_tailNeigh.end());
-	      }
-	      //debug("%d", curCand.m_headNeigh[i]);
-	    }
-	    ////   for(int i = 0; i  < curCand.m_tailNeigh.size(); i++)
-	    // debug("%d", curCand.m_tailNeigh[i]);
-
-	    next.insert(next.end(),  (curCand.m_tailNeigh).begin(),  (curCand.m_tailNeigh).end());
-	    prevId = curCand.m_tailNode;
-	    prevNode = &firstNode;
-	    curLayer = firstNode.m_Layer;
-
-	  } else
+	  if(curNeigh->size() == 0 || curMerge->size() > 0)
 	    continue;
-	    
+
+	  k == 1? info("HEAD : Fitting next neighbors "): info("TAIL : Fitting next neighbors");
+	      
+	  for(int i = 0; i  < curNeigh->size(); i++){
+	    int id = curNeigh->at(i);
+	    int idx = gr.Find(id);
+	    GridNode &node = Ingrid[idx];
+	    for (int j = 0; j < node.m_neighbors.size(); j++) {
+	      if(node.m_type == GridNode::VIRTUAL_NODE){ // Remove second order neighbors from virtual
+		int neigh1 = node.m_neighbors[0];
+		int neigh2 = node.m_neighbors[1];
+		curNeigh->erase(std::remove(curNeigh->begin(), curNeigh->end(), neigh1), curNeigh->end());
+		curNeigh->erase(std::remove(curNeigh->begin(), curNeigh->end(), neigh2), curNeigh->end());
+	      }
+	    }
+	  }
+	  
+	  next.insert(next.end(),  curNeigh->begin(),  curNeigh->end());
+
 	  bool cond = next.size() > 0? true: false;
-	  int potCm = -1;
-	    
-	  std::vector<int>  *trk = curCand.m_memberList;
-
-	  std::vector<double> x =  std::vector<double>( (curCand.m_x) );
-	  std::vector<double> y =  std::vector<double>( (curCand.m_y) ); ;
-	  std::vector<int> virt;
-
 	  bool adding = true;
-	  int numelt = 10;
-	  int start = k == 0? 0: trk->size()-1;
+
+	  std::vector<int> virt;
+	  std::vector<int>  *trk = curCand.m_memberList;
+	  std::vector<double> x =  std::vector<double>( (curCand.m_x) );
+	  std::vector<double> y =  std::vector<double>( (curCand.m_y) ); 
+
+	  int potCm = -1;
+	  int start = k == 0? 0 : trk->size()-1;
 	  int inc = k == 0? 1: -1;
 	  int ii = 0;
-
-	  // info("%lf, %lf", x[0],y[0]);
-	  /*  while(adding){
-	    int idx = start + inc*ii;
-	    // int id = trk->at(start + inc*ii);
-	    //  int idx = gr.Find(id);
-	    // GridNode &node = Ingrid[idx];
-	    x.push_back(node.m_xDet);
-	    y.push_back(node.m_yDet);
-	      // if(curCand.m_x[
-	      */
-	  // if(k == 1){
-	  //   for (int i = trk->size() - MIN(trk->size(), 10) ; i < trk->size() ; i++){
-	  int id = k == 1? trk->at(trk->size() -2) : 1;
+	  int id = k == 1? trk->at(trk->size() - 2) : 1;
 	  int idx = gr.Find(id);
 	  GridNode &node = Ingrid[idx];		
 	  layerCurDiff = curLayer - node.m_Layer;
 	   
 
-	  // finding previous direction //
+
 	  while (cond){
 	    
 	    GridNode *goodNode;	    
 	    
-	    int goodId = fitNextId(gr, &curCand.m_x, &curCand.m_y, next, curLayer, layerCurDiff, 1, k);
+	    int goodId = fitNextId(gr, curCand, next, curLayer, layerCurDiff, 1, k);
 	    
 	    if (goodId == -1) {
 	      info("No good candidates have been found, stop");

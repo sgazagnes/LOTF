@@ -238,6 +238,10 @@ void Compute_Add_VirtualNodes_Neigbor(CoordGrid &hitMap, std::vector < GridNode 
 	// Modify node ID
 	Dummy_coord.m_detID      = StartVirtualID + NumTubesAdded;
 	Dummy_coord.m_Orig_detID = Dummy_coord.m_detID;
+	std::pair<float, float> r_Theta;
+	float theta_deg = Cartesian_To_Polar(Dummy_coord.m_xDet, Dummy_coord.m_yDet, r_Theta);
+	Dummy_coord.m_r = r_Theta.first;
+	Dummy_coord.m_thetaDeg = theta_deg;
 	/*
 	Dummy_coord.m_halfLength = 0;
 	Dummy_coord.m_type = GridNode::VIRTUAL_NODE;

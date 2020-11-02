@@ -117,7 +117,6 @@ void findEasyTracks (CoordGrid &gr, std::vector < PathCandidate* > &tracklets, s
 	  dir = 0;
 
 	  cond = sortNeighbors(gr, currentNode, prevLayer, sameLayer, nextLayer, nextVirt, visited,  &dir);
-
 	  n_neighbors = sameLayer.size() + prevLayer.size() + nextLayer.size();
 	  // info("%d nodes were connected,  %d found for the next step \n", n_connected, n_neighbors);
 	  n_connected = 0;	    

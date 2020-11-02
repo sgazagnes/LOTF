@@ -101,6 +101,8 @@ struct PathCandidate{
   std::vector<double> m_x;// List of x
   std::vector<double> m_y;// List of y
   std::vector<double> m_z;// List of z
+  std::vector<double> m_r;// List of r
+  std::vector<double> m_theta;// List of theta
 
   /* Shape and spread parameters */
   

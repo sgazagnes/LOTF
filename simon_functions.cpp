@@ -190,7 +190,7 @@ bool sortNeighbors(CoordGrid &gr, GridNode *currentNode, std::vector<int> &prev,
     int neighIdx 	= gr.Find(neighId);
     GridNode &neighNode = Ingrid[neighIdx];
     
-    debug("Node %d has one neig %d", curId, neighId);
+    // debug("Node %d has one neig %d", curId, neighId);
     
     if(neighNode.m_type == GridNode::VIRTUAL_NODE){
       virt.push_back(neighId);
@@ -231,8 +231,8 @@ bool sortNeighbors(CoordGrid &gr, GridNode *currentNode, std::vector<int> &prev,
 
     }
 
-    else
-       debug("Node %d has already been added to the list", neighId);
+    //  else
+      // debug("Node %d has already been added to the list", neighId);
   }
 
   	
@@ -242,7 +242,7 @@ bool sortNeighbors(CoordGrid &gr, GridNode *currentNode, std::vector<int> &prev,
   }
   
   *dir = curDir;
-
+  //debug("Neig cond %d", cond);
   return cond;
 }
 
@@ -380,78 +380,164 @@ int returnDirection(double prev, double cur){
   return dir;
 }
 
+double returnAngle(double x1, double x2, double x3, double y1, double y2, double y3){
+  
+ 
+  float abx =  x2 - x1;
+  float aby =  y2 - y1 ;
+  float cbx =  x2 - x3;
+  float cby =  y2 - y3 ;
+
+  float dot = (abx * cbx + aby * cby); // dot product
+  float cross = (abx * cby - aby * cbx); // cross product
+
+  float alpha = atan2(cross, dot);
+  float angleDeg = alpha * 180. / 3.14159265 ;
+  // return (int) floor(alpha * 180. / pi + 0.5);
+  return angleDeg;
+
+}
+
+double returnCurvature(double x1, double x2, double x3, double y1, double y2, double y3){
+  
+  double len1 = sqrt(pow(x1-x3,2)+pow(y1-y3,2));
+  double len2 = sqrt(pow(x2-x3,2)+pow(y2-y3,2));
+  double len3 = sqrt(pow(x1-x2,2)+pow(y1-y2,2));
+  double area = fabs(x1*(y2 - y3)+ x2*(y3-y1) + x2*(y1-y2))/2.;
+  double curv = area/(len1*len2*len3);
+  debug("Checking curvature = %lf",curv);
+  return curv;
+
+}
 
 /* fitNextId */
 
-int fitNextId(CoordGrid &gr, std::vector<double> *mx, std::vector<double> *my, std::vector<int> &next, int curLayer, int layerCurDir, int method, int k){
+int fitNextId(CoordGrid &gr, PathCandidate &cand, std::vector<int> &next, int curLayer, int layerCurDir, int method, int k){
   
   std::vector< GridNode > &Ingrid = gr.m_grid;
   int goodId     = -1;
+  int degree, nElts;
+  std::vector<double> x =  std::vector<double>( cand.m_x );
+  std::vector<double> y =  std::vector<double>( cand.m_y ); 
+  std::vector<double> r =  std::vector<double>( cand.m_r );
+  std::vector<double> theta =  std::vector<double>( cand.m_theta ); 
 
-  std::vector<double> x =  std::vector<double>( *mx );
-  std::vector<double> y =  std::vector<double>( *my ); 
-
-
-  x.erase(std::remove(x.begin(), x.end(), -1), x.end());
-  y.erase(std::remove(y.begin(), y.end(), -1), y.end());
-
+  for (int i = 0; i <x.size(); i++){
+    //  x[i] /= sqrt( 2*pow(40,2));
+    //y[i] = (y[i]+180.) /360.;
+     r[i] /= sqrt( 2*pow(40,2));
+    theta[i] = (theta[i]+180.) /360.;
+    
+  }
+  //x.erase(std::remove(x.begin(), x.end(), -1), x.end());
+  // y.erase(std::remove(y.begin(), y.end(), -1), y.end());
+  // r.erase(std::remove(r.begin(), r.end(), -1), r.end());
+  // theta.erase(std::remove(theta.begin(), theta.end(), -1), theta.end());
+  
   if(k == 0){
     std::reverse(x.begin(),x.end());
     std::reverse(y.begin(),y.end());
+    std::reverse(r.begin(),r.end());
+    std::reverse(theta.begin(),theta.end());
   }
-  /* if(x.size()> 15){
-    x.erase (x.begin(), x.end()-15);
-    y.erase (y.begin(), y.end()-15);
-    }*/
-  /*for (int i = 0; i < x.size(); i++){  //x.size() - 1
-    printf("%lf, %lf\t", x[i], y[i]);
-    }*/
-  // printf("\n");
+
 
   debug("Number of points with determined coordinates: %d", x.size());
+  debug("Fast-checking unphysical neighbors");
 
-  double len1 = sqrt(pow(x[0]-x[x.size()-1],2)+pow(y[0]-y[y.size()-1],2));
-  double len2 = sqrt(pow(x[x.size()/2]-x[x.size()-1],2)+pow(y[y.size()/2]-y[y.size()-1],2));
-  double len3 = sqrt(pow(x[0]-x[x.size()/2],2)+pow(y[0]-y[y.size()/2],2));
-  double area = fabs(x[0]*(y[y.size()/2] - y[y.size()-1])+ x[x.size()/2]*(y[y.size()-1]-y[0]) + x[x.size()-1]*(y[0]-y[y.size()/2]))/2.;
-  double curv = area/(len1*len2*len3);
-  error("curvature %lf",curv);
+  std::vector<int> plausible;
+  std::vector<int> uncertain;
+  std::vector<int> unlikely;
+  std::vector<int> *tocheck;
 
-  if(curv < 0.015 && x.size() < 15){
-    method = 0;
+  for (int i = 0; i <next.size(); i++){
+    int curId = next[i];
+    int curIdx = gr.Find(curId);
+    GridNode *node = &Ingrid[curIdx];
+    double xdet = node->m_x;
+    double ydet = node->m_y;
+    double rdet = (double) node->m_r /  sqrt( 2*pow(40,2));
+    double thetadet = (double) (node->m_thetaDeg+180.) /360.;
+
+    float angle_r = returnAngle(r[r.size()-2], r[r.size()-1], rdet, theta[theta.size()-2], theta[theta.size()-1], thetadet);
     
+    float angle_xy = returnAngle(x[x.size()-2], x[x.size()-1], xdet, y[y.size()-2], y[y.size()-1], ydet);
+    debug("Angle with %d is %f, %f", curId, angle_r, angle_xy);
+    if(fabs(angle_r) > 90 && fabs(angle_xy) > 80)
+      plausible.push_back(curId);
+    else if(fabs(angle_r) > 80 && fabs(angle_xy) > 80)
+      uncertain.push_back(curId);
+    else
+      unlikely.push_back(curId);
   }
 
-  int xDir = returnDirection(  x[x.size()-2],  x[x.size()-1]);
-  int yDir = returnDirection(  y[y.size()-2],  y[y.size()-1]);
+  if(plausible.size() > 0){
+    info("We found %d promising candidates", plausible.size());
+    tocheck = &plausible;
+  }  else if (uncertain.size() > 0) {
+    info("No promising, but still possible with %d cand", uncertain.size());
+    //return -1;
+    tocheck = &uncertain;
+  } else {
+    info("Unless we want to go backwards, we should stop");
+    return -1;
+  }
 
-  debug("We are going in x dir %d and y dir %d", xDir, yDir);
+  // Checking curvature to select the method
 
+  debug("Points %lf, %lf \t %lf, %lf \t %lf, %lf",r[0], theta[0], r[r.size()/2], theta[theta.size()/2],r[r.size()-1], theta[theta.size()-1]);
+  
+  double curv = returnCurvature(x[0], x[x.size()/2], x[x.size()-1], y[0], y[y.size()/2], y[y.size()-1]);
+
+  
+  float angle = returnAngle(r[0], r[r.size()/2], r[r.size()-1],  theta[0], theta[theta.size()/2], theta[theta.size()-1]);
+  debug("Angle of track is %f", angle);
+  
+
+  if(fabs(angle) < 170){
+    method = 1;
+    degree = 2;
+    nElts  = x.size() -1;
+  } else {
+    method = 0;
+    degree = 1;
+    nElts = MIN(5, x.size()-1);
+  }
+ 
   std::vector<double> p;
   double minDist = std::numeric_limits<double>::max();
     
   p.push_back(0.);
-  for (int i = 0; i <  x.size()-1; i++){  //x.size() - 1
-    double newval = p[i] + sqrt(pow(x[i+1]-x[i],2.) + pow(y[i+1]-y[i],2.));
-      printf("%lf\t", x[i]);
+  for (int i = 0; i <  nElts; i++){ 
+    double newval = p[i] + sqrt(pow(r[i+1]-r[i],2.) + pow(theta[i+1]-theta[i],2.));
     p.push_back(newval);
   }
-  printf("\n");
 
+  double *x_coef = polyFit(p, r, degree);
+  double *y_coef = polyFit(p, theta, degree);
+
+
+  
   if(method == 0){ // linear
 
+    info("Linear Fit");
     
-    double *x_coef = polyFit(p, x, 1);
-    double *y_coef = polyFit(p, y, 1);
-
-    for (int i = 0; i <next.size(); i++){
-      int curId = next[i];
+  
+    for (int i = 0; i < tocheck->size(); i++){
+      int curId = tocheck->at(i);
       int curIdx = gr.Find(curId);
       GridNode *node = &Ingrid[curIdx];
       int    nextLayer = node->m_Layer;
       int    layerNewDir =  nextLayer - curLayer;
-      double xdet = (double) node->m_xDet;
-      double ydet = (double) node->m_yDet;
+      
+      double xdet = (double) node->m_r/  sqrt( 2*pow(40,2));//node->m_xDet;
+      double ydet = (double)  (node->m_thetaDeg+180.) /360.;
+      //  double rdet = (double) node->m_r /  sqrt( 2*pow(40,2));
+      //  double thetadet = (double) (node->m_thetaDeg+180.) /360.;
+
+      // float angle = returnAngle(r[r.size()-2], r[r.size()-1], rdet, theta[theta.size()-2], theta[theta.size()-1], thetadet);
+
+      //  debug("Three point angle is %f", angle);
 
       double newx_coef[2] = {x_coef[0] - xdet, x_coef[1]};
       double newy_coef[2] = {y_coef[0] - ydet, y_coef[1]};
@@ -467,10 +553,11 @@ int fitNextId(CoordGrid &gr, std::vector<double> *mx, std::vector<double> *my, s
       double x0[2];
       int nroot = gsl_poly_solve_quadratic(d[2], d[1], d[0], x0, x0+1);
 
-     debug("Polynomial coeff : %lf + %lf x + %lf x^2", d[0], d[1], d[2]);
-     debug("Real roots %d : x1 = %lf x2 =  %lf\n\n", nroot, x0[0], x0[1]);
+      //  debug("Polynomial coeff : %lf + %lf x + %lf x^2", d[0], d[1], d[2]);
+      // debug("Real roots %d : x1 = %lf x2 =  %lf\n\n", nroot, x0[0], x0[1]);
 
       double xIntersect, yIntersect, currDist;
+      
       if(nroot ==1){
 	xIntersect = gsl_poly_eval(x_coef, 2, x0[0]);
 	yIntersect = gsl_poly_eval(y_coef, 2, x0[0]);
@@ -493,42 +580,43 @@ int fitNextId(CoordGrid &gr, std::vector<double> *mx, std::vector<double> *my, s
 	}
       }
 
-      int newxDir = returnDirection(  x[x.size()-1], xdet);
-      int newyDir = returnDirection(  y[y.size()-1], ydet);
-
-      debug("Distance between %d and fitted line is %lf, xdir %d, ydir %d, curlayer %d, newlayer %d", curId, currDist, newxDir, newyDir, layerCurDir, layerNewDir);
+      debug("Node %d (layer %d) is at %lf, layer dir is %d", curId, nextLayer, currDist, layerNewDir);
 
 		
       if(minDist > currDist){
-	if(labs(newxDir - xDir) > 1 || labs(newyDir - yDir) > 1 || labs(layerNewDir - layerCurDir) > 1) {
-	  debug("Let's avoid going back if we can");
-	} else{
-	  minDist = currDist;		  
-	  goodId = curId;
-	  //goodNode = ;
-	}
-      }
-        
-      if(goodId != -1) info("The good id is %d, and is at distance %lf", goodId,minDist);
-      else info("No good ID found");
-    
+	minDist = currDist;		  
+	goodId = curId;	
+      }        
     }  
 
   }  else if(method == 1){ // quadratic
 
+      info("Quadratic Fit");
 
-    double *x_coef = polyFit(p, x, 2);
-    double *y_coef = polyFit(p, y, 2);
 
-    for (int i = 0; i <next.size(); i++){
-      int curId = next[i];
+    for (int i = 0; i < tocheck->size(); i++){
+      int curId = tocheck->at(i);
       int curIdx = gr.Find(curId);
       GridNode *node = &Ingrid[curIdx];
       int    nextLayer = node->m_Layer;
       int    layerNewDir =  nextLayer - curLayer;
-      double xdet = (double) node->m_xDet;
-      double ydet = (double) node->m_yDet;
+      //  double xdet = (double) node->m_xDet;
+      //  double ydet = (double) node->m_yDet;
+      double xdet = (double) node->m_r/  sqrt( 2*pow(40,2));//node->m_xDet;
+      double ydet = (double)  (node->m_thetaDeg+180.) /360.;
+      /*   double rdet = (double) node->m_r;
+      double thetadet = (double) node->m_thetaDeg;
 
+      int newrDir = returnDirection(  r[r.size()-1], rdet);
+      debug("New r direction is %d (%lf, %lf)", newrDir, r[r.size()-1], rdet);
+    
+      int newthetaDir = returnDirection(  theta[theta.size()-1], thetadet);
+      debug("New theta direction is %d (%lf, %lf)", newthetaDir, theta[theta.size()-1], thetadet);
+      */
+      //  float angle = returnAngle(r[r.size()-2], r[r.size()-1], rdet, theta[theta.size()-2], theta[theta.size()-1], thetadet);
+
+      //  debug("Three point angle is %f", angle);
+      
       double newx_coef[3] = {x_coef[0] - xdet, x_coef[1], x_coef[2]};
       double newy_coef[3] = {y_coef[0] - ydet, y_coef[1], y_coef[2]};
 
@@ -571,34 +659,25 @@ int fitNextId(CoordGrid &gr, std::vector<double> *mx, std::vector<double> *my, s
 	}
       }
 
-      // double disttube = distanceBetweenTube(node, lastNode);
-      //debug("Tube Distance to point %d is %lf",curId, disttube);
+      debug("Node %d (layer %d) is at %lf, layer dir is %d", curId, nextLayer, currDist, layerNewDir);
 
-
-      int newxDir = returnDirection(  x[x.size()-1], xdet);
-      int newyDir = returnDirection(  y[y.size()-1], ydet);
-
-      debug("Distance between %d and fitted line is %lf, xdir %d, ydir %d, curlayer %d, newlayer %d", curId, currDist, newxDir, newyDir, layerCurDir, layerNewDir);
-
+    
 		
       if(minDist > currDist){
-	if(labs(newxDir - xDir) > 1 || labs(newyDir - yDir) > 1 || labs(layerNewDir - layerCurDir) > 1) {
-	  debug("Let's avoid going back if we can");
-	} else{
+
 	  minDist = currDist;		  
 	  goodId = curId;
-	  //goodNode = ;
-	}
+	
       }
 	    
 		
     } // FOR RIGHT NEIGHBORS
 
+  }
+  if(goodId != -1) info("The good id is %d, and is at distance %lf", goodId,minDist);
+  else info("No good ID found");
     
-    if(goodId != -1) info("The good id is %d, and is at distance %lf", goodId,minDist);
-    else info("No good ID found");
-    
-  }  
+  
 
   return goodId;
 }

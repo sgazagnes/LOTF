@@ -50,7 +50,9 @@ PathCandidate::PathCandidate()
     m_listSkewed(std::vector<unsigned int>()),
     m_x(std::vector<double>()),
     m_y(std::vector<double>()),
-    m_z(std::vector<double>())
+    m_z(std::vector<double>()),
+    m_r(std::vector<double>()),
+    m_theta(std::vector<double>())
 
 {} 
 // Destructor
@@ -212,7 +214,7 @@ void PathCandidate::insertNewNode(CoordGrid &gr, GridNode *node,  std::vector<in
   std::vector< GridNode > &Ingrid  = gr.m_grid;
 
   int vecindex = std::distance( m_memberList->begin(), it );
-  // printf("%d, %d,  \n", vecindex, id);
+  printf("ADDING %d to track %d \n", id, m_id);
 
   m_memberIdSet->insert(id);
   m_memberList->insert(it,id);
@@ -230,24 +232,40 @@ void PathCandidate::insertNewNode(CoordGrid &gr, GridNode *node,  std::vector<in
     //m_lastNodeVirtual = false;
     //m_memberIdSet->insert(id);
     //  m_memberList->insert(it,id);
+    
     if(node->m_type == GridNode::STT_TYPE_SKEW  && m_seenVirtual )
        m_listSkewed.push_back(id);
 
     //printf("%d, %d, %d \n", vecindex, m_x.size(), m_memberList->size());
 
-    if(node->m_type != GridNode::STT_TYPE_SKEW){
+    //  if(node->m_type != GridNode::STT_TYPE_SKEW){
       m_x.insert(m_x.begin() + vecindex,node->m_x);
       m_y.insert(m_y.begin() + vecindex,node->m_y);
       m_z.insert(m_z.begin() + vecindex,node->m_z);
+      m_r.insert(m_r.begin() + vecindex,node->m_r);
+      m_theta.insert(m_theta.begin() + vecindex,node->m_thetaDeg);
 
-    } else {
+      /* } else {
       m_x.insert(m_x.begin() + vecindex, -1);
       m_y.insert(m_y.begin() + vecindex, -1);
       m_z.insert(m_z.begin() + vecindex, -1);
-    }
+      m_r.insert(m_r.begin() + vecindex, node->m_r);
+      m_theta.insert(m_theta.begin() + vecindex, node->m_thetaDeg);
+
+      if(m_listSkewed.size() >= 3){
+	int tt = m_listSkewed.size()-3;
+	auto it = find(m_memberList->begin(), 
+		       m_memberList->end(), m_listSkewed[tt]);   
+	int index = distance(m_memberList->begin(), it);
+	int idx = gr.Find(m_listSkewed[tt]);
+	GridNode &skewedToproc = Ingrid[idx];
+	m_x[index] = skewedToproc.m_xDet;
+	m_y[index] = skewedToproc.m_yDet;
+	m_z[index] = skewedToproc.m_z_Det;
+      }
+      }*/
     
   } else {
-    // printf("New node %d is virtual\n",id); 
 
     if(m_seenVirtual == true && m_listSkewed.size() > 0){
       // Correcting skewed
@@ -283,8 +301,13 @@ void PathCandidate::insertNewNode(CoordGrid &gr, GridNode *node,  std::vector<in
 	m_x[index] = skewedToproc.m_xDet;
 	m_y[index] = skewedToproc.m_yDet;
 	m_z[index] = skewedToproc.m_z_Det;
-
-	printf("New node %d with %lf and %lf \n",m_listSkewed[m], skewedToproc.m_xDet ,  skewedToproc.m_yDet); 
+	
+	std::pair<float, float> r_Theta;
+	float theta_deg = Cartesian_To_Polar(skewedToproc.m_xDet, skewedToproc.m_yDet, r_Theta);
+	m_r[index] = r_Theta.first;
+	m_theta[index] = theta_deg;
+	
+	printf("New node %d with %lf and %lf, (r %lf, theta %lf) \n",m_listSkewed[m], skewedToproc.m_xDet ,  skewedToproc.m_yDet,m_r[index], theta_deg ); 
 	xInc += x_diff;
 	yInc += y_diff;
 
@@ -296,6 +319,16 @@ void PathCandidate::insertNewNode(CoordGrid &gr, GridNode *node,  std::vector<in
     m_x.insert(m_x.begin() + vecindex, node->m_xDet);
     m_y.insert(m_y.begin() + vecindex, node->m_yDet);
     m_z.insert(m_z.begin() + vecindex, node->m_z_Det);
+
+    /*  std::pair<float, float> r_Theta;
+    float theta_deg = Cartesian_To_Polar(node->m_xDet, node->m_yDet, r_Theta);
+    node->m_r = r_Theta.first;
+    node->m_thetaDeg = theta_deg;*/
+	
+    m_r.insert(m_r.begin() + vecindex,node->m_r);
+    m_theta.insert(m_theta.begin() + vecindex,node->m_thetaDeg);
+    
+    //  printf("Added virtual with r %lf, and theta %lf \n", node->m_r,node->m_thetaDeg);
     m_seenVirtual = true;
     m_lastVirtual = node->m_detID;
   }
