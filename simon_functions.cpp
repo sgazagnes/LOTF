@@ -410,12 +410,109 @@ double returnCurvature(double x1, double x2, double x3, double y1, double y2, do
 
 }
 
+
+
+double nodeDistanceToLinearFit(double xdet, double ydet, double *x_coef, double *y_coef){
+  
+  //double xdet = (double) node->m_r/  sqrt( 2*pow(40,2));//node->m_xDet;
+  //double ydet = (double)  (node->m_thetaDeg+180.) /360.;
+
+  double newx_coef[2] = {x_coef[0] - xdet, x_coef[1]};
+  double newy_coef[2] = {y_coef[0] - ydet, y_coef[1]};
+
+  double vectortanx[2] = {x_coef[1], 0.};
+  double vectortany[2] = {y_coef[1], 0.};
+	      
+  double d[3] = {newx_coef[0]*vectortanx[0] + newy_coef[0]*vectortany[0],
+		 newx_coef[0]*vectortanx[1] + newx_coef[1]*vectortanx[0] +
+		 newy_coef[0]*vectortany[1] + newy_coef[1]*vectortany[0],
+		 newx_coef[1]*vectortanx[1] + newy_coef[1]*vectortany[1]  };
+
+  double x0[2];
+  int nroot = gsl_poly_solve_quadratic(d[2], d[1], d[0], x0, x0+1);
+
+  double xIntersect, yIntersect, currDist;
+      
+  if(nroot ==1){
+    xIntersect = gsl_poly_eval(x_coef, 2, x0[0]);
+    yIntersect = gsl_poly_eval(y_coef, 2, x0[0]);
+    currDist = sqrt(pow(xIntersect - xdet,2) + pow(yIntersect - ydet,2));
+  }
+
+		
+  for (int j = 0; j < nroot; j++){
+    double newx = gsl_poly_eval(x_coef, 2, x0[j]);
+    double newy = gsl_poly_eval(y_coef, 2, x0[j]);
+    double newdist = sqrt(pow(newx - xdet,2) + pow(newy - ydet,2));
+    if(j == 0){
+      xIntersect = newx;
+      yIntersect = newy;
+      currDist = newdist;
+    } else if( currDist > newdist) {
+      xIntersect = newx;
+      yIntersect = newy;
+      currDist = newdist;
+    }
+  }
+
+  return currDist;
+}
+
+
+double nodeDistanceToQuadFit(double xdet, double ydet, double *x_coef, double *y_coef){
+
+  double newx_coef[3] = {x_coef[0] - xdet, x_coef[1], x_coef[2]};
+  double newy_coef[3] = {y_coef[0] - ydet, y_coef[1], y_coef[2]};
+
+  double vectortanx[3] = {x_coef[1], 2*x_coef[2], 0.};
+  double vectortany[3] = {y_coef[1], 2*y_coef[2], 0.};
+	      
+  double d[4] = {newx_coef[0]*vectortanx[0] + newy_coef[0]*vectortany[0],
+		 newx_coef[0]*vectortanx[1] + newx_coef[1]*vectortanx[0] +
+		 newy_coef[0]*vectortany[1] + newy_coef[1]*vectortany[0],
+		 newx_coef[0]*vectortanx[2] + newx_coef[1]*vectortanx[1] + newx_coef[2]*vectortanx[0] +
+		 newy_coef[0]*vectortany[2] + newy_coef[1]*vectortany[1] + newy_coef[2]*vectortany[0],
+		 newx_coef[2]*vectortanx[1] + newy_coef[2]*vectortany[1]};
+
+  double x0[3];
+  int nroot = gsl_poly_solve_cubic(d[2]/d[3], d[1]/d[3], d[0]/d[3], x0, x0+1, x0+2);
+
+  //debug("Polynomial coeff : %lf + %lf x + %lf x^2 + %lf x^3", d[0], d[1], d[2], d[3]);
+  //	debug("Real roots %d : x1 = %lf x2 =  %lf x3 =  %lf \n\n", nroot, x0[0], x0[1], x0[2]);
+
+  double xIntersect, yIntersect, currDist;
+  if(nroot ==1){
+    xIntersect = gsl_poly_eval(x_coef, 3, x0[0]);
+    yIntersect = gsl_poly_eval(y_coef, 3, x0[0]);
+    currDist = sqrt(pow(xIntersect - xdet,2) + pow(yIntersect - ydet,2));
+  }
+
+		
+  for (int j = 0; j < nroot; j++){
+    double newx = gsl_poly_eval(x_coef, 3, x0[j]);
+    double newy = gsl_poly_eval(y_coef, 3, x0[j]);
+    double newdist = sqrt(pow(newx - xdet,2) + pow(newy - ydet,2));
+    if(j == 0){
+      xIntersect = newx;
+      yIntersect = newy;
+      currDist = newdist;
+    } else if( currDist > newdist) {
+      xIntersect = newx;
+      yIntersect = newy;
+      currDist = newdist;
+    }
+  }
+  return currDist;
+}
+
+
 /* fitNextId */
 
-int fitNextId(CoordGrid &gr, PathCandidate &cand, std::vector<int> &next, int curLayer, int layerCurDir, int method, int k){
+int fitNextId(CoordGrid &gr, PathCandidate &cand, std::vector<int> &next, int k){
   
   std::vector< GridNode > &Ingrid = gr.m_grid;
   int goodId     = -1;
+  int method;
   int degree, nElts;
   std::vector<double> x =  std::vector<double>( cand.m_x );
   std::vector<double> y =  std::vector<double>( cand.m_y ); 
@@ -423,12 +520,11 @@ int fitNextId(CoordGrid &gr, PathCandidate &cand, std::vector<int> &next, int cu
   std::vector<double> theta =  std::vector<double>( cand.m_theta ); 
 
   for (int i = 0; i <x.size(); i++){
-    //  x[i] /= sqrt( 2*pow(40,2));
-    //y[i] = (y[i]+180.) /360.;
-     r[i] /= sqrt( 2*pow(40,2));
-    theta[i] = (theta[i]+180.) /360.;
-    
+    r[i] /= sqrt( 2*pow(40,2));
+    theta[i] = (theta[i]+180.) /360.;    
   }
+  double prevtheta = theta.back();
+
   //x.erase(std::remove(x.begin(), x.end(), -1), x.end());
   // y.erase(std::remove(y.begin(), y.end(), -1), y.end());
   // r.erase(std::remove(r.begin(), r.end(), -1), r.end());
@@ -441,15 +537,15 @@ int fitNextId(CoordGrid &gr, PathCandidate &cand, std::vector<int> &next, int cu
     std::reverse(theta.begin(),theta.end());
   }
 
-
-  debug("Number of points with determined coordinates: %d", x.size());
-  debug("Fast-checking unphysical neighbors");
+  //debug("Fast-checking unphysical neighbors");
 
   std::vector<int> plausible;
   std::vector<int> uncertain;
   std::vector<int> unlikely;
   std::vector<int> *tocheck;
 
+  
+  float tol = 90.;
   for (int i = 0; i <next.size(); i++){
     int curId = next[i];
     int curIdx = gr.Find(curId);
@@ -458,23 +554,39 @@ int fitNextId(CoordGrid &gr, PathCandidate &cand, std::vector<int> &next, int cu
     double ydet = node->m_y;
     double rdet = (double) node->m_r /  sqrt( 2*pow(40,2));
     double thetadet = (double) (node->m_thetaDeg+180.) /360.;
-
+    if(node->m_type == GridNode::STT_TYPE_SKEW)
+      tol = 50;
+    if(thetadet > 0.85 && prevtheta < 0.15)
+      thetadet -= 1;
+    else if(thetadet < 0.15 && prevtheta > 0.85)
+      thetadet += 1.;
+    //  debug("Points %lf, %lf \t %lf, %lf \t %lf, %lf",r[r.size()-2], r[r.size()-1], rdet, theta[theta.size()-2], theta[theta.size()-1], thetadet);
     float angle_r = returnAngle(r[r.size()-2], r[r.size()-1], rdet, theta[theta.size()-2], theta[theta.size()-1], thetadet);
     
     float angle_xy = returnAngle(x[x.size()-2], x[x.size()-1], xdet, y[y.size()-2], y[y.size()-1], ydet);
     debug("Angle with %d is %f, %f", curId, angle_r, angle_xy);
-    if(fabs(angle_r) > 90 && fabs(angle_xy) > 80)
+      if(fabs(angle_r) > 90 && fabs(angle_xy) > tol)
       plausible.push_back(curId);
-    else if(fabs(angle_r) > 80 && fabs(angle_xy) > 80)
-      uncertain.push_back(curId);
-    else
-      unlikely.push_back(curId);
+      else if((fabs(angle_r) > 90 || fabs(angle_xy) > tol) && fabs(angle_r) > 50 && fabs(angle_xy) > 50)
+	uncertain.push_back(curId);
+      else
+	unlikely.push_back(curId);
   }
 
-  if(plausible.size() > 0){
+  if(plausible.size() == 1){
+    goodId = plausible[0];
+    info("Only one good choice %d", goodId);
+    return goodId;
+  }else  if(plausible.size() > 0){
     info("We found %d promising candidates", plausible.size());
     tocheck = &plausible;
   }  else if (uncertain.size() > 0) {
+    if(uncertain.size() == 1){
+      
+      goodId = uncertain[0];
+      info("Only one good choice %d", goodId);
+      return goodId;
+    }
     info("No promising, but still possible with %d cand", uncertain.size());
     //return -1;
     tocheck = &uncertain;
@@ -483,25 +595,26 @@ int fitNextId(CoordGrid &gr, PathCandidate &cand, std::vector<int> &next, int cu
     return -1;
   }
 
-  // Checking curvature to select the method
+  // Checking Track angle in polar coord 
 
-  debug("Points %lf, %lf \t %lf, %lf \t %lf, %lf",r[0], theta[0], r[r.size()/2], theta[theta.size()/2],r[r.size()-1], theta[theta.size()-1]);
+  // debug("Points %lf, %lf \t %lf, %lf \t %lf, %lf",r[0], theta[0], r[r.size()/2], theta[theta.size()/2],r[r.size()-1], theta[theta.size()-1]);
   
-  double curv = returnCurvature(x[0], x[x.size()/2], x[x.size()-1], y[0], y[y.size()/2], y[y.size()-1]);
+  // double curv = returnCurvature(x[0], x[x.size()/2], x[x.size()-1], y[0], y[y.size()/2], y[y.size()-1]);
 
-  
   float angle = returnAngle(r[0], r[r.size()/2], r[r.size()-1],  theta[0], theta[theta.size()/2], theta[theta.size()-1]);
-  debug("Angle of track is %f", angle);
+  //debug("Angle of track is %f", angle);
   
 
   if(fabs(angle) < 170){
+    info("Quadratic Fit");
     method = 1;
     degree = 2;
     nElts  = x.size() -1;
   } else {
+    info("Linear Fit");
     method = 0;
     degree = 1;
-    nElts = MIN(5, x.size()-1);
+    nElts = x.size()-1;
   }
  
   std::vector<double> p;
@@ -516,170 +629,37 @@ int fitNextId(CoordGrid &gr, PathCandidate &cand, std::vector<int> &next, int cu
   double *x_coef = polyFit(p, r, degree);
   double *y_coef = polyFit(p, theta, degree);
 
-
   
-  if(method == 0){ // linear
+  //  if(method == 0){ // linear
 
-    info("Linear Fit");
     
   
-    for (int i = 0; i < tocheck->size(); i++){
-      int curId = tocheck->at(i);
-      int curIdx = gr.Find(curId);
-      GridNode *node = &Ingrid[curIdx];
-      int    nextLayer = node->m_Layer;
-      int    layerNewDir =  nextLayer - curLayer;
-      
-      double xdet = (double) node->m_r/  sqrt( 2*pow(40,2));//node->m_xDet;
-      double ydet = (double)  (node->m_thetaDeg+180.) /360.;
-      //  double rdet = (double) node->m_r /  sqrt( 2*pow(40,2));
-      //  double thetadet = (double) (node->m_thetaDeg+180.) /360.;
+  for (int i = 0; i < tocheck->size(); i++){
+    int curId = tocheck->at(i);
+    int curIdx = gr.Find(curId);
+    GridNode *node = &Ingrid[curIdx];
+    double xdet = (double) node->m_r/  sqrt( 2*pow(40,2));//node->m_xDet;
+    double ydet = (double)  (node->m_thetaDeg+180.) /360.;     
+    if(ydet > 0.85 && prevtheta < 0.15)
+      ydet -= 1;
+    else if(ydet < 0.15 && prevtheta > 0.85)
+      ydet += 1.;
+    double currDist = method == 0? nodeDistanceToLinearFit(xdet, ydet, x_coef, y_coef): nodeDistanceToQuadFit(xdet, ydet, x_coef, y_coef);      
 
-      // float angle = returnAngle(r[r.size()-2], r[r.size()-1], rdet, theta[theta.size()-2], theta[theta.size()-1], thetadet);
-
-      //  debug("Three point angle is %f", angle);
-
-      double newx_coef[2] = {x_coef[0] - xdet, x_coef[1]};
-      double newy_coef[2] = {y_coef[0] - ydet, y_coef[1]};
-
-      double vectortanx[2] = {x_coef[1], 0.};
-      double vectortany[2] = {y_coef[1], 0.};
-	      
-      double d[3] = {newx_coef[0]*vectortanx[0] + newy_coef[0]*vectortany[0],
-		     newx_coef[0]*vectortanx[1] + newx_coef[1]*vectortanx[0] +
-		     newy_coef[0]*vectortany[1] + newy_coef[1]*vectortany[0],
-		     newx_coef[1]*vectortanx[1] + newy_coef[1]*vectortany[1]  };
-
-      double x0[2];
-      int nroot = gsl_poly_solve_quadratic(d[2], d[1], d[0], x0, x0+1);
-
-      //  debug("Polynomial coeff : %lf + %lf x + %lf x^2", d[0], d[1], d[2]);
-      // debug("Real roots %d : x1 = %lf x2 =  %lf\n\n", nroot, x0[0], x0[1]);
-
-      double xIntersect, yIntersect, currDist;
-      
-      if(nroot ==1){
-	xIntersect = gsl_poly_eval(x_coef, 2, x0[0]);
-	yIntersect = gsl_poly_eval(y_coef, 2, x0[0]);
-	currDist = sqrt(pow(xIntersect - xdet,2) + pow(yIntersect - ydet,2));
-      }
-
+     debug("Node %d is at %lf", curId, currDist);
 		
-      for (int j = 0; j < nroot; j++){
-	double newx = gsl_poly_eval(x_coef, 2, x0[j]);
-	double newy = gsl_poly_eval(y_coef, 2, x0[j]);
-	double newdist = sqrt(pow(newx - xdet,2) + pow(newy - ydet,2));
-	if(j == 0){
-	  xIntersect = newx;
-	  yIntersect = newy;
-	  currDist = newdist;
-	} else if( currDist > newdist) {
-	  xIntersect = newx;
-	  yIntersect = newy;
-	  currDist = newdist;
-	}
-      }
-
-      debug("Node %d (layer %d) is at %lf, layer dir is %d", curId, nextLayer, currDist, layerNewDir);
-
-		
-      if(minDist > currDist){
-	minDist = currDist;		  
-	goodId = curId;	
-      }        
-    }  
-
-  }  else if(method == 1){ // quadratic
-
-      info("Quadratic Fit");
-
-
-    for (int i = 0; i < tocheck->size(); i++){
-      int curId = tocheck->at(i);
-      int curIdx = gr.Find(curId);
-      GridNode *node = &Ingrid[curIdx];
-      int    nextLayer = node->m_Layer;
-      int    layerNewDir =  nextLayer - curLayer;
-      //  double xdet = (double) node->m_xDet;
-      //  double ydet = (double) node->m_yDet;
-      double xdet = (double) node->m_r/  sqrt( 2*pow(40,2));//node->m_xDet;
-      double ydet = (double)  (node->m_thetaDeg+180.) /360.;
-      /*   double rdet = (double) node->m_r;
-      double thetadet = (double) node->m_thetaDeg;
-
-      int newrDir = returnDirection(  r[r.size()-1], rdet);
-      debug("New r direction is %d (%lf, %lf)", newrDir, r[r.size()-1], rdet);
-    
-      int newthetaDir = returnDirection(  theta[theta.size()-1], thetadet);
-      debug("New theta direction is %d (%lf, %lf)", newthetaDir, theta[theta.size()-1], thetadet);
-      */
-      //  float angle = returnAngle(r[r.size()-2], r[r.size()-1], rdet, theta[theta.size()-2], theta[theta.size()-1], thetadet);
-
-      //  debug("Three point angle is %f", angle);
-      
-      double newx_coef[3] = {x_coef[0] - xdet, x_coef[1], x_coef[2]};
-      double newy_coef[3] = {y_coef[0] - ydet, y_coef[1], y_coef[2]};
-
-      double vectortanx[3] = {x_coef[1], 2*x_coef[2], 0.};
-      double vectortany[3] = {y_coef[1], 2*y_coef[2], 0.};
-	      
-      double d[4] = {newx_coef[0]*vectortanx[0] + newy_coef[0]*vectortany[0],
-		     newx_coef[0]*vectortanx[1] + newx_coef[1]*vectortanx[0] +
-		     newy_coef[0]*vectortany[1] + newy_coef[1]*vectortany[0],
-		     newx_coef[0]*vectortanx[2] + newx_coef[1]*vectortanx[1] + newx_coef[2]*vectortanx[0] +
-		     newy_coef[0]*vectortany[2] + newy_coef[1]*vectortany[1] + newy_coef[2]*vectortany[0],
-		     newx_coef[2]*vectortanx[1] + newy_coef[2]*vectortany[1]};
-
-      double x0[3];
-      int nroot = gsl_poly_solve_cubic(d[2]/d[3], d[1]/d[3], d[0]/d[3], x0, x0+1, x0+2);
-
-      //debug("Polynomial coeff : %lf + %lf x + %lf x^2 + %lf x^3", d[0], d[1], d[2], d[3]);
-      //	debug("Real roots %d : x1 = %lf x2 =  %lf x3 =  %lf \n\n", nroot, x0[0], x0[1], x0[2]);
-
-      double xIntersect, yIntersect, currDist;
-      if(nroot ==1){
-	xIntersect = gsl_poly_eval(x_coef, 3, x0[0]);
-	yIntersect = gsl_poly_eval(y_coef, 3, x0[0]);
-	currDist = sqrt(pow(xIntersect - xdet,2) + pow(yIntersect - ydet,2));
-      }
-
-		
-      for (int j = 0; j < nroot; j++){
-	double newx = gsl_poly_eval(x_coef, 3, x0[j]);
-	double newy = gsl_poly_eval(y_coef, 3, x0[j]);
-	double newdist = sqrt(pow(newx - xdet,2) + pow(newy - ydet,2));
-	if(j == 0){
-	  xIntersect = newx;
-	  yIntersect = newy;
-	  currDist = newdist;
-	} else if( currDist > newdist) {
-	  xIntersect = newx;
-	  yIntersect = newy;
-	  currDist = newdist;
-	}
-      }
-
-      debug("Node %d (layer %d) is at %lf, layer dir is %d", curId, nextLayer, currDist, layerNewDir);
-
-    
-		
-      if(minDist > currDist){
-
-	  minDist = currDist;		  
-	  goodId = curId;
-	
-      }
-	    
-		
-    } // FOR RIGHT NEIGHBORS
-
+    if(minDist > currDist){
+      minDist = currDist;		  
+      goodId = curId;	
+    }        
   }
+  
+  return goodId;
+
   if(goodId != -1) info("The good id is %d, and is at distance %lf", goodId,minDist);
   else info("No good ID found");
-    
   
 
-  return goodId;
 }
 
 

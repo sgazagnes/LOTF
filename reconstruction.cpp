@@ -124,7 +124,7 @@ void findEasyTracks (CoordGrid &gr, std::vector < PathCandidate* > &tracklets, s
 
 
 
-	else if (sameLayer.size() > 0){   /* Same layer neighbors */
+	else if (sameLayer.size() > 0 ){   /* Same layer neighbors */
 
 	  v = dir == UP ? &nextLayer: &prevLayer; // find direction	    
 
@@ -341,3 +341,131 @@ void findEasyTracks (CoordGrid &gr, std::vector < PathCandidate* > &tracklets, s
   } // For active nodes
 
 }
+
+
+
+
+
+/* IF ASSIGNING REMAINING NODES // TO CHEC LATER
+
+   for(unsigned int n = 0; n < nactiveReal; ++n) {
+	
+      int curId      	= activeId[n];
+      std::vector< int > toAdd;
+      std::vector< int > possiCand;
+      std::vector< double > distToCand;
+      std::vector< int > nodeId;
+      std::vector< int > curr;
+      std::vector< int > next;
+
+	
+      if(visited[curId] != 0) continue;
+	
+      info("Remaining node %d", curId);
+      int curIdx = gr.Find(curId);
+      GridNode *currentNode = &Ingrid[curIdx];
+	
+      int n_neighbors = currentNode->m_neighbors.size();
+      if(n_neighbors == 0){
+	debug("LOST CHILD");
+	visited[curId] = 4;
+	continue;
+      }
+	
+      curr.insert(curr.end(),  currentNode->m_neighbors.begin(),   currentNode->m_neighbors.end());
+      toAdd.push_back(curId);
+
+      bool cond = true;
+	
+      while(cond){
+	
+	std::sort (curr.begin(), curr.end());
+	    
+	for (int i = 0; i < curr.size(); i++){
+	  int neighId = curr[i];
+	  int neighIdx = gr.Find(neighId);
+	  GridNode *neighNode = &Ingrid[neighIdx];
+	  
+	  // debug("Neighbor %d", neighId);
+	  
+	  if (visited[neighId] == 4){
+	    double dist = distanceBetweenTube(*currentNode, *neighNode);
+	    info("Neigh %d, One possible CM is %d, tube distance %lf",neighId, neighNode->m_cm[0], dist);
+	    possiCand.push_back(neighNode->m_cm[0]);
+	    distToCand.push_back(dist);
+	    nodeId.push_back(neighId);
+	  }
+	  else if(!(std::find(toAdd.begin(), toAdd.end(),neighId)!= toAdd.end())){	      
+	    toAdd.push_back(neighId);
+	    next.push_back(neighId);
+	    info("Node %d added for next loop", neighId);
+	  }
+	    
+	  //std::string dummy;
+	  //std::cout << "Enter to continue..." << std::endl;
+	  //std::getline(std::cin, dummy);
+	}
+
+	if(possiCand.size() == 1){
+	  debug("We found a path candidate for this node");
+	  int potCm = possiCand[0];
+	  const auto p = std::find_if(tracklets.begin(), tracklets.end(), [potCm](const PathCandidate *obj){ return obj->m_id == potCm; } );
+	  std::vector<int>::iterator it = std::find(((*p)->m_memberList)->begin(), ((*p)->m_memberList)->end(), nodeId[0]);
+
+	  (*p)->insertNewNode(gr,currentNode, it+1);
+	  visited[curId]= 4;
+	  cond = false;
+	}
+
+	    
+	else if (possiCand.size() > 1) {
+	  debug("We found several path candidates for this node");
+	  std::vector<double>::iterator result = std::min_element(distToCand.begin(),distToCand.end());
+	  int minEltIdx = std::distance(distToCand.begin(), result);
+	  // int minElement = *std::min_element(v.begin(), v.end());
+	  debug("Node %d is closer with dist %lf and belongs to cm %d", nodeId[minEltIdx], distToCand[minEltIdx], possiCand[minEltIdx]);
+	  int potCm = possiCand[minEltIdx];
+	  const auto p = std::find_if(tracklets.begin(), tracklets.end(), [potCm](const PathCandidate *obj){ return obj->m_id == potCm; } );
+
+	  std::vector<int>::iterator it = std::find(((*p)->m_memberList)->begin(), ((*p)->m_memberList)->end(), nodeId[minEltIdx]);
+	  int EltIdx = std::distance(((*p)->m_memberList)->begin(), it);
+
+
+	  (*p)->insertNewNode(gr,currentNode, it);
+	  visited[curId]= 4;
+	  cond = false;
+	}
+
+	    
+	else if (next.size() > 0){
+	  debug("WELL let's contiinue");
+	  curr.clear();
+	  curr.insert(curr.end(),  next.begin(),   next.end());
+	  next.clear();
+	}
+
+	else {
+	  debug("Seems that no neighbors belongs to track?, let's create a new one");
+	  PathCandidate *cand 	= new PathCandidate();// Create a new candidate
+	  cand->m_id 		= candidateId++;// Set id
+	  cand->m_tailNode 	        = curId;
+	  visited[curId] 		= 4;
+
+	  for (int i = 0; i < toAdd.size(); i++){
+	    int nId = toAdd[i];
+	    int nIdx = gr.Find(nId);
+	    GridNode *nNode = &Ingrid[nIdx];
+	    cand->insertNewNode(gr,nNode, cand->m_memberList->end());
+	    visited[nId] = 4;
+	  }
+
+	  info("Pushing cm %d: \n               length is %d, \n     tail node %d \n     head node %d \n       Min layer %d, \n              Max layer %d, \n               IsOnSectorLimit %d, \n               Finished ? %d. ", cand->m_id, cand->m_length, cand->m_tailNode, cand->m_headNode,cand->m_minLayer, cand->m_maxLayer, cand->m_isOnSectorLimit, cand->m_finished);
+
+	  tracklets.push_back(cand);
+	  cond = false;
+	      
+	}	      
+	     	    	    
+      } // WHILE COND
+    } // for nodes
+      */

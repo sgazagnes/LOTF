@@ -214,7 +214,7 @@ void PathCandidate::insertNewNode(CoordGrid &gr, GridNode *node,  std::vector<in
   std::vector< GridNode > &Ingrid  = gr.m_grid;
 
   int vecindex = std::distance( m_memberList->begin(), it );
-  printf("ADDING %d to track %d \n", id, m_id);
+   printf("ADDING %d to track %d \n", id, m_id);
 
   m_memberIdSet->insert(id);
   m_memberList->insert(it,id);
@@ -243,7 +243,20 @@ void PathCandidate::insertNewNode(CoordGrid &gr, GridNode *node,  std::vector<in
       m_y.insert(m_y.begin() + vecindex,node->m_y);
       m_z.insert(m_z.begin() + vecindex,node->m_z);
       m_r.insert(m_r.begin() + vecindex,node->m_r);
-      m_theta.insert(m_theta.begin() + vecindex,node->m_thetaDeg);
+      double newtheta = node->m_thetaDeg;
+
+      if(m_length > 2){
+	double prevtheta = m_theta.back();
+
+	//	printf("%lf, %lf\n",  newtheta,m_theta.back() );
+	if(prevtheta > 150 && newtheta < -150)
+	  newtheta += 360.;
+	else if (prevtheta < -150 && newtheta > 150)
+	  newtheta -= 360.;
+	//	printf("%lf, %lf\n",  newtheta,m_theta.back() );
+
+      }
+      m_theta.insert(m_theta.begin() + vecindex, newtheta);
 
       /* } else {
       m_x.insert(m_x.begin() + vecindex, -1);
@@ -305,9 +318,20 @@ void PathCandidate::insertNewNode(CoordGrid &gr, GridNode *node,  std::vector<in
 	std::pair<float, float> r_Theta;
 	float theta_deg = Cartesian_To_Polar(skewedToproc.m_xDet, skewedToproc.m_yDet, r_Theta);
 	m_r[index] = r_Theta.first;
-	m_theta[index] = theta_deg;
+
+	double prevtheta = m_theta.back();
+	double newtheta = theta_deg;
+	if(m_length > 2){
+	  //	  printf("%lf, %lf\n",  newtheta,m_theta[0] );
+	  if(prevtheta > 150 && newtheta  < -150)
+	    newtheta += 360.;
+	  else if (prevtheta < -150 && newtheta > 150)
+	    newtheta -= 360.;
+	  //  printf("%lf, %lf\n",  newtheta,m_theta[0] );
+	}
+	m_theta[index] = newtheta;
 	
-	printf("New node %d with %lf and %lf, (r %lf, theta %lf) \n",m_listSkewed[m], skewedToproc.m_xDet ,  skewedToproc.m_yDet,m_r[index], theta_deg ); 
+	//	printf("New node %d with %lf and %lf, (r %lf, theta %lf) \n",m_listSkewed[m], skewedToproc.m_xDet ,  skewedToproc.m_yDet,m_r[index], theta_deg ); 
 	xInc += x_diff;
 	yInc += y_diff;
 
@@ -318,22 +342,27 @@ void PathCandidate::insertNewNode(CoordGrid &gr, GridNode *node,  std::vector<in
     // printf("%d, %d, %d, %lf, %lf \n", vecindex, m_x.size(), m_memberList->size(),node->m_xDet,node->m_yDet);
     m_x.insert(m_x.begin() + vecindex, node->m_xDet);
     m_y.insert(m_y.begin() + vecindex, node->m_yDet);
-    m_z.insert(m_z.begin() + vecindex, node->m_z_Det);
-
-    /*  std::pair<float, float> r_Theta;
-    float theta_deg = Cartesian_To_Polar(node->m_xDet, node->m_yDet, r_Theta);
-    node->m_r = r_Theta.first;
-    node->m_thetaDeg = theta_deg;*/
-	
-    m_r.insert(m_r.begin() + vecindex,node->m_r);
-    m_theta.insert(m_theta.begin() + vecindex,node->m_thetaDeg);
+    m_z.insert(m_z.begin() + vecindex, node->m_z_Det);     
+    m_r.insert(m_r.begin() + vecindex, node->m_r);
     
-    //  printf("Added virtual with r %lf, and theta %lf \n", node->m_r,node->m_thetaDeg);
+   
+    double newtheta = node->m_thetaDeg;
+    if(m_length > 2){
+      double prevtheta = m_theta.back();
+
+      //  printf("%lf, %lf\n",  newtheta,m_theta[0] );
+      if(prevtheta > 150 && newtheta  < -150)
+	newtheta += 360.;
+      else if (prevtheta < -150 && newtheta > 150)
+	newtheta -= 360.;
+      //    printf("%lf, %lf\n",  newtheta,m_theta[0] );
+    }
+    m_theta.insert(m_theta.begin() + vecindex,newtheta);
+    
     m_seenVirtual = true;
     m_lastVirtual = node->m_detID;
   }
 	  
   m_headNode = id;
-  // printf("END ADDING \n");
 }
 

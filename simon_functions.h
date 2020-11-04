@@ -40,12 +40,13 @@ void removeIdFromNeigh(GridNode *neighNode, std::vector<int> *prevNodes, int cur
 
 bool areAdjacent(CoordGrid &gr, std::vector<int> *v);
 
+double returnAngle(double x1, double x2, double x3, double y1, double y2, double y3);
 
 double *polyFit(std::vector<double>  x, std::vector<double>  y, int n);
 
 int returnDirection(double prev, double cur);
 
-int fitNextId(CoordGrid &gr, PathCandidate &cand, std::vector<int> &next, int curLayer, int layerCurDir, int method, int k);
+int fitNextId(CoordGrid &gr, PathCandidate &cand, std::vector<int> &next, int k);
 
 double distanceBetweenTube(GridNode & tubeA, GridNode & tubeB);
 

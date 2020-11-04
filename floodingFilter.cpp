@@ -332,7 +332,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
       info("Cm %d has length %d", curCand.m_id, curCand.m_length);
     }
 
-    char *visitedTracks = (char *) calloc(tracklets.size(), sizeof(char));
+    //   char *visitedTracks = (char *) calloc(tracklets.size(), sizeof(char));
 
 
     
@@ -344,13 +344,19 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
     
     if(fitting){
+
+      int **sayYes =  (int **) calloc(tracklets.size(), sizeof(int*));
+      for (int i =0; i < tracklets.size(); i++)
+	sayYes[i] = (int *) calloc(tracklets.size(), sizeof(int));
+
       
       for(unsigned int l = 0; l < tracklets.size(); l++){ // Go for each tracklet
 	
 	PathCandidate &curCand = *(tracklets[l]);
-	info("Track %d, status %d, length %d", curCand.m_id, curCand.m_finished,curCand.m_length  );
+	info("\n\n\n");
+	info("NEW Track %d, status %d, length %d", curCand.m_id, curCand.m_finished,curCand.m_length);
 	
-	if (curCand.m_finished >= 2 || curCand.m_length < 6 ) continue;
+	if (curCand.m_finished >= 2 || curCand.m_length < 5 ) continue;
 	
 	int first =  curCand.m_tailNode;
 	int firstIdx = gr.Find(first);
@@ -360,13 +366,12 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	int lastIdx = gr.Find(last);
 	GridNode &lastNode = Ingrid[lastIdx];
 	
-	info("Tail node %d (num neigh %d),  head node %d (num neigh %d)", first, curCand.m_headNeigh.size(), last, curCand.m_tailNeigh.size());
-
+	info("Tail node %d (num neigh %d),  head node %d (num neigh %d)", first, curCand.m_tailNeigh.size(), last, curCand.m_headNeigh.size());
 
 	for(int k = 0; k < 2; k++){ // First Tail, then Head
 	  int prevId = k == 1? curCand.m_headNode: curCand.m_tailNode;
-	  int curLayer = k == 1? lastNode.m_Layer: firstNode.m_Layer;
-	  int layerCurDiff;
+	  //int curLayer = k == 1? lastNode.m_Layer: firstNode.m_Layer;
+	  // int layerCurDiff;
 	  GridNode *prevNode = k == 1? &lastNode: &firstNode;
 	
 	  std::vector<int> *curNeigh = k == 1? &(curCand.m_headNeigh): &(curCand.m_tailNeigh);
@@ -378,7 +383,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 	  k == 1? info("HEAD : Fitting next neighbors "): info("TAIL : Fitting next neighbors");
 	      
-	  for(int i = 0; i  < curNeigh->size(); i++){
+	  for(int i = 0; i  < curNeigh->size(); i++){ 
 	    int id = curNeigh->at(i);
 	    int idx = gr.Find(id);
 	    GridNode &node = Ingrid[idx];
@@ -398,42 +403,122 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  bool adding = true;
 
 	  std::vector<int> virt;
-	  std::vector<int>  *trk = curCand.m_memberList;
-	  std::vector<double> x =  std::vector<double>( (curCand.m_x) );
-	  std::vector<double> y =  std::vector<double>( (curCand.m_y) ); 
+	  std::vector<int> *trk = curCand.m_memberList;
 
 	  int potCm = -1;
-	  int start = k == 0? 0 : trk->size()-1;
-	  int inc = k == 0? 1: -1;
-	  int ii = 0;
 	  int id = k == 1? trk->at(trk->size() - 2) : 1;
 	  int idx = gr.Find(id);
 	  GridNode &node = Ingrid[idx];		
-	  layerCurDiff = curLayer - node.m_Layer;
 	   
-
 
 	  while (cond){
 	    
 	    GridNode *goodNode;	    
 	    
-	    int goodId = fitNextId(gr, curCand, next, curLayer, layerCurDiff, 1, k);
+	    int goodId = fitNextId(gr, curCand, next, k);
 	    
 	    if (goodId == -1) {
 	      info("No good candidates have been found, stop");
-	      curCand.m_finished = 2;
-	      cond = false;
-	      break;
+	      info("Current cm %d: \n \t length is %d, \n \t tail node %d \n \t head node %d \n \t Min layer %d, \n \t Max layer %d. ", curCand.m_id, curCand.m_length, curCand.m_tailNode, curCand.m_headNode, curCand.m_minLayer, curCand.m_maxLayer);
+	      if((curCand.m_minLayer == 0 && curCand.m_maxLayer > 21) || (firstNode.m_LayerLimit == 1 && lastNode.m_LayerLimit == 1)){		 
+		info("track goes through all layers or makes a loop, likily finished");		 
+		curCand.m_finished = 3;		 
+	      } else {
+		curCand.m_finished = 2;
+		cond = false;
+		break;
+	      }
 	    }
-	    
+
+
 	      
 	    int goodIdx = gr.Find(goodId);
 	    goodNode = &Ingrid[goodIdx];
 
-	    if(visited[goodId] == 4){
-	      info("This node already belongs to a CM (%d)", goodNode->m_cm[0]);
+	    	    //Check that we did not forget a virtual node before
+	    
+	    if(goodNode->m_type != GridNode::VIRTUAL_NODE){
+	      for(int i = 0; i < goodNode->m_neighbors.size(); i++){
+		int neighId = goodNode->m_neighbors[i];
+		int idx = gr.Find(neighId);
+		GridNode *comNode = &Ingrid[idx];
+		if(prevNode->IsNeighboring(neighId) && comNode->m_type == GridNode::VIRTUAL_NODE){
+		  info("Adding common neighbor %d", neighId);
+		  int idx = gr.Find(neighId);
+		  curCand.insertNewNode(gr, &Ingrid[idx], k == 0? curCand.m_memberList->begin(): curCand.m_memberList->end());
+		  visited[neighId] = 4;
 
-	      if(potCm == goodNode->m_cm[0]){
+		}
+	      }
+	    }
+	    
+	      
+	    // Automatically add next neighbord if we just found a virtual node
+	    
+	    if(goodNode->m_type == GridNode::VIRTUAL_NODE){
+	      curCand.insertNewNode(gr,goodNode, k == 0? curCand.m_memberList->begin(): curCand.m_memberList->end());
+	      visited[goodId] = 4;
+	      int neighId = curCand.isInCandidate(goodNode->m_neighbors[0]) ? goodNode->m_neighbors[1]:goodNode->m_neighbors[0];
+	      int neighIdx = gr.Find(neighId);
+	      goodNode = &Ingrid[neighIdx];
+	      info("We added a virtual node, also adding the next neighbord %d", neighId);
+	      goodId = neighId;
+	    }
+	    
+	    
+	    if(visited[goodId] == 4){
+
+	      potCm = goodNode->m_cm[0];
+	      const auto p = std::find_if(tracklets.begin(), tracklets.end(),
+					  [potCm](const PathCandidate *obj){ return obj->m_id ==potCm; } );
+
+	      PathCandidate &neighCand = *(*p);
+
+	       std::vector<int>::iterator it = std::find((neighCand.m_memberList)->begin(), (neighCand.m_memberList)->end(), goodId);
+	       int index = std::distance((neighCand.m_memberList)->begin(), it);
+	       int id = neighCand.m_memberList->at(index);
+	       int nextNeigh;
+	       int dir = 0;
+
+	       info("This node already belongs to a CM (%d), tail Node %d, and head Node %d", goodNode->m_cm[0],neighCand.m_tailNode,neighCand.m_headNode);
+
+	       debug("Let's compute first the intersection angle");
+	       if(id == neighCand.m_headNode){
+		 info("We are checking in the tail direction");
+		 nextNeigh = index-1;
+		 dir = k == 1? 3: 1; // head to head or tail to head
+	       } else if ( index == neighCand.m_tailNode ) {
+		 info("We are checking in the head direction");
+		 nextNeigh= 1;
+		 dir = k == 1? 2: 0; // head to head or tail to head
+	       } else {
+		 debug("we must find which is the direction");
+		 int currr =  neighCand.m_r[index-1] - goodNode->m_r;
+		 int prevr = goodNode->m_r - prevNode->m_r;
+		 if((currr >= 0 && prevr >= 0) || (currr < 0 && prevr < 0)){
+		   debug("Middle node, We are checking in the tail direction");
+		   nextNeigh= index-1;
+		   dir = k == 1? 3: 1; // head to head or tail to head
+		   } else {
+		   debug("Middle node, We are checking in the head direction");
+		   nextNeigh= index+1;
+		   dir = k == 1? 2: 0; // head to head or tail to head
+		 }
+	       }
+
+	       	       
+	       float angle_r = returnAngle(prevNode->m_r, goodNode->m_r, neighCand.m_r[nextNeigh], prevNode->m_theta, goodNode->m_theta, neighCand.m_theta[nextNeigh]);
+    
+	       float angle_xy = returnAngle(prevNode->m_x, goodNode->m_x, neighCand.m_x[nextNeigh], prevNode->m_y, goodNode->m_y, neighCand.m_y[nextNeigh]);
+
+	       info("Angle r track %f", angle_r);
+	       info("Angle xy track %f", angle_xy);
+	    
+	       break;
+
+
+	       
+		 /*  if(potCm == goodNode->m_cm[0]){
 		  
 		debug("Two nodes in a row belong to the same cm %d, let's stop and merge them later", potCm);
 		cond = false;
@@ -469,14 +554,19 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		// visitedTracks[potCm] = 1;
 	      } else {
 		potCm = goodNode->m_cm[0];
-	      }		
+		}	*/	
 	    } // Visited good id 4
-	    else
-	      potCm = -1;
-	      
-	  
+	    //else
+	    // potCm = -1;
+
+	    // goodIdx = gr.Find(goodId);
+	    curCand.insertNewNode(gr, goodNode, k == 0? curCand.m_memberList->begin(): curCand.m_memberList->end());
+	    visited[goodId] = 4;
+
+
+	    //   curLayer = goodNode->m_Layer;
+
 	    next.clear();
-	    std::vector<double> avoid;
 
 	    for(int i = 0; i < goodNode->m_neighbors.size(); i++){
 	      
@@ -487,21 +577,17 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 	      int neighIdx = gr.Find(neighId);
 	      GridNode *neighNode = &Ingrid[neighIdx];
+	      next.push_back(neighId);
 
-	      if(neighNode->m_type == GridNode::VIRTUAL_NODE){
+	      /* if(neighNode->m_type == GridNode::VIRTUAL_NODE){
 		//int nextId = neighNode->m_neighbors[0] == goodId ?   neighNode->m_neighbors[1]:  neighNode->m_neighbors[0];
 		//	avoid.push_back(nextId);
 		//	next.erase(std::remove(next.begin(), next.end(), nextId), next.end());
-		virt.push_back(neighId);
-		continue;
-	      } else {
-		if(visited[neighId] == 4)
-		  debug("Node %d has already been connected, let see", neighId);
-		
 		next.push_back(neighId);
-		debug("Adding Node %d ", neighId);
-	      
-	      }
+		//virt.push_back(neighId);
+		//continue;
+		} else {*/
+	     
 		
 	    }// for neighbors
 
@@ -510,59 +596,15 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      debug("Also adding this node %d", goodNode->parent );
 	    }
 
-	    if(next.size() > 0) {
 
-	      if(virt.size() > 0){
-		for(int i = 0; i < virt.size(); i++){
-		  if(goodNode->IsNeighboring(virt[i]) && prevNode->IsNeighboring(virt[i])){
-		    
-		    debug("Node %d is common neighbor, add before", virt[i]);
-		    int virtIdx = gr.Find(virt[i]);
-		    GridNode *virtNode = &Ingrid[virtIdx];
-		    curCand.insertNewNode(gr,virtNode, k == 0? curCand.m_memberList->begin(): curCand.m_memberList->end());
-		  }
-		}
-	      
-	      }
+	    if(next.size() > 0){
 
-
-		
-	      debug("Let's add this new node and continue");
-	      
-	      curCand.insertNewNode(gr,goodNode, k == 0? curCand.m_memberList->begin(): curCand.m_memberList->end());
-	      visited[goodId] = 4;
-	      
-	      layerCurDiff = goodNode->m_Layer - curLayer;
-	      curLayer = goodNode->m_Layer;
-
-	      x.erase(x.begin());
-	      y.erase(y.begin());
-	      x.push_back(goodNode->m_xDet);
-	      y.push_back(goodNode->m_yDet);
-
-	      /*    if(goodNode->m_type == GridNode::VIRTUAL_NODE){
-		int nextId = goodNode->m_neighbors[0] == prevId ?   goodNode->m_neighbors[1]:  goodNode->m_neighbors[0];
-		goodNode = &Ingrid[gr.Find(nextId)];
-		curCand.insertNewNode(gr,goodNode, k == 0? curCand.m_memberList->begin(): curCand.m_memberList->end());
-		visited[goodId] = 4;
-		
-		layerCurDiff = goodNode->m_Layer - curLayer;
-		curLayer = goodNode->m_Layer;
-		x.erase(x.begin());
-		y.erase(y.begin());
-		x.push_back(goodNode->m_xDet);
-		y.push_back(goodNode->m_yDet);
-		}*/
-	      //	avoid.push_back(nextId);
-	      //	next.push_back(neighId);
-	    
 	      
 	      prevId = goodId;
 	      prevNode = goodNode;
 	      virt.clear();
-	      error("%d", curLayer);
-	      if(curLayer == 0){
-		info("Reached end ?");
+	      if(goodNode->m_Layer == 0){
+		error("Reached end ?");
 		curCand.m_finished = 2;
 		cond = false;
 	      }
@@ -610,147 +652,18 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      }
 		     
 	    } // next,size() == 0
-		
-	  
-	      
+			  	      
 	    //   cond = false;
 	  } // WHILE COND
 	} // for k 2
       } // for k trackets
-      
-     // if true
-	
-
-
-
-
-    // Assigning remaining nodes
-
-      /*   for(unsigned int n = 0; n < nactiveReal; ++n) {
-	
-      int curId      	= activeId[n];
-      std::vector< int > toAdd;
-      std::vector< int > possiCand;
-      std::vector< double > distToCand;
-      std::vector< int > nodeId;
-      std::vector< int > curr;
-      std::vector< int > next;
-
-	
-      if(visited[curId] != 0) continue;
-	
-      info("Remaining node %d", curId);
-      int curIdx = gr.Find(curId);
-      GridNode *currentNode = &Ingrid[curIdx];
-	
-      int n_neighbors = currentNode->m_neighbors.size();
-      if(n_neighbors == 0){
-	debug("LOST CHILD");
-	visited[curId] = 4;
-	continue;
-      }
-	
-      curr.insert(curr.end(),  currentNode->m_neighbors.begin(),   currentNode->m_neighbors.end());
-      toAdd.push_back(curId);
-
-      bool cond = true;
-	
-      while(cond){
-	
-	std::sort (curr.begin(), curr.end());
-	    
-	for (int i = 0; i < curr.size(); i++){
-	  int neighId = curr[i];
-	  int neighIdx = gr.Find(neighId);
-	  GridNode *neighNode = &Ingrid[neighIdx];
-	  
-	  // debug("Neighbor %d", neighId);
-	  
-	  if (visited[neighId] == 4){
-	    double dist = distanceBetweenTube(*currentNode, *neighNode);
-	    info("Neigh %d, One possible CM is %d, tube distance %lf",neighId, neighNode->m_cm[0], dist);
-	    possiCand.push_back(neighNode->m_cm[0]);
-	    distToCand.push_back(dist);
-	    nodeId.push_back(neighId);
-	  }
-	  else if(!(std::find(toAdd.begin(), toAdd.end(),neighId)!= toAdd.end())){	      
-	    toAdd.push_back(neighId);
-	    next.push_back(neighId);
-	    info("Node %d added for next loop", neighId);
-	  }
-	    
-	  //std::string dummy;
-	  //std::cout << "Enter to continue..." << std::endl;
-	  //std::getline(std::cin, dummy);
-	}
-
-	if(possiCand.size() == 1){
-	  debug("We found a path candidate for this node");
-	  int potCm = possiCand[0];
-	  const auto p = std::find_if(tracklets.begin(), tracklets.end(), [potCm](const PathCandidate *obj){ return obj->m_id == potCm; } );
-	  std::vector<int>::iterator it = std::find(((*p)->m_memberList)->begin(), ((*p)->m_memberList)->end(), nodeId[0]);
-
-	  (*p)->insertNewNode(gr,currentNode, it+1);
-	  visited[curId]= 4;
-	  cond = false;
-	}
-
-	    
-	else if (possiCand.size() > 1) {
-	  debug("We found several path candidates for this node");
-	  std::vector<double>::iterator result = std::min_element(distToCand.begin(),distToCand.end());
-	  int minEltIdx = std::distance(distToCand.begin(), result);
-	  // int minElement = *std::min_element(v.begin(), v.end());
-	  debug("Node %d is closer with dist %lf and belongs to cm %d", nodeId[minEltIdx], distToCand[minEltIdx], possiCand[minEltIdx]);
-	  int potCm = possiCand[minEltIdx];
-	  const auto p = std::find_if(tracklets.begin(), tracklets.end(), [potCm](const PathCandidate *obj){ return obj->m_id == potCm; } );
-
-	  std::vector<int>::iterator it = std::find(((*p)->m_memberList)->begin(), ((*p)->m_memberList)->end(), nodeId[minEltIdx]);
-	  int EltIdx = std::distance(((*p)->m_memberList)->begin(), it);
-
-
-	  (*p)->insertNewNode(gr,currentNode, it);
-	  visited[curId]= 4;
-	  cond = false;
-	}
-
-	    
-	else if (next.size() > 0){
-	  debug("WELL let's contiinue");
-	  curr.clear();
-	  curr.insert(curr.end(),  next.begin(),   next.end());
-	  next.clear();
-	}
-
-	else {
-	  debug("Seems that no neighbors belongs to track?, let's create a new one");
-	  PathCandidate *cand 	= new PathCandidate();// Create a new candidate
-	  cand->m_id 		= candidateId++;// Set id
-	  cand->m_tailNode 	        = curId;
-	  visited[curId] 		= 4;
-
-	  for (int i = 0; i < toAdd.size(); i++){
-	    int nId = toAdd[i];
-	    int nIdx = gr.Find(nId);
-	    GridNode *nNode = &Ingrid[nIdx];
-	    cand->insertNewNode(gr,nNode, cand->m_memberList->end());
-	    visited[nId] = 4;
-	  }
-
-	  info("Pushing cm %d: \n               length is %d, \n     tail node %d \n     head node %d \n       Min layer %d, \n              Max layer %d, \n               IsOnSectorLimit %d, \n               Finished ? %d. ", cand->m_id, cand->m_length, cand->m_tailNode, cand->m_headNode,cand->m_minLayer, cand->m_maxLayer, cand->m_isOnSectorLimit, cand->m_finished);
-
-	  tracklets.push_back(cand);
-	  cond = false;
-	      
-	}	      
-	     	    	    
-      } // WHILE COND
-    } // for nodes
-      */
-
+         
     } // IF TRUE
 
     
+
+
+
     if(merging){
 
     
