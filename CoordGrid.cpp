@@ -25,6 +25,13 @@
 #endif
 //_____ DEBUG
 
+struct ordering {
+  bool operator ()(pair<int, double> const& a, 
+		   pair<int, double> const& b) {
+        return a.second < b.second;
+    }
+};
+
 // Constructor
 CoordGrid::CoordGrid()
   : m_AttSpaceTolerance(0.0),
@@ -142,6 +149,9 @@ void CoordGrid::FillGrid(std::vector < HitCoordinate* > const& hitcoords)
   // All real tubes are activated.  Now we need to activate virtual
   // tubes as well. Note that every virtual tube has ONLY two
   // neighbors. These are the parent neigbours.
+  std::vector<int> tocheck;
+  char *visited 	= (char *) calloc(100000, sizeof(char));
+
   for(size_t j = 0; j < m_grid.size(); j++) {
     GridNode &Virtual_tube = m_grid[j];
     if( Virtual_tube.m_type == GridNode::VIRTUAL_NODE) {
@@ -154,12 +164,151 @@ void CoordGrid::FillGrid(std::vector < HitCoordinate* > const& hitcoords)
       nID = Neig_List[1];
       nIndex = Find(nID);
       GridNode const &Second = m_grid[nIndex];
+
       if( (First.m_active) && (Second.m_active) ) {
+	if(!visited[First.m_detID]){
+	  tocheck.push_back(First.m_detID);
+	  visited[First.m_detID] = 1;
+	}
+	if(!visited[Second.m_detID]){
+	  tocheck.push_back(Second.m_detID);
+	  visited[Second.m_detID] = 1;
+	}
+
 	Virtual_tube.m_active = true;
 	vCnt++;
       }
     }
   }
+
+  printf("need to check %d \n", tocheck.size());
+
+  for(size_t j = 0; j < tocheck.size(); j++) {
+    int nID = tocheck[j];
+
+    int nIndex = Find(nID);
+    GridNode  &First  = m_grid[nIndex];
+    if(First.m_neighbors.size() < 4)
+      continue;
+
+    char *neighVis 	= (char *) calloc(First.m_neighbors.size(), sizeof(char));
+
+    for(int k = 0; k < First.m_neighbors.size(); k++){
+      int neigh = First.m_neighbors[k];
+      int neighIdx = Find(neigh);
+      GridNode const &neighNode  = m_grid[neighIdx];
+      
+      if( neighNode.m_type != GridNode::VIRTUAL_NODE || neighVis[k] || !neighNode.m_active){
+	neighVis[k] = 1;
+	continue;
+      }
+
+      std::vector<int> inDir;
+      std::vector<double> distDir;
+
+      int cnt = 0;
+      int xdir = First.m_x - neighNode.m_x > 0? 1: 0;
+      int ydir = First.m_y - neighNode.m_y > 0? 1: 0;
+      double dist = sqrt((First.m_x - neighNode.m_x)*(First.m_x - neighNode.m_x) +
+			 (First.m_y - neighNode.m_y)*(First.m_y - neighNode.m_y));
+      inDir.push_back(neigh);
+      distDir.push_back(dist);
+	
+      for(int l = 0; l < First.m_neighbors.size(); l++){
+	int neigh2 = First.m_neighbors[l];
+	if(neigh == neigh2 || neighVis[l])
+	  continue;
+	
+	int neighIdx2 = Find(neigh2);
+	GridNode const &neighNode2  = m_grid[neighIdx2];
+	if( neighNode2.m_type != GridNode::VIRTUAL_NODE || !neighNode2.m_active) {
+	  neighVis[l] = 1;
+	  continue;
+	}
+ 
+	int neighxdir = First.m_x - neighNode2.m_x > 0? 1: 0;
+	int neighydir = First.m_y - neighNode2.m_y > 0? 1: 0;
+	if(neighxdir != xdir || neighydir != ydir)
+	  continue;
+	
+	double neighdist =  sqrt((First.m_x - neighNode2.m_x)*(First.m_x - neighNode2.m_x) +
+				 (First.m_y - neighNode2.m_y)*(First.m_y - neighNode2.m_y));
+	inDir.push_back(neigh2);
+	distDir.push_back(neighdist);
+	neighVis[l] = 1;	
+      }
+      if(inDir.size() > 2){
+	printf("ID %d has several virtual nodes in the same direction, we can clean \n", nID);
+	vector<pair<int, double>> order(inDir.size());
+	for (int i=0; i<inDir.size(); ++i)
+	  order[i] = make_pair(inDir[i], distDir[i]);
+	sort(order.begin(), order.end(), ordering());
+	
+	for (int i=2; i<inDir.size(); ++i){
+	  int id = order[i].first;
+	  int idx = Find(id);
+	  GridNode  &remove  = m_grid[idx];
+	  // remove.m_active = false;
+	  (First.m_neighbors).erase(std::remove((First.m_neighbors).begin(), (First.m_neighbors).end(),id), (First.m_neighbors).end());
+	}
+      }
+      neighVis[k] = 1;
+    }
+  }
+	//	int skeID = neighNode.m_neighbors[0] == nID? neighNode.m_neighbors[1]: neighNode.m_neighbors[0];
+	//	int skeIdx = Find(skeID);
+	//	GridNode const &skeNode  = m_grid[neighIdx];
+	
+	
+  /*int cnt = 0;
+    int xdir = First.m_x - Virtual_tube.m_x > 0? 1: 0;
+    int ydir = First.m_y - Virtual_tube.m_y > 0? 1: 0;
+    double dist = sqrt((First.m_x - Virtual_tube.m_x)*(First.m_x - Virtual_tube.m_x) +
+    (First.m_y - Virtual_tube.m_y)*(First.m_y - Virtual_tube.m_y));
+
+    for(int k = 0; k < First.m_neighbors.size(); k++){
+    int neigh = First.m_neighbors[k];
+    if(neigh == Virtual_tube.m_detID)
+    continue;
+    int neighIdx = Find(nID);
+    GridNode const &neighNode  = m_grid[nIndex];
+    if( neighNode.m_type == GridNode::VIRTUAL_NODE) {
+    int neighxdir = First.m_x - neighNode.m_x > 0? 1: 0;
+    int neighydir = First.m_y - neighNode.m_y > 0? 1: 0;
+    if(neighxdir != xdir || neighydir != ydir)
+    continue;
+    double neighdist =  sqrt((First.m_x - neighNode.m_x)*(First.m_x - neighNode.m_x) +
+    (First.m_y - neighNode.m_y)*(First.m_y - neighNode.m_y));
+    if(neighdist < dist)
+    cnt++;
+    }
+    }
+    if(cnt > 1)
+    continue;
+
+    cnt = 0;
+
+    for(int k = 0; k < Second.m_neighbors.size(); k++){
+    int neigh = Second.m_neighbors[k];
+    if(neigh == Virtual_tube.m_detID)
+    continue;
+    int neighIdx = Find(nID);
+    GridNode const &neighNode  = m_grid[nIndex];
+    if( neighNode.m_type == GridNode::VIRTUAL_NODE) {
+    int neighxdir = Second.m_x - neighNode.m_x > 0? 1: 0;
+    int neighydir = Second.m_y - neighNode.m_y > 0? 1: 0;
+    if(neighxdir != xdir || neighydir != ydir)
+    continue;
+    double neighdist =  sqrt((Second.m_x - neighNode.m_x)*(First.m_x - neighNode.m_x) +
+    (Second.m_y - neighNode.m_y)*(First.m_y - neighNode.m_y));
+    if(neighdist < dist)
+    cnt++;
+    }
+    }
+
+    if(cnt > 1)
+    continue;*/
+  free(visited);
   std::cout << "\t<-I-> Stored real STT points = "  << sttCnt
 	    << " And " << vCnt << " Virtual nodes and "
 	    << mvdCnt << " MVD points.\n";

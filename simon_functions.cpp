@@ -550,6 +550,19 @@ int fitNextId(CoordGrid &gr, PathCandidate &cand, std::vector<int> &next, int k)
     int curId = next[i];
     int curIdx = gr.Find(curId);
     GridNode *node = &Ingrid[curIdx];
+    if(node->m_type == GridNode::VIRTUAL_NODE){
+      GridNode *neigh = &Ingrid[gr.Find(node->m_neighbors[0])];
+      if(neigh->m_cm.size() > 0 && neigh->m_cm[0] == cand.m_id)
+	neigh = &Ingrid[gr.Find(node->m_neighbors[1])];
+      if(neigh->m_cm.size() > 0 && neigh->m_cm[0] == cand.m_id){
+	//error("All belong to track ?");
+	continue;
+      }
+      info("Replacing node %d with %d", node->m_detID, neigh->m_detID);
+      node = neigh;
+    }
+	
+	  
     double xdet = node->m_x;
     double ydet = node->m_y;
     double rdet = (double) node->m_r /  sqrt( 2*pow(40,2));
@@ -560,14 +573,14 @@ int fitNextId(CoordGrid &gr, PathCandidate &cand, std::vector<int> &next, int k)
       thetadet -= 1;
     else if(thetadet < 0.15 && prevtheta > 0.85)
       thetadet += 1.;
-    //  debug("Points %lf, %lf \t %lf, %lf \t %lf, %lf",r[r.size()-2], r[r.size()-1], rdet, theta[theta.size()-2], theta[theta.size()-1], thetadet);
+    // debug("Points %lf, %lf \t %lf, %lf \t %lf, %lf",r[r.size()-2], r[r.size()-1], rdet, theta[theta.size()-2], theta[theta.size()-1], thetadet);
     float angle_r = returnAngle(r[r.size()-2], r[r.size()-1], rdet, theta[theta.size()-2], theta[theta.size()-1], thetadet);
     
     float angle_xy = returnAngle(x[x.size()-2], x[x.size()-1], xdet, y[y.size()-2], y[y.size()-1], ydet);
-    debug("Angle with %d is %f, %f", curId, angle_r, angle_xy);
-      if(fabs(angle_r) > 90 && fabs(angle_xy) > tol)
-      plausible.push_back(curId);
-      else if((fabs(angle_r) > 90 || fabs(angle_xy) > tol) && fabs(angle_r) > 50 && fabs(angle_xy) > 50)
+     debug("Angle with %d is %f, %f", curId, angle_r, angle_xy);
+      if(fabs(angle_r) > 85 && fabs(angle_xy) > tol)
+	plausible.push_back(curId);
+      else if((fabs(angle_r) > 85 || fabs(angle_xy) > tol) && fabs(angle_r) > 50 && fabs(angle_xy) > 50)
 	uncertain.push_back(curId);
       else
 	unlikely.push_back(curId);
@@ -653,12 +666,14 @@ int fitNextId(CoordGrid &gr, PathCandidate &cand, std::vector<int> &next, int k)
       goodId = curId;	
     }        
   }
-  
-  return goodId;
 
+
+  
   if(goodId != -1) info("The good id is %d, and is at distance %lf", goodId,minDist);
   else info("No good ID found");
   
+  return goodId;
+
 
 }
 
@@ -697,8 +712,8 @@ double distanceBetweenTube(GridNode & tubeA, GridNode & tubeB)
   float u_z = endTubeA_z - startTubeA_z;
 
   float v_x = endTubeB_x - startTubeB_x;
-  float v_y = endTubeA_y - startTubeA_y;
-  float v_z = endTubeA_z - startTubeA_z;
+  float v_y = endTubeB_y - startTubeB_y;
+  float v_z = endTubeB_z - startTubeB_z;
 
   float w_x = startTubeA_x - startTubeB_x;
   float w_y = startTubeA_y - startTubeB_y;
@@ -857,14 +872,20 @@ void Fix_InterSector_Nodes(CoordGrid &hitMap, size_t const numSectors)
 	    (CurLftNode.m_type == GridNode::STT_TYPE_SKEW && CurRgtNode.m_type == GridNode::STT_TYPE_SKEW) &&
 	    (CurLftNode.m_detID != CurRgtNode.m_detID)
 	  ){
-	  currDist =distanceBetweenTube(CurLftNode, CurRgtNode);
-	  /*(CurLftNode.m_x - CurRgtNode.m_x) * (CurLftNode.m_x - CurRgtNode.m_x) +
+	  currDist =sqrt((CurLftNode.m_x - CurRgtNode.m_x) * (CurLftNode.m_x - CurRgtNode.m_x) +
+			 (CurLftNode.m_y - CurRgtNode.m_y) * (CurLftNode.m_y - CurRgtNode.m_y));// +distanceBetweenTube(CurLftNode, CurRgtNode);
+	  //if(CurLftNode.m_detID == 1521 || CurRgtNode.m_detID == 1521 )
+	  //printf("Distance between node %d and %d is %lf \n",Ingrid[currentLeftSector[l]].m_detID, CurRgtNode.m_detID, currDist);
+	  if(currDist <5.)
+	    (CurLftNode.m_neighbors).push_back(CurRgtNode.m_detID);
+
+	  
+	  /* (CurLftNode.m_x - CurRgtNode.m_x) * (CurLftNode.m_x - CurRgtNode.m_x) +
 	    (CurLftNode.m_y - CurRgtNode.m_y) * (CurLftNode.m_y - CurRgtNode.m_y) +
-	    (CurLftNode.m_z - CurRgtNode.m_z) * (CurLftNode.m_z - CurRgtNode.m_z);*/
+	    (CurLftNode.m_z - CurRgtNode.m_z) * (CurLftNode.m_z - CurRgtNode.m_z);
 	  // Update shortest distance
-	  // if(Ingrid[currentLeftSector[l]].m_detID == 1388 ||CurRgtNode.m_detID == 1560 )
-	  //   printf("Distance between node %d and %d is %lf \n",Ingrid[currentLeftSector[l]].m_detID, CurRgtNode.m_detID, currDist);
-	  if(CurLftNode.m_Layer == CurRgtNode.m_Layer && minDist[1] > currDist) {
+
+	  /*  if(CurLftNode.m_Layer == CurRgtNode.m_Layer && minDist[1] > currDist) {
 	    minDist[1] = currDist;
 	    shortestIndex[1] = CurRgtNode.m_detID;//currentRightSector[r];
 	  } else if (CurLftNode.m_Layer < CurRgtNode.m_Layer && minDist[0] > currDist){
@@ -873,7 +894,7 @@ void Fix_InterSector_Nodes(CoordGrid &hitMap, size_t const numSectors)
 	  } else if (CurLftNode.m_Layer > CurRgtNode.m_Layer && minDist[2] > currDist){
 	    minDist[2] = currDist;
 	    shortestIndex[2] = CurRgtNode.m_detID;//currentRightSector[r];
-	  }
+	    }*/
 	  //limL.Fill(CurLftNode.m_x, CurLftNode.m_y, CurLftNode.m_z);
 	  //limR.Fill(CurRgtNode.m_x, CurRgtNode.m_y, CurRgtNode.m_z);
 	}// If same layer And not same sector
@@ -881,8 +902,11 @@ void Fix_InterSector_Nodes(CoordGrid &hitMap, size_t const numSectors)
 
       }// Right limit Loop
       // Found the tube with the shortest distance.
-	if(shortestIndex[0] > -1 && !(std::find((CurLftNode.m_neighbors).begin(), (CurLftNode.m_neighbors).end(), shortestIndex[0]) != (CurLftNode.m_neighbors).end())){
+      // if(CurLftNode.m_detID == 1521 || CurLftNode.m_detID == 1521)
+      //	printf("%d %d %d  \n",shortestIndex[0],shortestIndex[1],shortestIndex[2]);
+      /*	if(shortestIndex[0] > -1 && !(std::find((CurLftNode.m_neighbors).begin(), (CurLftNode.m_neighbors).end(), shortestIndex[0]) != (CurLftNode.m_neighbors).end())){
 	  (CurLftNode.m_neighbors).push_back(shortestIndex[0]);
+	  
 	  // debug("New neighbors %d and %d, %lf", CurLftNode.m_detID, shortestIndex[0], minDist[0]);
 	}
 	if(shortestIndex[1] > -1 && !(std::find((CurLftNode.m_neighbors).begin(), (CurLftNode.m_neighbors).end(), shortestIndex[1]) != (CurLftNode.m_neighbors).end())){
@@ -893,7 +917,7 @@ void Fix_InterSector_Nodes(CoordGrid &hitMap, size_t const numSectors)
 	  (CurLftNode.m_neighbors).push_back(shortestIndex[2]);
 	  //  debug("New neighbors %d and %d, %lf", CurLftNode.m_detID, shortestIndex[2], minDist[2]);
 
-	}
+	  }*/
       //  InterSectorPairs.push_back( std::make_pair(currentLeftSector[l], shortestIndex) );
     }// Left limit loop
   }// Sectors loop
@@ -934,5 +958,401 @@ void addTracklets (CoordGrid &gr, PathCandidate *newCand, PathCandidate &mergeCa
   
   mergeCand.m_isMerged = 1;
   mergeCand.m_isValid = 0;
+
+}
+
+
+
+
+bool IntersectionPoint(CoordGrid const &hitMap,
+				   GridNode &tubeA, GridNode &tubeB,
+				   GridNode &out)
+{
+  TVector3 dirA = tubeA.m_WireDirection;
+  float R_A =  tubeA.m_halfLength / sqrt( (dirA[0]*dirA[0]) + (dirA[1]*dirA[1]) + (dirA[2]*dirA[2]) );
+  TVector3 dirB = tubeB.m_WireDirection;
+  float R_B =  tubeB.m_halfLength / sqrt( (dirB[0]*dirB[0]) + (dirB[1]*dirB[1]) + (dirB[2]*dirB[2]) );
+
+  float startTubeB_x =  tubeB.m_x - tubeB.m_halfLength * dirB[0];
+  float startTubeB_y =  tubeB.m_y - tubeB.m_halfLength * dirB[1];
+  float startTubeB_z =  tubeB.m_z - tubeB.m_halfLength * dirB[2];
+
+  float endTubeB_x =  tubeB.m_x + tubeB.m_halfLength * dirB[0];
+  float endTubeB_y =  tubeB.m_y + tubeB.m_halfLength * dirB[1];
+  float endTubeB_z =  tubeB.m_z + tubeB.m_halfLength * dirB[2];
+
+  
+  float startTubeA_x =  tubeA.m_x - tubeA.m_halfLength * dirA[0];
+  float startTubeA_y =  tubeA.m_y - tubeA.m_halfLength * dirA[1];
+  float startTubeA_z =  tubeA.m_z - tubeA.m_halfLength * dirA[2];
+
+  float endTubeA_x =  tubeA.m_x + tubeA.m_halfLength * dirA[0];
+  float endTubeA_y =  tubeA.m_y + tubeA.m_halfLength * dirA[1];
+  float endTubeA_z =  tubeA.m_z + tubeA.m_halfLength * dirA[2];
+  
+  //segment(center - (halflength * direction), center + (halflength * direction))
+
+  float u_x = endTubeA_x - startTubeA_x;
+  float u_y = endTubeA_y - startTubeA_y;
+  float u_z = endTubeA_z - startTubeA_z;
+
+  float v_x = endTubeB_x - startTubeB_x;
+  float v_y = endTubeB_y - startTubeB_y;
+  float v_z = endTubeB_z - startTubeB_z;
+
+  float w_x = startTubeA_x - startTubeB_x;
+  float w_y = startTubeA_y - startTubeB_y;
+  float w_z = startTubeA_z - startTubeB_z;
+  
+  /* GRVector3 P0 = start;
+    GRVector3 P1 = end;
+    GRVector3 Q0 = line.start;
+    GRVector3 Q1 = line.end;*/
+
+    double const SMALL_NUM = std::numeric_limits<double>::epsilon();
+    /*   GRVector3   u = P1 - P0;
+    GRVector3   v = Q1 - Q0;
+    GRVector3   w = P0 - Q0;*/
+    double    a = u_x*u_x + u_y*u_y + u_z*u_z;         // always >= 0
+    double    b = u_x*v_x + u_y*v_y + u_z*v_z;
+    double    c = v_x*v_x + v_y*v_y + v_z*v_z;         // always >= 0
+    double    d = u_x*w_x + u_y*w_y + u_z*w_z; //u.dot(w);
+    double    e = v_x*w_x + v_y*w_y + v_z*w_z; // v.dot(w);
+    double    D = a*c - b*b;        // always >= 0
+    double    sc, sN, sD = D;       // sc = sN / sD, default sD = D >= 0
+    double    tc, tN, tD = D;       // tc = tN / tD, default tD = D >= 0
+
+    // compute the line parameters of the two closest points
+    if (D < SMALL_NUM) { // the lines are almost parallel
+        sN = 0.0;         // force using point P0 on segment S1
+        sD = 1.0;         // to prevent possible division by 0.0 later
+        tN = e;
+        tD = c;
+    }
+    else {                 // get the closest points on the infinite lines
+        sN = (b*e - c*d);
+        tN = (a*e - b*d);
+        if (sN < 0.0) {        // sc < 0 => the s=0 edge is visible
+            sN = 0.0;
+            tN = e;
+            tD = c;
+        }
+        else if (sN > sD) {  // sc > 1  => the s=1 edge is visible
+            sN = sD;
+            tN = e + b;
+            tD = c;
+        }
+    }
+
+    if (tN < 0.0) {            // tc < 0 => the t=0 edge is visible
+        tN = 0.0;
+        // recompute sc for this edge
+        if (-d < 0.0)
+            sN = 0.0;
+        else if (-d > a)
+            sN = sD;
+        else {
+            sN = -d;
+            sD = a;
+        }
+    }
+    else if (tN > tD) {      // tc > 1  => the t=1 edge is visible
+        tN = tD;
+        // recompute sc for this edge
+        if ((-d + b) < 0.0)
+            sN = 0;
+        else if ((-d + b) > a)
+            sN = sD;
+        else {
+            sN = (-d + b);
+            sD = a;
+        }
+    }
+    
+    // finally do the division to get sc and tc
+    sc = (std::abs(sN) < SMALL_NUM ? 0.0 : sN / sD);
+    tc = (std::abs(tN) < SMALL_NUM ? 0.0 : tN / tD);
+
+    //  GRVector3 diff = ((1.0 - sc) * P0 + sc * P1) - ((1.0 - tc) * Q0 + tc * Q1);
+
+    double diff_x = ((1.0-sc) * startTubeA_x + sc * endTubeA_x) + ((1.0 - tc) * startTubeB_x + tc * endTubeB_x);
+    double diff_y = ((1.0-sc) * startTubeA_y + sc * endTubeA_y) + ((1.0 - tc) * startTubeB_y + tc * endTubeB_y);
+    double diff_z = ((1.0-sc) * startTubeA_z + sc * endTubeA_z) + ((1.0 - tc) * startTubeB_z + tc * endTubeB_z);
+
+    fstream outfile;
+    outfile.open("WAZAAAAAAAAA.txt", std::ios_base::app);
+
+    // cout << "Writing to the file" << endl;
+
+   // again write inputted data into the file.
+    outfile << "tube A"<< "\t" << tubeA.m_x << "\t" <<  tubeA.m_y << "\t" <<  tubeA.m_z << endl;
+    outfile << "tube B" << "\t"<< tubeB.m_x << "\t" <<  tubeB.m_y << "\t" << tubeB.m_z << endl;
+    outfile << "Close on A"<< "\t" << ((1.0-sc) * startTubeA_x + sc * endTubeA_x) << "\t" << ((1.0-sc) * startTubeA_y + sc * endTubeA_y) << "\t" << ((1.0-sc) * startTubeA_z + sc * endTubeA_z) << endl;
+    outfile << "Close on B" << "\t" <<((1.0 - tc) * startTubeB_x + tc * endTubeB_x) << "\t" << ((1.0 - tc) * startTubeB_y + tc * endTubeB_y) << "\t" << ((1.0 - tc) * startTubeB_z + tc * endTubeB_z) << endl;
+    outfile << "Intersection point" << "\t" << diff_x/2. << "\t" << diff_y/2. << "\t" << diff_z/2. << endl;
+
+    outfile.close();
+
+    
+																			//  info("TubA x is %lf, tube x is %lf, closest point a x %lf, b x %lf, intersection is %lf",tubeA.m_x, tubeB.m_x, ((1.0-sc) * startTubeA_x + sc * endTubeA_x),((1.0 - tc) * startTubeB_x + tc * endTubeB_x),diff_x/2.);
+																			// info("TubA x is %lf, tube x is %lf, closest point a x %lf, b x %lf, intersection is %lf",tubeA.m_x, tubeB.m_x, ((1.0-sc) * startTubeA_x + sc * endTubeA_x),((1.0 - tc) * startTubeB_x + tc * endTubeB_x),diff_x/2.);
+																			//  info("TubA x is %lf, tube x is %lf, closest point a x %lf, b x %lf, intersection is %lf",tubeA.m_x, tubeB.m_x, ((1.0-sc) * startTubeA_x + sc * endTubeA_x),((1.0 - tc) * startTubeB_x + tc * endTubeB_x),diff_x/2.);
+    GridNode TransA(tubeA);// Dit kan beter maar voor nu .... FIXME Later
+
+    // FIXME FIXME Not really optimal (correct??)
+    /* TransA.m_x     = diff_x/2.;
+    TransA.m_y     = diff_y/2.;
+    TransA.m_xDet  = diff_x/2.;
+    TransA.m_yDet  = diff_y/2.;/*/
+      TransA.m_x     = (tubeA.m_x + tubeB.m_x)/2.0;
+    TransA.m_y     = (tubeA.m_y + tubeB.m_y)/2.0;
+    TransA.m_xDet  = (tubeA.m_x + tubeB.m_x)/2.0;
+    TransA.m_yDet  = (tubeA.m_y + tubeB.m_y)/2.0;
+    TransA.m_z     = diff_z/2.;
+    TransA.m_z_Det = diff_z/2.;
+    // Set node as virtual and weight becomes 0 (no added value for
+    // the length or area size).
+    TransA.m_type        = GridNode::VIRTUAL_NODE;
+    TransA.m_weight      = 0;
+    TransA.m_SectorLimit = 0;
+    TransA.m_LayerLimit  = false;
+    TransA.m_halfLength  = 0;// A point. No half length
+    // Add parents to the neigboring list
+    (TransA.m_neighbors).clear();
+    (TransA.m_neighbors).push_back(tubeA.m_detID);
+    (TransA.m_neighbors).push_back(tubeB.m_detID);
+
+    
+    out = TransA;
+
+    ////////////
+    return true;
+
+}
+
+
+void Add_VirtualNodes(CoordGrid &hitMap, std::vector < GridNode > &VNodes)
+{
+  info("Computing grid virtual tubes (Neigbor based).");
+  // Dummy local counters.
+  int NumTubesAdded  = 0;
+  // Start node ID for virtual nodes.
+  int StartVirtualID = START_VIRTUAL_ID;//6000;
+
+  // List of all nodes available in the detector map.
+  std::vector< GridNode > &Ingrid = hitMap.m_grid;
+  // Sort all nodes by their layer number
+  debug("Sorting nodes, increasing layer number");
+  std::sort(Ingrid.begin(), Ingrid.end(), LessThanLayer);
+  // Determine the pairs of nodes between the layers for which we want
+  // to compute virtual nodes and discard duplicates.
+  std::vector< TubeLayerPairProperty > NodePairSet;
+  FindNodeBetweenLayerNodePairs(hitMap, NodePairSet);
+
+  // Loop through the possible combinations and create virtual nodes
+  // if the actual tubes virtually intersect.
+  for(size_t i = 0; i < NodePairSet.size(); ++i) {
+    TubeLayerPairProperty const &prop = NodePairSet[i];
+    if(prop.isValid) {
+      GridNode  &firstNode  = Ingrid[ prop.firstNodeIndex ];
+      GridNode  &secondNode = Ingrid[ prop.secondNodeIndex ];
+      // Create dummy virtual
+
+      GridNode Dummy_coord;
+      // Find intersection point.
+      if(firstNode.m_type == GridNode::STT_TYPE_SKEW && secondNode.m_type == GridNode::STT_TYPE_SKEW)
+	IntersectionPoint(hitMap, firstNode, secondNode, Dummy_coord) ;
+      else
+	IntersectionPoint(hitMap, firstNode, secondNode, Dummy_coord) ;
+
+	// Modify node ID
+	//if( firstNode.m_detID == 979 || secondNode.m_detID == 979)
+	//  info("%d, %d, %lf", firstNode.m_detID, secondNode.m_detID, distanceBetweenTube(firstNode, secondNode));
+	Dummy_coord.m_detID      = StartVirtualID + NumTubesAdded;
+	Dummy_coord.m_Orig_detID = Dummy_coord.m_detID;
+	std::pair<float, float> r_Theta;
+	float theta_deg = Cartesian_To_Polar(Dummy_coord.m_xDet, Dummy_coord.m_yDet, r_Theta);
+	Dummy_coord.m_r = r_Theta.first;
+	Dummy_coord.m_thetaDeg = theta_deg;
+
+
+	// Add to output.
+	VNodes.push_back(Dummy_coord);
+	NumTubesAdded++;
+      // If intersect
+    }// END if the pair is valid
+  }// End for NodePairSet
+  // Reset visiting variable for all nodes in the input graph
+
+std::vector< std::vector<size_t> > SectorLeft;
+  std::vector< std::vector<size_t> > SectorRight;
+
+  for(size_t i = 0; i < 6; ++i) {
+    SectorLeft.push_back(std::vector<size_t>());
+    SectorRight.push_back(std::vector<size_t>());
+  }
+  // DEBUG
+  TNtuple limL ("SelectedSectorLeft","SELECTED SKEWED BETWEEN SECTORS","x:y:z");
+  TNtuple limR ("SelectedSectorRight","SELECTED SKEWED BETWEEN SECTORS","x:y:z");
+  // DEBUG
+  // Find sector boundaries per sector and per side
+  for(size_t i = 0; i < Ingrid.size(); ++i) {
+    GridNode const &tube = Ingrid[i];
+    if( (tube.m_type != GridNode::VIRTUAL_NODE) ) {
+      // Left or right boundary limit
+      if(tube.m_SectorLimit == -1) {
+	(SectorLeft[tube.m_Sector]).push_back(i);
+	limL.Fill(tube.m_x, tube.m_y, tube.m_z);
+      }
+      // Right limit
+      else if(tube.m_SectorLimit == 1) {
+	(SectorRight[tube.m_Sector]).push_back(i);
+	limR.Fill(tube.m_x, tube.m_y, tube.m_z);
+      }
+    }
+  }
+  //_______
+  std::cout << "<DEBUG> Total number of sectors = " << SectorLeft.size()
+	    << "\n\t<-I-> Number of left boundary limits = " << SectorLeft.size()
+	    << "\n\t<-I-> Number of right boundary limits = " << SectorRight.size() 
+	    << '\n';
+  /*
+   *   0 / \ 5
+   *   1 | | 4
+   *   2 \ / 3
+   */
+  double currDist = 0;
+  size_t R_Index = 0;
+  // Loop all the sectors.
+  for(size_t s = 0; s < 6; ++s) { // Numsectors = 6
+    std::vector<size_t> const &currentLeftSector = SectorLeft[s];
+    // The counter sector is SectorRight[s - 1]. The right limts of
+    // the previous sector.
+    R_Index = ( s == 0 ) ? (SectorRight.size() - 1) : (s - 1);
+    std::vector<size_t> const &currentRightSector = SectorRight[R_Index];
+    // For each tube find its nearest neighbor in the other sector.
+    for(size_t l = 0; l < currentLeftSector.size(); ++l) {
+      GridNode  &CurLftNode = Ingrid[currentLeftSector[l]];
+      for(size_t r = 0; r < currentRightSector.size(); ++r) {
+	GridNode  &CurRgtNode = Ingrid[currentRightSector[r]];
+	// If in the same layer
+	if( (labs(CurLftNode.m_Layer - CurRgtNode.m_Layer) <=1 ) &&
+	    (CurLftNode.m_Sector != CurRgtNode.m_Sector) &&
+	    (CurLftNode.m_type == GridNode::STT_TYPE_SKEW && CurRgtNode.m_type == GridNode::STT_TYPE_SKEW) &&
+	    (CurLftNode.m_detID != CurRgtNode.m_detID)
+	  ){
+	  currDist =sqrt((CurLftNode.m_x - CurRgtNode.m_x) * (CurLftNode.m_x - CurRgtNode.m_x) +
+			 (CurLftNode.m_y - CurRgtNode.m_y) * (CurLftNode.m_y - CurRgtNode.m_y));// +distanceBetweenTu
+	  if(currDist <5.){
+	    (CurLftNode.m_neighbors).push_back(CurRgtNode.m_detID);
+	    GridNode Dummy_coord;
+	    // Find intersection point.
+	    if( IntersectionPoint_NeigborList(hitMap, CurLftNode, CurRgtNode, Dummy_coord) ) {
+	      // Modify node ID
+	      //if( firstNode.m_detID == 979 || secondNode.m_detID == 979)
+	      //  info("%d, %d, %lf", firstNode.m_detID, secondNode.m_detID, distanceBetweenTube(firstNode, secondNode));
+	      Dummy_coord.m_detID      = StartVirtualID + NumTubesAdded;
+	      Dummy_coord.m_Orig_detID = Dummy_coord.m_detID;
+	      std::pair<float, float> r_Theta;
+	      float theta_deg = Cartesian_To_Polar(Dummy_coord.m_xDet, Dummy_coord.m_yDet, r_Theta);
+	      Dummy_coord.m_r = r_Theta.first;
+	      Dummy_coord.m_thetaDeg = theta_deg;
+	      Dummy_coord.m_z = Dummy_coord.m_z_Det = 0;
+	      // Add to output.
+	      VNodes.push_back(Dummy_coord);
+	      NumTubesAdded++;
+	    }// If intersect
+	  }
+	}
+      }
+    }
+  }
+  for(size_t i = 0; i < Ingrid.size(); ++i) {
+    Ingrid[i].m_visited = false;
+  }
+  // Print Info
+  std::cout << "<INFO> Determined "<< NumTubesAdded
+	    << " virtual tubes (neighborList)."
+	    << " Num possible V_nodes = " << NodePairSet.size()
+	    << '\n';
+}
+
+
+
+double IntersectionXY(double startX1, double endX1, double startY1, double endY1, double startX2, double endX2, double startY2, double endY2){
+ 
+  //segment(center - (halflength * direction), center + (halflength * direction))
+
+  double u_x = endX1 - startX1;
+  double u_y = endY1 - startY1;
+
+  double v_x = endX2 - startX2;
+  double v_y = endY2 - startY2;
+  
+  double w_x = startX1 - startX2;
+  double w_y = startY1 - startY2;
+
+  
+  double const SMALL_NUM = std::numeric_limits<double>::epsilon();
+  
+  double    a = u_x*u_x + u_y*u_y;
+  double    b = u_x*v_x + u_y*v_y;
+  double    c = v_x*v_x + v_y*v_y;
+  double    d = u_x*w_x + u_y*w_y;
+  double    e = v_x*w_x + v_y*w_y;
+  double    D = a*c - b*b;        // always >= 0
+  double    sc, sN, sD = D;       // sc = sN / sD, default sD = D >= 0
+  double    tc, tN, tD = D;       // tc = tN / tD, default tD = D >= 0
+
+    // compute the line parameters of the two closest points
+    if (D < SMALL_NUM) { // the lines are almost parallel
+        sN = 0.0;         // force using point P0 on segment S1
+        sD = 1.0;         // to prevent possible division by 0.0 later
+        tN = e;
+        tD = c;
+    }
+    else {                 // get the closest points on the infinite lines
+        sN = (b*e - c*d);
+        tN = (a*e - b*d);
+        if (sN < 0.0) {        // sc < 0 => the s=0 edge is visible
+            sN = 0.0;
+            tN = e;
+            tD = c;
+        }
+        else if (sN > sD) {  // sc > 1  => the s=1 edge is visible
+            sN = sD;
+            tN = e + b;
+            tD = c;
+        }
+    }
+
+    if (tN < 0.0) {            // tc < 0 => the t=0 edge is visible
+        tN = 0.0;
+        // recompute sc for this edge
+        if (-d < 0.0)
+            sN = 0.0;
+        else if (-d > a)
+            sN = sD;
+        else {
+            sN = -d;
+            sD = a;
+        }
+    }
+    else if (tN > tD) {      // tc > 1  => the t=1 edge is visible
+        tN = tD;
+        // recompute sc for this edge
+        if ((-d + b) < 0.0)
+            sN = 0;
+        else if ((-d + b) > a)
+            sN = sD;
+        else {
+            sN = (-d + b);
+            sD = a;
+        }
+    }
+    
+    sc = (std::abs(sN) < SMALL_NUM ? 0.0 : sN / sD);
+
+    return sc;
 
 }

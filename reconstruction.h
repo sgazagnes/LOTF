@@ -8,5 +8,7 @@
 
 
 void findEasyTracks (CoordGrid &gr, std::vector < PathCandidate* > &tracklets, std::vector<int> &activeId, char *visited, int *candidateId);
+void fitZCoordinates(CoordGrid &hitMap, PathCandidate *trk);
+
 
 #endif

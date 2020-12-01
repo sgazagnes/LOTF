@@ -333,12 +333,12 @@ bool IntersectionPoint_SectorList (CoordGrid const &hitMap, GridNode &a, GridNod
 void Compute_Virtual_InterSector_Nodes(CoordGrid &hitMap, size_t const numSectors,
 				       std::vector < GridNode > &VNodes);
 
-void Fix_InterSector_Nodes(CoordGrid &hitMap, size_t const numSectors);
+//void Fix_InterSector_Nodes(CoordGrid &hitMap, size_t const numSectors);
 /**
  * Given two tubes first and second in two different neighbouring
  * sectors. Determinde their virtual intersection point.
 */
-double distanceBetweenTube(GridNode & tubeA, GridNode & tubeB) ;
+//double distanceBetweenTube(GridNode & tubeA, GridNode & tubeB) ;
 
 void InterSectorPoints (GridNode const& first, GridNode const& second, GridNode &outPut);
 

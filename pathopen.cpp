@@ -3069,13 +3069,13 @@ void TrackZ_CoordinatesDistNorm(CoordGrid &hitMap, std::vector<TrackObject*>* tr
       int nodeID = *stt_It;
       size_t node_index = hitMap.Find(nodeID);
       GridNode const &node = Ingrid[node_index];
-      if( (node.m_type == GridNode::VIRTUAL_NODE) &&
+      if( (node.m_type == GridNode::VIRTUAL_NODE || node.m_type ==GridNode::STT_TYPE_SKEW) &&
        	  (node.m_Layer > maxLayer) ) {
        	maxLayer = node.m_Layer;
        	lastVirtualZCoord = node.m_z_Det;
       }// END IF virtual
       // Determine the largest Z value (Virtual node)
-      if( (node.m_type == GridNode::VIRTUAL_NODE) &&
+      if( (node.m_type == GridNode::VIRTUAL_NODE|| node.m_type ==GridNode::STT_TYPE_SKEW) &&
        	  (node.m_z_Det > maxVirtZVal) ) {
 	maxVirtZVal = node.m_z_Det;
       }// END IF virtual

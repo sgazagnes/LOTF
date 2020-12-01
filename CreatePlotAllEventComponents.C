@@ -189,7 +189,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
   }
    
   // MC data plots.
-  /* {
+   {
     TCanvas *c4 = new TCanvas("c4", "MC-Plot", 300, 300 );
     grid->Draw("y:x","","");
     TH2F *htemp = (TH2F*)gPad->GetPrimitive("htemp");
@@ -215,7 +215,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
     }
     c4->Update();
     
-    }*/
+    }
   // Read data
      {
     TCanvas *c5 = new TCanvas("c5", "Read-Plot", 300, 300 );
@@ -244,7 +244,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
     c5->Update();
   }
   // MC in Z-coordinate
-     /*     {
+          {
     TCanvas *c6 = new TCanvas("c6", "MC_Z_Plot", 300, 300 );
     grid->Draw("y:z","","");
     TH2F *htemp = (TH2F*)gPad->GetPrimitive("htemp");
@@ -269,7 +269,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       pos->Draw("my:mz",ePlotCondition.c_str(),"same");
     }
     c6->Update();
-    }*/
+    }
     // MC in Z-coordinate
     /* {
     TCanvas *c8 = new TCanvas("c8", "Read_Z_Plot", 300, 300 );
@@ -541,8 +541,8 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
   if(dim == 2) {
     grid->Draw("y:z","","");
     TH2F *htemp = (TH2F*)gPad->GetPrimitive("htemp");
-    htemp->GetXaxis()->SetTitle("y [cm]");
-    htemp->GetYaxis()->SetTitle("z [cm]");
+    htemp->GetXaxis()->SetTitle("z [cm]");
+    htemp->GetYaxis()->SetTitle("y [cm]");
     htemp->SetTitle("");
   }
   else {

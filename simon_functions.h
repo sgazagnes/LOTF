@@ -50,8 +50,15 @@ int fitNextId(CoordGrid &gr, PathCandidate &cand, std::vector<int> &next, int k)
 
 double distanceBetweenTube(GridNode & tubeA, GridNode & tubeB);
 
+
+
 void Fix_InterSector_Nodes(CoordGrid &hitMap, size_t const numSectors);
 
-
+bool IntersectionPoint(CoordGrid const &hitMap,
+				   GridNode &tubeA, GridNode &tubeB,
+		       GridNode &out);
 void addTracklets (CoordGrid &gr, PathCandidate *newCand, PathCandidate &mergeCand,  int curdir, int mergedir);
 #endif
+void Add_VirtualNodes(CoordGrid &hitMap, std::vector < GridNode > &VNodes);
+
+double IntersectionXY(double startX1, double endX1, double startY1, double endY1, double startX2, double endX2, double startY2, double endY2);

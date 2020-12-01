@@ -17,8 +17,8 @@ void runCollector( size_t plength = 1,
 		   size_t gapSize = 0,// Number of layers to skip
 		   size_t numEvt = 100,// Total number of events
 		   size_t WindowSize = 300,//700, //1100,//800,
-		   int firstEvt = 4, //3, //9, //0,
-		   int lastEvt  =5//10  //6
+		   int firstEvt = 5, //3, //9, //0,
+		   int lastEvt  =6//10  //6
 		   )//50->61, 4->5
 {
   // Load basic libs and headers.

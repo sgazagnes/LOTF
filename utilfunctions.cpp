@@ -427,14 +427,14 @@ bool IntersectionPoint_NeigborList(CoordGrid const &hitMap,
   // if( !( DistA > tubeA.m_halfLength ) &&
   //   !( DistB > tubeB.m_halfLength ) 
 	//   ) {
-    if(tubeA.m_detID == 2406 || tubeB.m_detID == 2406)
-      info("There was a good pair %d, %d",tubeA.m_detID,tubeB.m_detID);
+  //    if(tubeA.m_detID == 2406 || tubeB.m_detID == 2406)
+  //   info("There was a good pair %d, %d",tubeA.m_detID,tubeB.m_detID);
     
     // FIXME FIXME Not really optimal (correct??)
     TransA.m_x     = (tubeA.m_x + tubeB.m_x)/2.0;
     TransA.m_y     = (tubeA.m_y + tubeB.m_y)/2.0;
-    TransA.m_xDet     = (tubeA.m_x + tubeB.m_x)/2.0;
-    TransA.m_yDet     = (tubeA.m_y + tubeB.m_y)/2.0;
+    TransA.m_xDet  = (tubeA.m_x + tubeB.m_x)/2.0;
+    TransA.m_yDet  = (tubeA.m_y + tubeB.m_y)/2.0;
     TransA.m_z     = Z_intersect;
     TransA.m_z_Det = Z_intersect;
     // Set node as virtual and weight becomes 0 (no added value for
@@ -576,22 +576,28 @@ void fixNeighboring(CoordGrid &hitMap)
   std::vector< GridNode > &Ingrid = hitMap.m_grid;
 
   // Tubes loop
-  for(size_t i = 0; i < Ingrid.size(); ++i) {
+  for(size_t i = 0; i < Ingrid.size()-1; ++i) {
     GridNode &first = Ingrid[i];
     // neighbor tubes loop
-    for(size_t j = 0; j < Ingrid.size(); ++j) {
+    for(size_t j = i+1; j < Ingrid.size(); ++j) {
       GridNode &second = Ingrid[j];
-      // A neig B and 
+      // A neig B and
+      // if(first.m_detID == 1768 || second.m_detID == 1768)
+      //	info("%d, %d", first.m_detID,second.m_detID);
+
+	
       if( ( first.IsNeighboring(second.m_detID) ) &&
 	  ( !second.IsNeighboring(first.m_detID) )
 	  ) {
 	// Add first to the second
+
 	second.m_neighbors.push_back(first.m_detID);
 	NumFixed++;
       }
       // Otherwise
       if( ( second.IsNeighboring(first.m_detID) ) &&
           ( !first.IsNeighboring(second.m_detID) ) ){
+
 	first.m_neighbors.push_back(second.m_detID);
 	NumFixed++;
       }
