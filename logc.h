@@ -1,6 +1,8 @@
 #ifndef LOGC_H
 #define LOGC_H
 
+#include <bitset>
+
 
 #define MAX_LOG_MSG_SIZE 255
 
@@ -13,28 +15,31 @@
 #define WHT  "\x1B[97m"
 #define RESET "\033[0m"
 
+std::bitset<10> verbosity; // 0000000000, 1111111111
+
 /* verbosity levels */
 enum {
-  OFF = -1, ERROR = 0, WARN, TIMING, INFO, DEBUG, TRACE, ALL = 10
+      ERROR = 0, TIME, INFO, COLLECT, GRID, CONNECT, FIT, MERGE, TRKERROR, TRKZ
 };
 
 void _error(const char* msg);
 void error(const char* fmt, ...);
-void _warn(const char* msg);
-void warn(const char* fmt, ...);
-void _info(const char* msg);
-void info(const char* fmt, ...);
-void _debug(const char* msg);
-void debug(const char* fmt, ...);
-void _trace(const char* msg);
-void trace(const char* fmt, ...);
 void _timing(const char* msg);
 void timing(const char* fmt, ...);
+void _info(const char* msg);
+void info(const char* fmt, ...);
+void dbgcollect(const char* fmt, ...);
+void dbggrid(const char* fmt, ...);
+void dbgconnect(const char* fmt, ...);
+void dbgfit(const char* fmt, ...);
+void dbgmerge(const char* fmt, ...);
+void dbgtrkerror(const char* fmt, ...);
+void dbgtrkz(const char* fmt, ...);
 
 void _logc(int level, const char* msg);
 void logc(int level, const char* fmt, ...);
 
-void set_verbosity(char *v);
+void set_verbosity(bool v[10]);
 bool equals(const char *a, const char *b);
 char* timestamp(void);
 #endif

@@ -16,6 +16,7 @@ struct GridNode;
 
 // Write the enire grid to a ascii file
 #define WRITE_GRID_TO_ASCII 0
+#define START_VIRTUAL_ID 6000
 
 bool Is_STT_SplitSkewedNode( GridNode const &node);
 bool IsVirtualSplitNode( GridNode const &node);
@@ -71,7 +72,7 @@ struct CoordGrid {
 #endif
   // Tolerance for computing the orientation based Att-spcace
   float m_AttSpaceTolerance;
-
+  size_t firstVirtIdx;
   // Members (currently only STT tubes.
   std::vector< GridNode > m_grid;
   /*

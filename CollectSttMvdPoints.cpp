@@ -57,13 +57,13 @@
 #include "pathopen.h"
 #include "utilfunctions.h"
 #include "logc.h"
+#include "trackObject.h"
 
 #define INCLUDE_STT_POINTS  1
 #define INCLUDE_MVD_POINTS  0
-#define DEBUG_PRINT     0
 #define WRITE_TO_ASCII_FILE 1
 #define WRITE_TO_JSON_FILE 0
-#define READ_NEIGHBORS 0
+#define READ_NEIGHBORS_FROM_FILE 0
 
 void CollectGridToTree( CoordGrid const &gr, TNtuple &out)
 {
@@ -86,6 +86,7 @@ void CollectGridToTree( CoordGrid const &gr, TNtuple &out)
  * detector data from the tube data available inside the simulation
  * output file.
  */
+
 void CollectSttDetecorCoords(TClonesArray const &TubeArray, // In par
                              std::vector < GridNode > &detNodes)// Out par
 {
@@ -96,26 +97,16 @@ void CollectSttDetecorCoords(TClonesArray const &TubeArray, // In par
   size_t sLeft, sRight, nSkewed, nPara;
   nSkewed = nPara = sLeft = sRight = 0;
 
-  //  std::string header = "ID,x,y,z,wire_direction_x,wire_direction_y,wire_direction_z,halflength,type,sector,layer,layer_lim,sector_lim,num_neighbors\n";
-   // std::string header = "ID,neighbors\n";
-  //////// End of comments.
-  // std::ofstream OutTxtFile;
-  // OutTxtFile.open ("TubeGeometry2.csv");
-
-  //  OutTxtFile << header;
-
-#if ( READ_NEIGHBORS > 0 )
+  #if ( READ_NEIGHBORS_FROM_FILE > 0 ) // If neighbors computed apart
   int **tube_neigh = (int **) malloc(TubeArray.GetEntries() * sizeof(int*));
   int cur_ind[100];
   char buffer[1024] ;
   char *record,*line;
   int *num_neigh = (int *) malloc(TubeArray.GetEntries() * sizeof(int));
   FILE *fstream = fopen("PANDA_STT_Neighbours/PANDA_STT_tol01.csv","r");
-  //FILE *fstream = fopen("neighbours.csv","r");
-  if(fstream == NULL)
-    {
-      printf("\n file opening failed \n");
-    }
+
+  if(fstream == NULL)         printf("\n file opening failed \n");
+  
   int i = 0;
   while((line=fgets(buffer,sizeof(buffer),fstream))!=NULL)
     {
@@ -123,29 +114,24 @@ void CollectSttDetecorCoords(TClonesArray const &TubeArray, // In par
       int count = 0;
       while(record != NULL)
 	{
-	  //  printf("record : %s",record) ;    //here you can put the record into the array as per your requirement.
-	  // printf("%d\n", atoi(record));
 	  if(atoi(record) != 0){
 	    cur_ind[count++] = atoi(record) ;
 	  }
 	  record = strtok(NULL,",");
 	}
-      //	 printf("%d i, count %d \n", i, count);
       tube_neigh[i] =  (int *) malloc((count)*sizeof(int));
-      if (i+1 != cur_ind[0])
-	printf("TOBE CHANGEEEEDD \n\n\n");
+
       for (int j = 1; j < count; j++){
 	tube_neigh[i][j-1] = cur_ind[j];
-	//  printf("%d, cur_ind[j] %d \n",cur_ind[0],  cur_ind[j]);
       }
       num_neigh[i] = count-1;
       ++i ;
-
-      //	 printf("\n\n\n") ;    //here you can put the record into the array as per your requirement.
-
     }
   //TubeArray.GetEntries()
-#endif
+  #endif
+
+
+  
   // Note tube count starts at 1.
   for(int itube = 1; itube <=  TubeArray.GetEntries(); itube++) {
     tube = (PndSttTube*) TubeArray.At(itube);
@@ -153,7 +139,6 @@ void CollectSttDetecorCoords(TClonesArray const &TubeArray, // In par
     node.m_detID  = tube->GetTubeID();// This may change later
     //  OutTxtFile << node.m_detID <<",";
 
-    
     node.m_Orig_detID  = tube->GetTubeID();// This id remains always the same
     node.m_active = false;
 
@@ -166,15 +151,13 @@ void CollectSttDetecorCoords(TClonesArray const &TubeArray, // In par
     float theta_deg;
     r_Theta.first = r_Theta.second = theta_deg = 0.00;
 
-          // Polar coordinates Data.
+    // Polar coordinates Data.
     theta_deg = Cartesian_To_Polar( node.m_x, node.m_y, r_Theta);
 
     // Update point
     node.m_r = r_Theta.first;
     node.m_theta = r_Theta.second;
     node.m_thetaDeg = theta_deg;
-
-    
     node.m_xDet   = node.m_x;
     node.m_yDet   = node.m_y;
     
@@ -201,10 +184,8 @@ void CollectSttDetecorCoords(TClonesArray const &TubeArray, // In par
     
     node.m_Sector = tube->GetSectorID();
     // OutTxtFile << node.m_Sector <<",";
-
     node.m_Layer  = tube->GetLayerID();
     //OutTxtFile << node.m_Layer <<",";
-
     node.m_LayerLimit = tube->IsLayerLimit();
     //OutTxtFile << node.m_LayerLimit <<",";
     
@@ -229,8 +210,6 @@ void CollectSttDetecorCoords(TClonesArray const &TubeArray, // In par
     // printf("%d", itube);
      for(int n = 0; n < neighbs.GetSize(); n++) {
       int neigh_index = neighbs.At(n);
-      
-      //  printf("%d, %d", neigh_index, neigh_index2);
       PndSttTube *neighb_tube = (PndSttTube*) TubeArray.At(neigh_index);
       int n_Id2;
       /* if(n < num_neigh[itube -1]){
@@ -253,27 +232,41 @@ void CollectSttDetecorCoords(TClonesArray const &TubeArray, // In par
     // Add node to the node list
     detNodes.push_back(node);
   }// Tube loop
-  info("Number of sector limits = %d, right-limit = %d, left-limit = %d, number of skewed = %d, number of para = %d, total = %d", (sRight + sLeft), sRight, sLeft, nSkewed, nPara, nSkewed+nPara);
+  dbggrid("%d tubes collected: number of sector limits = %d, right-limit = %d, left-limit = %d, number of skewed = %d, number of para = %d", nSkewed+nPara, (sRight + sLeft), sRight, sLeft, nSkewed, nPara);
   
 }
 
-//___________ Main function in this macro __________________
+
+
+/* ****************************************************** */
+/*							  */
+/*___________ Main function in this macro ________________*/
+/*							  */
+/* ****************************************************** */
+
+
 std::vector < std::vector<HitCoordinate*>* >*
-CollectSttMvdPoints( std::vector < GridNode >& detNodes, TFile &OutFile,
-		     int firstEvt, int lastEvt)
+CollectSttMvdPoints( std::vector < GridNode >& detNodes, char *inFile, TFile &OutFile, int geoID,  int firstEvt, int lastEvt)
 {
-   TStopwatch timer;
+  TStopwatch timer;
   timer.Start();
 
   // --- MC INFO --------------------------------------------------
   // Sim File
-  TFile sf("./rootfiles/evtcomplete_sim.root","READ");
+  char *oFile;
+  asprintf(&oFile, "%s_sim.root", inFile);
+  TFile sf(oFile,"READ");
+  free(oFile);
   
   // Digi File
-  TFile df("./rootfiles/evtcomplete_digi.root","READ");
+  asprintf(&oFile, "%s_digi.root",inFile);
+  TFile df(oFile,"READ");
+  free(oFile);
 
   // Get file of parameters
-  TFile parfile("./rootfiles/evtcomplete_par.root", "READ");
+  asprintf(&oFile, "%s_par.root", inFile);
+  TFile parfile(oFile,"READ");
+  //free(oFile);
 
   //______________________________________________
   size_t mvdStrCntMC, mvdPixCntMC, SttCntMC;
@@ -341,7 +334,9 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, TFile &OutFile,
   }
   
   fairbasepar->GetName();
-  PndGeoHandling geoH(1583944737 , "./rootfiles/evtcomplete_par.root"); //geo 2 1572086365 // geo 1 1583944737
+
+  //geo 2 1572086365 // geo 1 1583944737 // Muon_z0 1611761510 // Muon_z30 1611844116 // Muon_z120 1611844771
+  PndGeoHandling geoH(geoID , oFile); 
   geoH.FillSensorMap();
   
 #if (DEBUG_PRINT > 0)
@@ -369,7 +364,7 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, TFile &OutFile,
     exit(2);
   }
   
-  info("Total number of events in digi tree = %d", digiTr->GetEntriesFast());
+  dbgcollect("Total number of events in digi tree = %d", digiTr->GetEntriesFast());
 
   // pair to hold the polar coordinates output.
   std::pair<float, float> r_Theta;
@@ -417,20 +412,13 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, TFile &OutFile,
       int refindex = pSttHit->GetRefIndex();
       PndSttPoint *pSttMCPoint = (PndSttPoint*) SttMCPointAr->At(refindex);
 
-#if (DEBUG_PRINT > 0)
-      debug("TrackID = %d", pSttMCPoint->GetTrackID());
-      // pSttMCPoint->Print("");
-#endif
       // Set the trackID for the current point
       currentHit->m_trackID = pSttMCPoint->GetTrackID();
       
       // MC point coordinates
       TVector3 mcposition;
       pSttMCPoint->Position(mcposition);
-
-#if (DEBUG_PRINT > 0)
-      mcposition.Print();
-#endif
+      
       // MC data Convert tot Polar coordinates
       theta_deg = Cartesian_To_Polar(mcposition.X(), mcposition.Y(), r_Theta);
 
@@ -456,10 +444,7 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, TFile &OutFile,
       currentHit->my = mcposition.Y();
       currentHit->mz = mcposition.Z();
 
-      // ----------------------------------------------------------
-#if (DEBUG_PRINT > 0)
-      debug("id = %d", pSttHit->GetTubeID());
-#endif
+
       //_______ ********* Not MC Hit coordinates ********
       // Which tube
       PndSttTube *pSttTube = (PndSttTube *) SttTubeArray->At(pSttHit->GetTubeID());
@@ -470,13 +455,6 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, TFile &OutFile,
       // Coordinates of the center of the tube
       TVector3 tubecenter  = pSttTube->GetPosition();
 
-      /////// DEBUG DEBUG
-      // std::cout << " TubeID = " << pSttHit->GetTubeID()
-      //           << " number of neigbours = " << (pSttTube->GetNeighborings()).GetSize()
-      //           << ", ";
-      // tubecenter.Print();
-      // std::cout << '\n';
-      /////// DEBUG DEBUG
 
       // Polar coordinates Data.
       theta_deg = Cartesian_To_Polar(tubecenter.X(), tubecenter.Y(), r_Theta);
@@ -510,6 +488,8 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, TFile &OutFile,
     }// END STT hits loop
 #endif// end of STT Hit Data inclusion
 
+
+    
 #if ( INCLUDE_MVD_POINTS > 0 )
     //=========== MVD 3D points
     //+++ Pixel MVD
@@ -537,9 +517,8 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, TFile &OutFile,
 	// Set MC trackID
 	currentHit->m_trackID = sdsMCPoint->GetTrackID();
 
-#if (DEBUG_PRINT > 0)
-        mvdHitPos.Print();
-#endif
+	// mvdHitPos.Print();
+	
         // MC data Polar position
         theta_deg = Cartesian_To_Polar(mvdHitPos.X(), mvdHitPos.Y(), r_Theta);
         
@@ -600,9 +579,7 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, TFile &OutFile,
 
       // Get MVD Strip hit
       PndSdsHit *pMvdStripHit = (PndSdsHit*) MvdStripHitArray->At(i);
-      // DEBUG INFO
-      //std::cout << "Sensor strip ids " << pMvdStripHit->GetSensorID() <<'\n' ;
-
+ 
       //______************* Extract MC data.
       int refindex = pMvdStripHit->GetRefIndex();
       
@@ -614,9 +591,8 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, TFile &OutFile,
 	// Set MC trackID
 	currentHit->m_trackID = sdsMCPoint->GetTrackID();
         
-#if (DEBUG_PRINT > 0)
-        mvdHitPos.Print();
-#endif
+	// mvdHitPos.Print();
+	
         // MC data Polar MVD Strip
         theta_deg = Cartesian_To_Polar(mvdHitPos.X(), mvdHitPos.Y(), r_Theta);
       
@@ -676,7 +652,7 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, TFile &OutFile,
     outHit_coords->push_back(cuEvtData);
   } // End of event loop
   //////// Number of hits per detector.
-  info("mvdStrip_Cnt = %d, mvdPixel_Cnt = %d, Stt_Cnt = %d", mvdStrCntMC, mvdPixCntMC, SttCntMC);
+  dbgcollect("mvdStrip_Cnt = %d, mvdPixel_Cnt = %d, Stt_Cnt = %d", mvdStrCntMC, mvdPixCntMC, SttCntMC);
   
   // Write Output data to out file.
   if( OutFile.IsOpen()) {
@@ -799,17 +775,141 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, TFile &OutFile,
 
   // Note the numbers differ by one(Fortran legacy??). STT array
   // counts from 1 and detNodes from 0;
-  info("SttTubeArray = %d, detnodes = %d", SttTubeArray->GetEntries(), detNodes.size());
+  dbgcollect("SttTubeArray = %d, detnodes = %d", SttTubeArray->GetEntries(), detNodes.size());
   
   timer.Stop();
   //______________ Running Time information ____________
   
-   Double_t rtime = timer.RealTime();
+  Double_t rtime = timer.RealTime();
   Double_t ctime = timer.CpuTime();
-  info(" Macro finished succesfully. The time for reading event data and  constructing the detector map is %lf (real) and %lf (cpu)", rtime, ctime);
+  timing("Collecting points finished succesfully. The time for reading event data and constructing the detector map is %lf (real) and %lf (cpu)", rtime, ctime);
   // Return
   return outHit_coords;
 }
+
+
+//______________________ BEGIN MCTrackPoints _____________________________
+std::vector< std::vector < MCTrackObject* >* >*
+MCTrackPoints( std::vector < std::vector<HitCoordinate*>* > const &evtData)
+{
+  info("Extracting MC tracks for %d events", evtData.size());
+  //	    << " events.\n";
+  // Output Parameter
+  std::vector< std::vector < MCTrackObject* >* >* outVar =
+    new std::vector< std::vector < MCTrackObject* >* >();
+
+  int numTracks = 0;
+  std::vector< int > idtracks;
+
+   for(size_t e = 0; e < evtData.size(); ++e) {
+    std::vector<HitCoordinate*> const *Current_Event = evtData[e];
+    // numTracks = 0;
+    // Find out how many MC tracks are available
+    for(size_t i = 0; i < Current_Event->size(); ++i) {
+      HitCoordinate const *currentHit = Current_Event->at(i);
+      if( currentHit->m_trackID != HIT_EXCLUSION && !(std::find(idtracks.begin(), idtracks.end(), currentHit->m_trackID) != idtracks.end())) {
+	//	printf("%d \n", currentHit->m_trackID);
+	//	numTracks = currentHit->m_trackID;
+	idtracks.push_back(currentHit->m_trackID);
+      }
+    }// END current event loop
+    numTracks = idtracks.size();
+    dbgcollect("Event %d contains %d tracks", e,(numTracks));
+    
+   // Now, we know the number of available tracks for the current
+    // event; We can allocate memory.
+    std::vector < MCTrackObject* >* evtTracks = new std::vector < MCTrackObject* >();
+    for(int j = 0; j < numTracks; ++j) {
+      MCTrackObject *trk = new MCTrackObject(); 
+      evtTracks->push_back(trk);
+    }
+    // Fill the list
+
+    int curTrack = 0;
+    for(size_t k = 0; k < Current_Event->size(); ++k) {
+      HitCoordinate const *currentHit = Current_Event->at(k);
+      if(currentHit->m_trackID != HIT_EXCLUSION) {
+	std::vector<int>::iterator it = std::find(idtracks.begin(), idtracks.end(), currentHit->m_trackID);
+	int index = std::distance(idtracks.begin(), it);
+	//	printf("%d, %d \n", currentHit->m_trackID,index);
+	int trackPos = std::distance(idtracks.begin(), it); //currentHit->m_trackID;
+	point3D spacePoint;
+	spacePoint.m_x = currentHit->mx;
+	spacePoint.m_y = currentHit->my;
+	spacePoint.m_z = currentHit->mz;
+	if(currentHit->type == HitCoordinate::STT_TYPE) {
+	  ((evtTracks->at(trackPos))->m_pointSTTCoordList).push_back(spacePoint);
+	  ((evtTracks->at(trackPos))->m_STT_Component).push_back(currentHit->m_detID);
+	}
+	else if(currentHit->type == HitCoordinate::MVD_TYPE) {
+	  ((evtTracks->at(trackPos))->m_pointMVDCoordList).push_back(spacePoint);
+	  ((evtTracks->at(trackPos))->m_MVD_Component).push_back(currentHit->m_detID);
+	}
+      }// END if not HIT_EXCLUSION
+    }// END
+    outVar->push_back(evtTracks);
+  }// END events loop
+  return outVar;
+  /*  int realnumTracks = 0;
+
+  std::vector<int> IDtracks ;
+
+
+  for(size_t e = 0; e < evtData.size(); ++e) {
+    std::vector<HitCoordinate*> const *Current_Event = evtData[e];
+    // numTracks = 0;
+    // Find out how many MC tracks are available
+    for(size_t i = 0; i < Current_Event->size(); ++i) {
+      HitCoordinate const *currentHit = Current_Event->at(i);
+      if (std::find(IDtracks.begin(), IDtracks.end(), currentHit->m_trackID) == IDtracks.end())
+	IDtracks.push_back(currentHit->m_trackID);
+
+      if( currentHit->m_trackID > numTracks &&
+	  currentHit->m_trackID != HIT_EXCLUSION) {
+	numTracks = currentHit->m_trackID;
+      }
+
+    }// END current event loop
+
+#if (PRINT_TRACKS_DEBUG_INFO > 0)
+    std::cout << "\t<-I-> Event " << e
+	      << " Contains " << (IDtracks.size())
+	      << " Tracks.\n";
+#endif
+    // Now, we know the number of available tracks for the current
+    // event; We can allocate memory.
+    std::vector < MCTrackObject* >* evtTracks = new std::vector < MCTrackObject* >();
+    for(int j = 0; j <= numTracks; ++j) {
+      MCTrackObject *trk = new MCTrackObject(); 
+      evtTracks->push_back(trk);
+    }
+    // Fill the list
+    for(size_t k = 0; k < Current_Event->size(); ++k) {
+      HitCoordinate const *currentHit = Current_Event->at(k);
+      if(currentHit->m_trackID != HIT_EXCLUSION) {
+	int trackPos = currentHit->m_trackID;
+	point3D spacePoint;
+	spacePoint.m_x = currentHit->mx;
+	spacePoint.m_y = currentHit->my;
+	spacePoint.m_z = currentHit->mz;
+	if(currentHit->type == HitCoordinate::STT_TYPE) {
+	  ((evtTracks->at(trackPos))->m_pointSTTCoordList).push_back(spacePoint);
+	  ((evtTracks->at(trackPos))->m_STT_Component).push_back(currentHit->m_detID);
+	}
+	else if(currentHit->type == HitCoordinate::MVD_TYPE) {
+	  ((evtTracks->at(trackPos))->m_pointMVDCoordList).push_back(spacePoint);
+	  ((evtTracks->at(trackPos))->m_MVD_Component).push_back(currentHit->m_detID);
+	}
+      }// END if not HIT_EXCLUSION
+    }// END
+    outVar->push_back(evtTracks);
+  }// END events loop
+  return outVar;*/
+}
+//______________________ END MCTrackPoints _______________________________
+
+
+
 //___________________________ WriteEventPlotsToFile __________________________________
 void WriteEventPlotsToFile(std::vector < std::vector<HitCoordinate*>* > const &evtData,
 			   TFile &OutFile)

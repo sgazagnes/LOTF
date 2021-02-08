@@ -12,6 +12,7 @@
 #include "hitcoordinate.h"
 #include "gridNode.h"
 #include "CoordGrid.h"
+#include "logc.h"
 
 #define COORD_GRID_DEBUG 1
 #if(COORD_GRID_DEBUG > 0)
@@ -49,9 +50,9 @@ CoordGrid::~CoordGrid()
 // Init Grid data structure.
 void CoordGrid::Initialize(std::vector < GridNode > const &detNodes)
 {
-   std::cout << "<INFO> Init Grid grid for " << detNodes.size()
-             << " detectors.\n";
-   // Clean structure:
+  dbggrid("Init Grid grid for %lu detectors.",detNodes.size());
+
+  // Clean structure:
    m_grid.clear();
    m_MVD_grid.clear();
 
@@ -67,11 +68,12 @@ void CoordGrid::Initialize(std::vector < GridNode > const &detNodes)
        m_MVD_grid.push_back(detNodes[i]);
      }
    }
-   std::cout << "\t<-I-> Total number of inserts CoordGrid: " << m_grid.size()
-             << ",\t First added id = " << m_grid[0].m_detID
-             << ", Last added id = "    << m_grid[ (m_grid.size() - 1) ].m_detID
-             << "\n";
+   firstVirtIdx = m_grid.size();
+
+   dbggrid("Total number of inserts CoordGrid: %lu, first id: %d, last id: %d", m_grid.size(), m_grid[0].m_detID, m_grid[ (m_grid.size() - 1) ].m_detID);
 }
+
+
 /*
  * Modify the node id numbering in order to include the virtual tubes
  * in the correct positions between the layes based on their
@@ -108,9 +110,8 @@ void CoordGrid::AddNodeToGrid(GridNode const &node)
 // other ones.
 void CoordGrid::FillGrid(std::vector < HitCoordinate* > const& hitcoords)
 {
-  std::cout << "<INFO> Fill grid with current tracks.\n"
-            << "\t<-I-> Num input points = " << hitcoords.size()
-            <<'\n';
+  dbggrid("Fill grid with current tracks. Num input points %lu" , hitcoords.size());
+            
   unsigned int  sttCnt, vCnt, mvdCnt;
   sttCnt = 0;
   mvdCnt = 0;
@@ -122,13 +123,16 @@ void CoordGrid::FillGrid(std::vector < HitCoordinate* > const& hitcoords)
     HitCoordinate const *hc = hitcoords[i];
     if( hc->type == HitCoordinate::STT_TYPE ) {
       int detID = hc->m_detID;
-      for(size_t index = 0; index < m_grid.size(); ++index) {
+      int idx = Find(detID);
+      //m_grid[index]
+	(m_grid[idx]).m_active = true;
+      /* for(size_t index = 0; index < m_grid.size(); ++index) {
        	if( ( (m_grid[index]).m_Orig_detID == detID ) &&
             ( (m_grid[index]).m_type != GridNode::VIRTUAL_NODE) ) {
 	  (m_grid[index]).m_active = true;
       	  sttCnt++;
        	}
-      }
+	}*/
     }// IF STT type
     // For now it can only be MVD type
     else if( hc->type == HitCoordinate::MVD_TYPE ) {
@@ -150,13 +154,13 @@ void CoordGrid::FillGrid(std::vector < HitCoordinate* > const& hitcoords)
   // tubes as well. Note that every virtual tube has ONLY two
   // neighbors. These are the parent neigbours.
   std::vector<int> tocheck;
-  char *visited 	= (char *) calloc(100000, sizeof(char));
+  char *visited 	= (char *) calloc(firstVirtIdx, sizeof(char));
 
-  for(size_t j = 0; j < m_grid.size(); j++) {
+  for(size_t j = firstVirtIdx; j < m_grid.size(); j++) {
     GridNode &Virtual_tube = m_grid[j];
     if( Virtual_tube.m_type == GridNode::VIRTUAL_NODE) {
       std::vector<int> const &Neig_List = Virtual_tube.m_neighbors;
-      assert (Neig_List.size() == 2);
+      //assert (Neig_List.size() == 2);
       // Note that each virtual tube can only have 2 neigbors.
       int nID = Neig_List[0];
       int nIndex = Find(nID);
@@ -181,7 +185,8 @@ void CoordGrid::FillGrid(std::vector < HitCoordinate* > const& hitcoords)
     }
   }
 
-  printf("need to check %d \n", tocheck.size());
+
+  //  printf("need to check %d \n", tocheck.size());
 
   for(size_t j = 0; j < tocheck.size(); j++) {
     int nID = tocheck[j];
@@ -238,7 +243,7 @@ void CoordGrid::FillGrid(std::vector < HitCoordinate* > const& hitcoords)
 	neighVis[l] = 1;	
       }
       if(inDir.size() > 2){
-	printf("ID %d has several virtual nodes in the same direction, we can clean \n", nID);
+	dbggrid("ID %d has several virtual nodes in the same direction, we can clean ", nID);
 	vector<pair<int, double>> order(inDir.size());
 	for (int i=0; i<inDir.size(); ++i)
 	  order[i] = make_pair(inDir[i], distDir[i]);
@@ -255,6 +260,7 @@ void CoordGrid::FillGrid(std::vector < HitCoordinate* > const& hitcoords)
       neighVis[k] = 1;
     }
   }
+
 	//	int skeID = neighNode.m_neighbors[0] == nID? neighNode.m_neighbors[1]: neighNode.m_neighbors[0];
 	//	int skeIdx = Find(skeID);
 	//	GridNode const &skeNode  = m_grid[neighIdx];
@@ -309,9 +315,7 @@ void CoordGrid::FillGrid(std::vector < HitCoordinate* > const& hitcoords)
     if(cnt > 1)
     continue;*/
   free(visited);
-  std::cout << "\t<-I-> Stored real STT points = "  << sttCnt
-	    << " And " << vCnt << " Virtual nodes and "
-	    << mvdCnt << " MVD points.\n";
+  dbggrid("Stored real STT points = %u,  %u virtual nodes, and %u MVD points", sttCnt,vCnt, mvdCnt);
 }
 
 bool Is_STT_SplitSkewedNode( GridNode const &node)

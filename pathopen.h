@@ -148,7 +148,6 @@ std::vector<TrackObject*>* MergeConnectedComponentsWithMVD(CoordGrid &hitMap,
  * of the distance between the points (nodes). Again hier the virtual
  * tubes are not modified.
  */
-void TrackZ_CoordinatesDistNorm(CoordGrid &hitMap, std::vector<TrackObject*>* TrackList = 0);
 
 void SplitSharedNodes(CoordGrid &hitMap, size_t threshold,
 		      std::vector < GridNode > &outNodes);

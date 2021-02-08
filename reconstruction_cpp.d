@@ -82,10 +82,8 @@ reconstruction_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/bui
 reconstruction_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVectorFfwd.h
 reconstruction_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVectorDfwd.h
 reconstruction_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TFitResultPtr.h
-reconstruction_cpp.so: reconstruction.h simon_functions.h
-reconstruction_cpp.so: auxiliaryfunctions.h CollectSttMvdPoints.h
-reconstruction_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TClonesArray.h
-reconstruction_cpp.so: gridNode.h
+reconstruction_cpp.so: reconstruction.h pathCandidate.h auxiliaryfunctions.h
+reconstruction_cpp.so: utilfunctions.h gridNode.h
 reconstruction_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVector3.h
 reconstruction_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TError.h
 reconstruction_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVector2.h
@@ -100,9 +98,7 @@ reconstruction_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/bui
 reconstruction_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixFUtils.h
 reconstruction_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixFUtilsfwd.h
 reconstruction_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMath.h
-reconstruction_cpp.so: CoordGrid.h SttMVDEventDataReader.h pathopen.h
-reconstruction_cpp.so: hitcoordinate.h floodingFilter.h utilfunctions.h
-reconstruction_cpp.so: trackObject.h logc.h queue.h pathCandidate.h
+reconstruction_cpp.so: CoordGrid.h trackObject.h logc.h simon_functions.h
 reconstruction_cpp.so: path_queue.h
 reconstruction_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RVersion.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RConfig.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TClass.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TDictAttributeMap.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TInterpreter.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TROOT.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TBuffer.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMemberInspector.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TError.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RtypesImp.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TIsAProxy.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TFileMergeInfo.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TCollectionProxyInfo.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/bin/rootcling
 reconstruction_cpp__ROOTBUILDVERSION= 6.16/00

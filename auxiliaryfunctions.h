@@ -8,7 +8,6 @@
 #define PATH_AUXILIARY_FUNCTIONS_H
 
 // Start id for virtual nodes
-#define START_VIRTUAL_ID 6000
 
 /**
  * Data structure to hold the fit parameters after fitting a circle to

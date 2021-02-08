@@ -6,8 +6,13 @@
 
 
 // Local headers
-#include "auxiliaryfunctions.h"
-#include "CollectSttMvdPoints.h"
+
+#include "CoordGrid.h"
+#include "gridNode.h"
+#include "pathCandidate.h"
+
+
+/*#include "CollectSttMvdPoints.h"
 #include "SttMVDEventDataReader.h"
 #include "pathopen.h"
 #include "hitcoordinate.h"
@@ -17,9 +22,8 @@
 #include "logc.h"
 #include "queue.h"
 //#include "performFilter.h"
-#include "pathCandidate.h"
 #include "path_queue.h"
-
+*/
 
 typedef enum {
   DOWN = 1,
@@ -57,8 +61,11 @@ void Fix_InterSector_Nodes(CoordGrid &hitMap, size_t const numSectors);
 bool IntersectionPoint(CoordGrid const &hitMap,
 				   GridNode &tubeA, GridNode &tubeB,
 		       GridNode &out);
+bool IntersectionPointZ(CoordGrid const &hitMap,
+				   GridNode &tubeA, GridNode &tubeB,
+			GridNode &out);
 void addTracklets (CoordGrid &gr, PathCandidate *newCand, PathCandidate &mergeCand,  int curdir, int mergedir);
 #endif
-void Add_VirtualNodes(CoordGrid &hitMap, std::vector < GridNode > &VNodes);
-
+void Add_VirtualNodes(CoordGrid &hitMap, std::vector < GridNode > &VNodesLayer,  std::vector < GridNode > &VNodesSector);
 double IntersectionXY(double startX1, double endX1, double startY1, double endY1, double startX2, double endX2, double startY2, double endY2);
+bool LineLineIntersect( GridNode &tubeA, GridNode &tubeB, GridNode &tubeC, float &ixOut, float &iyOut, float &izOut); //Output 

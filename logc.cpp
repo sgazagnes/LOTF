@@ -1,12 +1,11 @@
-#include "logc.h"
 #include <stddef.h>
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <stdbool.h>
-/* verbosity levels are defined in logc.h */
-int verbosity = 10;
 
+//int verbosity = 10;
+#include "logc.h"
 
 void _error(const char* msg) {
   _logc(ERROR, msg);
@@ -21,17 +20,17 @@ void error(const char* fmt, ...) {
   _error(buf);
 }
 
-void _warn(const char* msg) {
-  _logc(WARN, msg);
+void _timing(const char* msg) {
+  _logc(TIME, msg);
 }
 
-void warn(const char* fmt, ...) {
-  char buf[MAX_LOG_MSG_SIZE];
-  va_list vl;
-  va_start(vl, fmt);
-  vsnprintf(buf, sizeof(buf), fmt, vl);
-  va_end(vl);
-  _warn(buf);
+void timing(const char* fmt, ...) {
+    char buf[MAX_LOG_MSG_SIZE];
+    va_list vl;
+    va_start(vl, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, vl);
+    va_end(vl);
+    _timing(buf);
 }
 
 void _info(const char* msg) {
@@ -48,65 +47,101 @@ void info(const char* fmt, ...) {
   
 }
 
-void _debug(const char* msg) {
-  _logc(DEBUG, msg);
-}
 
-void debug(const char* fmt, ...) {
-  char buf[MAX_LOG_MSG_SIZE];
-  va_list vl;
-  va_start(vl, fmt);
-  vsnprintf(buf, sizeof(buf), fmt, vl);
-  va_end(vl);
-  _debug(buf);
-}
-
-void _trace(const char* msg) {
-  _logc(TRACE, msg);
-}
-
-void trace(const char* fmt, ...) {
-  char buf[MAX_LOG_MSG_SIZE];
-  va_list vl;
-  va_start(vl, fmt);
-  vsnprintf(buf, sizeof(buf), fmt, vl);
-  va_end(vl);
-  _trace(buf);
-}
-
-void _timing(const char* msg) {
-  _logc(TIMING, msg);
-}
-
-void timing(const char* fmt, ...) {
+void dbgcollect(const char* fmt, ...) {
     char buf[MAX_LOG_MSG_SIZE];
     va_list vl;
     va_start(vl, fmt);
     vsnprintf(buf, sizeof(buf), fmt, vl);
     va_end(vl);
-    _timing(buf);
-  
+    _logc(COLLECT, buf);
+}
+
+
+void dbggrid(const char* fmt, ...) {
+    char buf[MAX_LOG_MSG_SIZE];
+    va_list vl;
+    va_start(vl, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, vl);
+    va_end(vl);
+    _logc(GRID, buf);
+}
+
+
+void dbgconnect(const char* fmt, ...) {
+    char buf[MAX_LOG_MSG_SIZE];
+    va_list vl;
+    va_start(vl, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, vl);
+    va_end(vl);
+    _logc(CONNECT, buf);
+}
+
+
+void dbgfit(const char* fmt, ...) {
+    char buf[MAX_LOG_MSG_SIZE];
+    va_list vl;
+    va_start(vl, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, vl);
+    va_end(vl);
+    _logc(FIT, buf);
+}
+
+void dbgmerge(const char* fmt, ...) {
+    char buf[MAX_LOG_MSG_SIZE];
+    va_list vl;
+    va_start(vl, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, vl);
+    va_end(vl);
+    _logc(MERGE, buf);
+}
+
+void dbgtrkz(const char* fmt, ...) {
+    char buf[MAX_LOG_MSG_SIZE];
+    va_list vl;
+    va_start(vl, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, vl);
+    va_end(vl);
+    _logc(TRKZ, buf);
+}
+
+void dbgtrkerror(const char* fmt, ...) {
+    char buf[MAX_LOG_MSG_SIZE];
+    va_list vl;
+    va_start(vl, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, vl);
+    va_end(vl);
+    _logc(TRKERROR, buf);
 }
 
 void _logc(int level, const char* msg) {
-  if (verbosity >= level) {
+
+  if (verbosity.test(level)) {
     char *ts = timestamp();
+  
     switch (level) {
     case ERROR:
-      fprintf(stderr, CYN"%s " YEL "%d " RED "ERROR " WHT "%s\n" RESET, ts, 0, msg); fflush(stderr); break;
-    case WARN:
-      fprintf(stdout, CYN"%s " YEL "%d " YEL "WARN  " WHT "%s\n" RESET, ts, 0, msg); fflush(stdout); break;
-    case TIMING:
-      fprintf(stdout, CYN"%s " YEL "%d " BLU "TIME  " WHT "%s\n" RESET, ts, 0, msg); fflush(stdout); break;
+      fprintf(stderr, WHT"%s " RED "ERROR " WHT "%s\n" RESET, ts, msg); fflush(stderr); break;
+    case TIME:
+      fprintf(stdout, WHT"%s " YEL "TIME  " WHT "%s\n" RESET, ts, msg); fflush(stdout); break;
     case INFO:
-     fprintf(stdout, CYN"%s " YEL "%d " GRN "INFO  " WHT "%s\n" RESET, ts, 0, msg); fflush(stdout); break;
-     //fprintf(stdout, "%s\n", msg); fflush(stdout); break;
-    case DEBUG:
-      fprintf(stdout, CYN"%s " YEL "%d " CYN "DEBUG " WHT "%s\n" RESET, ts, 0, msg); fflush(stdout); break;
-    case TRACE:
-      fprintf(stdout, CYN"%s " YEL "%d " BLU "TRACE " WHT "%s\n" RESET, ts, 0, msg); fflush(stdout); break;
+     fprintf(stdout, WHT"%s "  GRN "INFO  " WHT "%s\n" RESET, ts, msg); fflush(stdout); break;
+    case COLLECT:
+      fprintf(stdout, WHT"%s " CYN "COLLECT " WHT "%s\n" RESET, ts, msg); fflush(stdout); break;
+    case GRID:
+      fprintf(stdout, WHT"%s " CYN "GRID " WHT "%s\n" RESET, ts, msg); fflush(stdout); break;
+    case CONNECT:
+      fprintf(stdout, WHT"%s " BLU "CONNECT " WHT "%s\n" RESET, ts, msg); fflush(stdout); break;
+    case FIT:
+      fprintf(stdout, WHT"%s " BLU "FIT " WHT "%s\n" RESET, ts, msg); fflush(stdout); break;
+    case MERGE:
+      fprintf(stdout, WHT"%s " BLU "MERGE " WHT "%s\n" RESET, ts, msg); fflush(stdout); break;
+    case TRKERROR:
+      fprintf(stdout, WHT"%s " MAG "TRKERROR " WHT "%s\n" RESET, ts, msg); fflush(stdout); break;
+    case TRKZ:
+      fprintf(stdout, WHT"%s " BLU "Z COORD " WHT "%s\n" RESET, ts, msg); fflush(stdout); break;
     default:
-      fprintf(stderr, CYN"%s " YEL "%d " RED "INVALID LEVEL " WHT "%s\n" RESET, ts, 0, msg); fflush(stderr); break;
+      fprintf(stderr, WHT"%s "  RED "INVALID LEVEL " WHT "%s\n" RESET, ts, msg); fflush(stderr); break;
     }
 
     free(ts);
@@ -122,13 +157,14 @@ void logc(int level, const char* fmt, ...) {
   _logc(level, buf);
 }
 
-void set_verbosity(char *v) {
+void set_verbosity(bool v[10]) {
   /* to upper case */
-  for (char *p = v; *p != '\0'; ++p) {
-    *p = toupper(*p);
+  for (int i = 0; i < 10; ++i) {
+    verbosity.set(i, v[i]);
   }
 
-  if (equals(v, "OFF")) {
+  // (std::string("0000000011"));
+  /* if (equals(v, "OFF")) {
     verbosity = OFF;
   } else if (equals(v, "ERROR")) {
     verbosity = ERROR;
@@ -146,7 +182,7 @@ void set_verbosity(char *v) {
     verbosity = ALL;
   } else {
     _error("No valid verbosity level supplied");
-  }
+    }*/
 }
 
 bool equals(const char *a, const char *b) {
@@ -160,6 +196,6 @@ char *timestamp(void) {
   time( &rawtime );
   info = localtime( &rawtime );
 
-  strftime(buf, 80, "%d-%m-%Y %H:%M:%S", info);
+  strftime(buf, 80, "%H:%M:%S", info);
   return buf;
 }

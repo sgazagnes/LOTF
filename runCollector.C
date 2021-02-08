@@ -15,10 +15,8 @@ void runCollector( size_t plength = 1,
                    std::string const &OutFileName = "Tracks_output.root",
 		   size_t dim = 2,// Plot dimension
 		   size_t gapSize = 0,// Number of layers to skip
-		   size_t numEvt = 100,// Total number of events
-		   size_t WindowSize = 300,//700, //1100,//800,
-		   int firstEvt = 5, //3, //9, //0,
-		   int lastEvt  =6//10  //6
+		   int firstEvt = 6, //3, //9, //0,
+		   int lastEvt  =7//10  //6
 		   )//50->61, 4->5
 {
   // Load basic libs and headers.
@@ -54,6 +52,7 @@ void runCollector( size_t plength = 1,
   gSystem->CompileMacro("simon_functions.cpp","kO");
   gSystem->CompileMacro("reconstruction.cpp","kO");
   gSystem->CompileMacro("floodingFilter.cpp","kO");
+  gSystem->CompileMacro("error.cpp","kO");
 
   //======= Load the Plot and helper macro's ====
    gSystem->CompileMacro("PlotTracks.C","k0");
@@ -75,7 +74,7 @@ void runCollector( size_t plength = 1,
   // gROOT->ProcessLine(Form("performFilter(%ld, %ld, %ld, %f, %f, %ld, \"%s\", %d, %d);", plength, area, MinResponce, lambda, tol, gapSize,OutFileName.c_str(), firstEvt, lastEvt));
 
   gROOT->ProcessLine(Form("floodingFilter(\"%s\", %d, %d);", OutFileName.c_str(), firstEvt, lastEvt));
-  gROOT->ProcessLine(Form("CreatePlotAllEventComponents(\"%s\");", OutFileName.c_str()));
+  // gROOT->ProcessLine(Form("CreatePlotAllEventComponents(\"%s\");", OutFileName.c_str()));
 
   //_________ Make plots ________
   

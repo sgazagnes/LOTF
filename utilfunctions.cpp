@@ -136,7 +136,7 @@ void ComputeSlope(float const x1, float const y1,
 void FindNodeBetweenLayerNodePairs(CoordGrid const &hitMap,
 				   std::vector< TubeLayerPairProperty > &NodePairSet)
 {
-  std::cout << "<INFO> Finding tube pairs to compute virtual nodes.\n";
+  dbggrid("Finding tube pairs to compute virtual nodes.");
 
   // List of all nodes available in the image (detector map)
   std::vector< GridNode > const &Ingrid = hitMap.m_grid;
@@ -201,8 +201,7 @@ void FindNodeBetweenLayerNodePairs(CoordGrid const &hitMap,
       cnt++;
     }
   }
-  std::cout << "\t<-I-> Found " << NodePairSet.size() << " Pairs.\n"
-	    << "\t<-I-> and " << cnt << " valid pairs.\n";
+  dbggrid("Found %lu pairs and %lu valid ones", NodePairSet.size(), cnt);
 }
 //____________________ END FindNodeBetweenLayerNodePairs _____________
 //____________________ Compute_Add_VirtualNodesNeigbor_________________
@@ -569,7 +568,7 @@ TNtuple* GridToNtuple(std::vector < GridNode > const &VNodes, std::string const 
 //__________________________ fixNeighboring _________________________________
 void fixNeighboring(CoordGrid &hitMap)
 {
-  std::cerr << "<WARNING> Correcting the missing neighbor relations.\n";
+  dbggrid("Correcting the missing neighbor relations.");
   size_t NumFixed = 0;
   // List of all nodes available in the image (detector map)
   //std::vector< GridNode > &Ingrid = hitMap.GetGrid();
@@ -603,8 +602,7 @@ void fixNeighboring(CoordGrid &hitMap)
       }
     }// END For (j )
   }// END for(i)
-  std::cerr << "\t  Total number of corrected neighboring relations = "
-	    << NumFixed << '\n';
+  dbggrid("Total number of corrected neighboring relations = %lu", NumFixed);
 }
 //__________________________ END fixNeighboring _________________________
 //_________________________ isolateSectorAndLayerLimits _________________
@@ -646,9 +644,7 @@ void isolateSectorAndLayerLimits(CoordGrid const &hitMap, TNtuple &Sections, TNt
   Sections.SetMarkerColor(kBlue);
 
   // Report numbers.
-  std::cout << "<DEBUG> CountL = " << countL
-	    << " countS = " << countS
-	    << '\n';
+  dbggrid("Count layer limit = %lu, sector limit: %lu", countL, countS);
 }
 //_________________________ END isolateSectorAndLayerLimits ____________
 //________________________ Compute_Virtual_InterSector_Nodes ___________
