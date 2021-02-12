@@ -33,7 +33,7 @@ void findEasyTracks (CoordGrid &gr, std::vector < PathCandidate* > &tracklets, s
     std::vector<int> prevNodes;
     std::vector<int> *v;
       
-    int dir 			= 0;
+    int dir 	       	= 0;
     int curId 		= activeId[n];
     int curIdx 		= gr.Find(curId);
     GridNode *currentNode 	= &Ingrid[curIdx];
@@ -473,282 +473,7 @@ void findEasyTracks (CoordGrid &gr, std::vector < PathCandidate* > &tracklets, s
     } // for nodes
       */
 
-void fitZCoordinates(CoordGrid &hitMap, PathCandidate *trk)
-{
- 
- 
-  dbgtrkz("Re-determining the z coordinates for the track", trk->m_id);
 
-  // MVD list of available elements in the graph.
-  // std::vector< GridNode > &MVDPoints = hitMap.m_MVD_grid;
-  //
-  // STT lists of elements available in the graph.
-  std::vector< GridNode > &Ingrid = hitMap.m_grid;
-  // Local variables
-  std::set<int>::iterator stt_It;
-  // Track (Connected components) )loop
-
-  // Current track object  std::vector<double> z =  std::vector<double>( trk->m_z );
-
-  std::vector<double> &x =  trk->m_x;
-  std::vector<double> &y =  trk->m_y;
-  std::vector<double> &z =  trk->m_z;
-  std::vector<int> const *vect = trk->m_memberList;
-
-  // Fnd the most outer virtual node or the max Z
-  // size_t maxLayer = std::numeric_limits<size_t>::min();
-  // float maxVirtZVal = std::numeric_limits<float>::min();
-  //float  lastVirtualZCoord = 0.00;
-  for( size_t i = 0; i < z.size(); i++){
-    printf("%d, %lf \t", vect->at(i), z[i]);
-  }
-  printf("\n");
-
-  std::vector<GridNode*>  virt;
-  std::vector<GridNode*>  prevLayer;
-  std::vector<GridNode*>  nextLayer;
-  std::vector<GridNode*>  interLayer1;
-  std::vector<GridNode*>  interLayer2;
-  int detect = 0;
-  int idxFirstVirt = 0, idxFirstSkewed;
-  double xvirtfirst = 0, yvirtfirst = 0, zvirtfirst = 0;
-  double xvirtsecond = 0, yvirtsecond = 0, zvirtsecond = 0;
-  double lastx=0, lasty =0;
-  GridNode Dummy_coord;
-
-  for(size_t i = 0; i < vect->size(); i++){
-    int nodeID = vect->at(i);
-    size_t node_index = hitMap.Find(nodeID);
-    GridNode  *node = &Ingrid[node_index];
-
-    if( detect < 2 && node->m_type == GridNode::VIRTUAL_NODE) {
-      virt.push_back(node);
-      int curId = node->m_neighbors[0];
-      size_t curIdx = hitMap.Find(curId);
-      GridNode  *curNode = &Ingrid[curIdx];
-      lastx = curNode->m_x;
-      lasty = curNode->m_y;
-      if(curNode->m_type == GridNode::STT_TYPE_SKEW){
-	curId = node->m_neighbors[1];
-	curIdx = hitMap.Find(curId);
-	curNode = &Ingrid[curIdx];
-	lastx = curNode->m_x;
-	lasty = curNode->m_y;
-      }
-      if(detect == 0){
-	idxFirstVirt = i;
-	//	prevLayer.push_back(prevnode);
-	//	nextLayer.push_back(nextnode);
-	detect = 1;
-      } 
-	
-    }	
-    else if(detect == 1){
-      
-      dbgtrkz("Number of virtual nodes found %d", virt.size());
-
-
-      for(size_t j = 0; j< virt.size(); j++){
-	xvirtfirst += virt[j]->m_x;
-	yvirtfirst += virt[j]->m_y;
-	zvirtfirst += virt[j]->m_z_Det;
-      }
-      xvirtfirst /= virt.size();
-      yvirtfirst /= virt.size();
-      zvirtfirst /= virt.size();
-      //xvirtfirst = (x[i] + lastx)/2.0;
-      //yvirtfirst = (y[i] + lasty)/2.0;
-
-      dbgtrkz("average coord of virt layer %lf %lf", xvirtfirst, yvirtfirst);
-      for(size_t j = idxFirstVirt; j < idxFirstVirt + virt.size(); j++){
-	x[j] = xvirtfirst;
-	y[j] = yvirtfirst;
-	z[j] = zvirtfirst;
-      }
-      
-      virt.clear();
-      // interLayer1.insert(insertLayer1.end(),  nextLayer->begin(),  nextLayer->end());
-      //nextLayer.clear();
-      interLayer1.push_back(node);
-      idxFirstSkewed = i;
-      dbgtrkz("Adding %d on interlayer 1",node->m_detID);
-      detect = 2;
-      
-    } else if(detect == 2 &&  node->m_type != GridNode::VIRTUAL_NODE){
-      if (node->m_Layer == interLayer1[0]->m_Layer && !(std::find(std::begin(interLayer1), std::end(interLayer1), node) != std::end(interLayer1))) {
-	interLayer1.push_back(node);
-	dbgtrkz("Adding %d on interlayer 1",node->m_detID);
-      } else if (labs(node->m_Layer - interLayer1[0]->m_Layer)<2) {
-	interLayer2.push_back(node);
-	dbgtrkz("Adding %d on interlayer 2",node->m_detID);
-      } else {
-	dbgtrkz("We are missing a virtual for %d",node->m_detID);
-	GridNode tubeA = *(interLayer2.back());
-	GridNode tubeB = *(node);
-	info("%d %d", tubeA.m_detID , tubeB.m_detID); 
-
-	IntersectionPoint(hitMap, tubeA, tubeB, Dummy_coord);
-	Dummy_coord.m_detID      = 100000;
-	dbgtrkz("Dummy_coord %d",Dummy_coord.m_detID ); 
-	std::pair<float, float> r_Theta;
-	float theta_deg = Cartesian_To_Polar(Dummy_coord.m_xDet, Dummy_coord.m_yDet, r_Theta);
-	Dummy_coord.m_r = r_Theta.first;
-	Dummy_coord.m_thetaDeg = theta_deg;
-	xvirtsecond = Dummy_coord.m_x;
-	yvirtsecond = Dummy_coord.m_y;
-	zvirtsecond = Dummy_coord.m_z;
-	idxFirstVirt = -1;
-	detect=3;
-	i--;
-	virt.push_back(&Dummy_coord);
-	//	interLayer2.push_back(node);// to remove
-      }
-    } else if(detect == 2  && node->m_type == GridNode::VIRTUAL_NODE){
-      idxFirstVirt = i;
-      virt.push_back(node);
-      detect = 3;
-      lastx = x[i-1];
-      lasty = y[i-1];
-    } else if(detect == 3 && node->m_type == GridNode::VIRTUAL_NODE){
-      virt.push_back(node);
-    } else if(detect == 3 && node->m_type != GridNode::VIRTUAL_NODE){
-
-      
-      dbgtrkz("We have the intermediate layer. 1 %d, 2 %d, virtual further  %d", interLayer1.size(), interLayer2.size(), virt.size());
-
-      if(idxFirstVirt != -1){
-	for(size_t j = 0; j< virt.size(); j++){
-	  xvirtsecond += virt[j]->m_x;
-	  yvirtsecond += virt[j]->m_y;
-	  zvirtsecond += virt[j]->m_z_Det;
-	}
-	xvirtsecond /= virt.size();
-	yvirtsecond /= virt.size();
-	zvirtsecond /= virt.size();
-	//xvirtsecond = (x[i] + lastx)/2.0;
-	//yvirtsecond = (y[i] + lasty)/2.0;
-
-	for(size_t j = idxFirstVirt; j < idxFirstVirt + virt.size(); j++){
-	  x[j] = xvirtsecond;
-	  y[j] = yvirtsecond;
-	  z[j] = zvirtsecond;
-	}
-      }
-      virt.clear();
-
-
-      dbgtrkz("Virt point 1 %lf %lf %lf \n virt point 2 %lf, %lf, %lf", xvirtfirst, yvirtfirst, zvirtfirst,xvirtsecond, yvirtsecond, zvirtsecond);
-	
-	if(interLayer1.size() <= 3 ){
-
-	  double layerX = interLayer1[0]->m_x, layerY= interLayer1[0]->m_y, layerZ =interLayer1[0]->m_z ;
-	  TVector3 dir = interLayer1[0]->m_WireDirection; 
-	  double hl = interLayer1[0]->m_halfLength;
-	  if(interLayer1.size() > 1){
-	    for(size_t j = 1; j < interLayer1.size(); j++){
-	      layerX += interLayer1[j]->m_x;
-	      layerY += interLayer1[j]->m_y;
-	      layerZ += interLayer1[j]->m_z;
-	    }
-	    layerX /= interLayer1.size();
-	    layerY /= interLayer1.size();
-	    layerZ /= interLayer1.size();
-	  }
-
-
-
-	  // debug(" Start x1 %lf, end x1 %lf, start y1 %lf, end y 1 %lf", layerX - hl*dir[0], layerX + hl*dir[0],  layerY - hl*dir[1],  layerY + hl*dir[1]);
-	  double coef = IntersectionXY(layerX - hl*dir[0], layerX + hl*dir[0],  layerY - hl*dir[1],  layerY + hl*dir[1], xvirtfirst,xvirtsecond ,yvirtfirst, yvirtsecond);
-	  double newX =  (1.0-coef) * (layerX - hl*dir[0]) + coef * (layerX + hl*dir[0]);
-	  double newY =  (1.0-coef) * (layerY - hl*dir[1]) + coef * (layerY + hl*dir[1]);
-	  double newZ =  (1.0-coef) * (layerZ - hl*dir[2]) + coef * (layerZ + hl*dir[2]);
-      
-	  dbgtrkz("Coef %lf, Intersection point on layer 1 is %lf, %lf, %lf", coef, newX, newY, newZ);
-
-	  double diffX = newX - layerX;
-	  double diffY = newY - layerY;
-	  double diffZ = newZ - layerZ;
-      
-	  for(size_t j = idxFirstSkewed, k =0; j < idxFirstSkewed + interLayer1.size(); j++, k++){
-	    x[j] = interLayer1[k]->m_x + diffX;
-	    y[j] = interLayer1[k]->m_y + diffY;
-	    z[j] = newZ;
-	    interLayer1[k]->m_z_Det = newZ;
-	    dbgtrkz("Node %d has new coord %lf, %lf %lf", vect->at(j), x[j], y[j], z[j]);
-	  }
-      
-
-	  if(interLayer2.size()> 0){
-      
-	  layerX = interLayer2[0]->m_x;
-	  layerY = interLayer2[0]->m_y;
-	  layerZ = interLayer2[0]->m_z;
-	  dir    = interLayer2[0]->m_WireDirection; 
-	  hl     = interLayer2[0]->m_halfLength;
-	  if(interLayer2.size()> 1){
-	    for(size_t j = 1; j < interLayer2.size(); j++){
-	      layerX += interLayer2[j]->m_x;
-	      layerY += interLayer2[j]->m_y;
-	      layerZ += interLayer2[j]->m_z;
-	    }
-	    layerX /= interLayer2.size();
-	    layerY /= interLayer2.size();
-	    layerZ /= interLayer2.size();
-	  }
-	  coef = IntersectionXY(layerX - hl*dir[0], layerX + hl*dir[0],  layerY - hl*dir[1],  layerY + hl*dir[1], xvirtfirst,xvirtsecond ,yvirtfirst, yvirtsecond);
-	  newX =  (1.0-coef) * (layerX - hl*dir[0]) + coef * (layerX + hl*dir[0]);
-	  newY =  (1.0-coef) * (layerY - hl*dir[1]) + coef * (layerY + hl*dir[1]);
-	  newZ =  (1.0-coef) * (layerZ - hl*dir[2]) + coef * (layerZ + hl*dir[2]);
-      
-	  dbgtrkz("Coef %lf, Intersection point on layer 2 is %lf, %lf, %lf", coef, newX, newY, newZ);
-
-	  diffX = newX - layerX;
-	  diffY = newY - layerY;
-	  diffZ = newZ - layerZ;
-      
-	  for(size_t j = idxFirstSkewed+interLayer1.size(), k =0; j < idxFirstSkewed +interLayer1.size()+ interLayer2.size(); j++, k++){
-	    x[j] = interLayer2[k]->m_x + diffX;
-	    y[j] = interLayer2[k]->m_y + diffY;
-	    z[j] = newZ;
-	    interLayer2[k]->m_z_Det = newZ;
-
-	    dbgtrkz("Node %d has new coord %lf, %lf %lf", vect->at(j), x[j], y[j], z[j]);
-		  
-	  }
-	  }
-	  
-      } else {
-	dbgtrkz("Ambiguous, too many nodes ?");
-	for(size_t j = idxFirstSkewed, k =0; j < idxFirstSkewed + interLayer1.size(); j++, k++){
-	  x[j] = interLayer1[k]->m_x;
-	  y[j] = interLayer1[k]->m_y;
-	  z[j] = -1;
-	  dbgtrkz("Node %d has new coord %lf, %lf %lf", vect->at(j), x[j], y[j], z[j]);
-	}
-      
-      }
-      
-      interLayer1.clear();
-      interLayer2.clear();
-      xvirtfirst = xvirtsecond;
-      yvirtfirst = yvirtsecond;
-      xvirtsecond = yvirtsecond = 0;
-
-      if(node->m_type != GridNode::STT_TYPE_SKEW){
-	dbgtrkz("Need to interpolate now\n\n");
-	break;
-      }
-      interLayer1.push_back(node);
-      dbgtrkz("Adding %d on interlayer 1",node->m_detID);
-      idxFirstSkewed = i;
-      detect = 2;
-    }
-      
-    
-    // END IF virtual
-  // Determine the largest Z value (Virtual node)
-  }
-}
 //____
 
 
@@ -769,9 +494,6 @@ void CompZCoordinates(CoordGrid &hitMap, PathCandidate *trk)
 
   // Current track object  std::vector<double> z =  std::vector<double>( trk->m_z );
 
-  std::vector<double> &x =  trk->m_x;
-  std::vector<double> &y =  trk->m_y;
-  std::vector<double> &z =  trk->m_z;
   std::vector<int> const *vect = trk->m_memberList;
 
   // Fnd the most outer virtual node or the max Z
@@ -779,62 +501,70 @@ void CompZCoordinates(CoordGrid &hitMap, PathCandidate *trk)
   // float maxVirtZVal = std::numeric_limits<float>::min();
   //float  lastVirtualZCoord = 0.00;
 
-  dbgtrkz("Current coordinates are:");
-  for( size_t i = 0; i < z.size(); i++){
+  /*dbgtrkz("Current coordinates are:");
+  for( size_t i = 0; i < vect->size(); i++){
     int nodeID = vect->at(i);
     size_t node_index = hitMap.Find(nodeID);
     GridNode const &node = Ingrid[node_index];
-    printf("%d, x %lf, y %lf, z %lf \n", vect->at(i),node.m_xDet, node.m_yDet,node.m_z_Det);
-    printf("x %lf, y %lf, z %lf \n",  x[i], y[i], z[i]);
+     dbgtrkz("%d, x %lf, y %lf, z %lf", vect->at(i),node.m_xDet, node.m_yDet,node.m_z_Det);
 
-  }
-  printf("\n");
-
+     }*/
+  std::vector<double> &x =  trk->m_x;
+  std::vector<double> &y =  trk->m_y;
+  std::vector<double> &z =  trk->m_z;
+  
   std::vector< GridNode* > prevNodes;
   std::vector< GridNode* > interNodesL1;
   std::vector< GridNode* > interNodesL2;
   std::vector< GridNode* > nextNodes;
 
+  std::vector< GridNode* > prevVirt;
   std::vector< GridNode* > sameLayer;
-  std::vector< GridNode* > curVirt;
   std::vector< GridNode* > nextVirt;
 
-  std::vector< TVector3 >  goodPoints;
   std::vector< double >  xPts;
   std::vector< double >  yPts;
   std::vector< double >  zPts;
 
   int cntBef = 0, cntAft = 0;
-  dbgtrkz("Finding first pairs of para + virtual");
-  int cas = 0, layerPrev, layerNext, layer =0;
+  int prevLayer, nextLayer, curLayer =0;
   GridNode anchorPrev, anchorNext;
   int visitVirt = 0;
   int nextPara = 0, prevPara =0;
-  
+  int dir  = 0, loop = 0;
+  dbgtrkz("Finding virtuals for interpolation");
+  int numElts = 2;
   for(size_t i = 0; i < vect->size(); i++){
     int nodeID = vect->at(i);
     size_t node_index = hitMap.Find(nodeID);
     GridNode  &node = Ingrid[node_index];
 
+    /*    if(i > 0 && node.m_Layer > (*prevNodes.back()).m_Layer)
+      dir = 1;
+    else if (i > 0 && node.m_Layer < (*prevNodes.back()).m_Layer)
+      dir = -1;
+    else
+    dir = 0;*/
     
     if(node.m_type == GridNode::VIRTUAL_NODE && !visitVirt){ // Firt visit of virtual
-      curVirt.push_back(&node);
-      dbgtrkz("Previous node %d before virtual had layer %d and was par", (prevNodes[prevNodes.size()-1])->m_detID, (prevNodes[prevNodes.size()-1])->m_Layer);
-      layerPrev = (prevNodes[prevNodes.size()-1])->m_Layer;
-      if((prevNodes[prevNodes.size()-1])->m_type != GridNode::STT_TYPE_SKEW)
-	prevPara = 1;
-      
 
-      while(true){ // find al virtuals on same layer
+      prevVirt.push_back(&node);
+      prevLayer = (prevNodes[prevNodes.size()-1])->m_Layer;
+      prevPara = (prevNodes[prevNodes.size()-1])->m_type != GridNode::STT_TYPE_SKEW? 1: 0;
+
+      dbgtrkz("Previous node %d before virtual had layer %d and is a parallel ? %d", (prevNodes[prevNodes.size()-1])->m_detID, prevLayer, prevPara);
+
+      while(true){ // find all virtuals on same layer
 	nodeID = vect->at(i+1);
 	node_index = hitMap.Find(nodeID);
 	if(Ingrid[node_index].m_type == GridNode::VIRTUAL_NODE){
-	  curVirt.push_back(&Ingrid[node_index]);
-	  dbgtrkz("Adding an other virt %d", nodeID);
+	  dbgtrkz("Adding an other virt %d from first layer", nodeID);
+	  prevVirt.push_back(&Ingrid[node_index]);
 	  i++;
 	} else
 	  break;
       }
+      
       visitVirt = 1;
     }
 
@@ -842,105 +572,149 @@ void CompZCoordinates(CoordGrid &hitMap, PathCandidate *trk)
 
       dbgtrkz("Next node %d on layer %d", nodeID, node.m_Layer);
 
-      if(labs(node.m_Layer - layerPrev) == 1 ){
+      if(labs(node.m_Layer - prevLayer) == 1 ){
 	dbgtrkz("Pushing on first layer");
 	interNodesL1.push_back(&node);
-      }      else {
+      }
+      else if (labs(node.m_Layer - prevLayer) == 2){
 	dbgtrkz("Pushing on second layer");
 	interNodesL2.push_back(&node);
+      }
+      else {
+	//	if(labs(node.m_Layer - prevLayer) > 3)
+	//	  anchorNext.m_detID = -1;
+	//	else{
+	dbgtrkz("We are too far in layers, missing virtual, creating one");
+	GridNode &prevNode = *interNodesL2.back();
+	GridNode Dummy_coord;
+	// Find intersection point.
+	  
+	IntersectionPointSkeSke(hitMap, prevNode, node, Dummy_coord);
+	dbgtrkz("Created virtual at %f, %f, %f", Dummy_coord.m_x,  Dummy_coord.m_y, Dummy_coord.m_z);
+	nextVirt.push_back(&Dummy_coord);
+	nextNodes.push_back(&node);
+	nextLayer = node.m_Layer;
+	nextPara =  node.m_type == GridNode::STT_TYPE_SKEW ? 0 : 1;
+	//	}
+	visitVirt =2;
+
       }
     }
 
     else if(visitVirt && node.m_type == GridNode::VIRTUAL_NODE){
-      dbgtrkz("we have our sandwhich");
       nextVirt.push_back(&node);
       while(true){ // find al virtuals on same layer
 	nodeID = vect->at(i+1);
 	node_index = hitMap.Find(nodeID);
 	if(Ingrid[node_index].m_type == GridNode::VIRTUAL_NODE){
 	  nextVirt.push_back(&Ingrid[node_index]);
-	  dbgtrkz("Adding an other virt %d to next", nodeID);
+	  dbgtrkz("Adding an other virt %d from second layer", nodeID);
 	  i++;
 	} else {
-	  layerNext = Ingrid[node_index].m_Layer;
+	  nextLayer = Ingrid[node_index].m_Layer;
 	  nextPara =  Ingrid[node_index].m_type == GridNode::STT_TYPE_SKEW ? 0 : 1;
 	  nextNodes.push_back(&Ingrid[node_index]);
 	  i++;
 	  break;
 	}
       }
+      visitVirt = 2;
+    } else{
+      prevNodes.push_back(&node);
+    }
 
-      if(prevPara){
-	dbgtrkz("Previous anchor needs to be a parallel tube");
-	cntBef = 0;
-	for(int j = prevNodes.size()-1,  layer = layerPrev;  layer == layerPrev; j--){
-	  sameLayer.push_back(prevNodes[j]);
-	  dbgtrkz("Adding %d", prevNodes[j]->m_detID);
-	    
-	    
-	  layer = (prevNodes[j-1])->m_Layer;
-	  cntBef ++;
-	}
-	anchorPrev = *(sameLayer[0]);
+    if(visitVirt == 2 || (i == vect->size()-1 && visitVirt ==1)){
 
-	if(sameLayer.size() > 1){
-	  for(size_t p =1; p < sameLayer.size();p++){
-	    anchorPrev.m_x += sameLayer[p]->m_x;
-	    anchorPrev.m_y += sameLayer[p]->m_y;
-	    anchorPrev.m_z += sameLayer[p]->m_z;
+      if(visitVirt == 2){
+	dbgtrkz("Reached second layer of virtuals, we have our sandwhich from layer %d to layer %d", prevLayer, nextLayer);
+	
+	if(prevPara){
+	  cntBef = 0;
+	  for(int j = prevNodes.size()-1,  layer = prevLayer;  layer == prevLayer; j--){
+	    sameLayer.push_back(prevNodes[j]);	    	    
+	    layer = (prevNodes[j-1])->m_Layer;
+	    cntBef ++;
 	  }
-	  anchorPrev.m_x /= (float) sameLayer.size();
-	  anchorPrev.m_y /= (float) sameLayer.size();
-	  anchorPrev.m_z /= (float) sameLayer.size();
-	}
-      }
-      else {
-	dbgtrkz("Previous anchor will be a virtual, we can take the previous anchor");
-	anchorPrev = anchorNext;
-	TVector3 xyz = {anchorPrev.m_x, anchorPrev.m_y, anchorPrev.m_z};
-	goodPoints.push_back(xyz);
-	xPts.push_back((double) anchorPrev.m_x);
-	yPts.push_back((double) anchorPrev.m_y);
-	zPts.push_back((double) anchorPrev.m_z);
-      }
+	  dbgtrkz("Previous anchor needs to be a parallel tube, taking average from %d tubes", cntBef);
 
-      dbgtrkz("First anchor %f, %f, %f", anchorPrev.m_x, anchorPrev.m_y, anchorPrev.m_z);
+	  anchorPrev = *(sameLayer[0]);
 
-      if(nextPara){
-	dbgtrkz("Next anchor needs to be a parallel tube");
-
-	cntAft = 0;
-	while(true){
-	  nodeID = vect->at(i+1);
-	  node_index = hitMap.Find(nodeID);
-	  if( Ingrid[node_index].m_Layer == layerNext && Ingrid[node_index].m_type != GridNode::VIRTUAL_NODE){
-	    nextNodes.push_back(&Ingrid[node_index]);
-	    dbgtrkz("Adding %d, layer %d", Ingrid[node_index].m_detID,Ingrid[node_index].m_Layer  );
-	  
-	    cntAft ++;
-	    i++;
-	  } else{
-	    dbgtrkz("Found node (virt? %d) on layer %d, not good, let's see later",  Ingrid[node_index].m_type == GridNode::VIRTUAL_NODE,Ingrid[node_index].m_Layer);
-	    break;
+	  if(sameLayer.size() > 1){
+	    for(size_t p =1; p < sameLayer.size();p++){
+	      anchorPrev.m_x += sameLayer[p]->m_x;
+	      anchorPrev.m_y += sameLayer[p]->m_y;
+	      anchorPrev.m_z += sameLayer[p]->m_z;
+	    }
+	    anchorPrev.m_x /= (float) sameLayer.size();
+	    anchorPrev.m_y /= (float) sameLayer.size();
+	    anchorPrev.m_z /= (float) sameLayer.size();
 	  }
 	}
+      
+	else if (anchorNext.m_detID != -1){
+	  dbgtrkz("Previous anchor will be a virtual, we can take the previous anchor");
+	  anchorPrev = anchorNext;
+	  xPts.push_back((double) anchorPrev.m_x);
+	  yPts.push_back((double) anchorPrev.m_y);
+	  zPts.push_back((double) anchorPrev.m_z);
+	} else {
+	  dbgtrkz("track start on skewed...");
+	  anchorPrev= *prevVirt[0];
+	  printf("%f\t",prevVirt[0]->m_z);
 
-	anchorNext= *nextNodes[0];
-
-	if(nextNodes.size() > 1){
-	  for(size_t p =1; p < nextNodes.size();p++){
-	    anchorNext.m_x += nextNodes[p]->m_x;
-	    anchorNext.m_y += nextNodes[p]->m_y;
-	    anchorNext.m_z += nextNodes[p]->m_z;
+	  for(size_t p =1; p < prevVirt.size();p++){
+	    anchorPrev.m_x += prevVirt[p]->m_x;
+	    anchorPrev.m_y += prevVirt[p]->m_y;
+	    anchorPrev.m_z += prevVirt[p]->m_z;
+	    printf("%f\t",prevVirt[p]->m_z);
 	  }
-	  anchorNext.m_x /= (float) nextNodes.size();
-	  anchorNext.m_y /= (float) nextNodes.size();
-	  anchorNext.m_z /= (float) nextNodes.size();
+	  printf("\n");
+	  anchorPrev.m_x /= (float) prevVirt.size();
+	  anchorPrev.m_y /= (float) prevVirt.size();
+	  anchorPrev.m_z /= (float) prevVirt.size();
+	  xPts.push_back((double) anchorPrev.m_x);
+	  yPts.push_back((double) anchorPrev.m_y);
+	  zPts.push_back((double) anchorPrev.m_z);
 	}
-      } else {
-	dbgtrkz("Next anchor needs to be a vitual point, we have %d", nextVirt.size());
-	anchorNext= *nextVirt[0];
-       	if(nextVirt.size() > 1){
+
+	dbgtrkz("First anchor has coord x %f, y %f, z %f", anchorPrev.m_x, anchorPrev.m_y, anchorPrev.m_z);
+
+	if(nextPara){
+	  dbgtrkz("Next anchor needs to be a parallel tube");
+	  cntAft = 0;
+	  while(true){
+	    nodeID = vect->at(i+1);
+	    node_index = hitMap.Find(nodeID);
+	    if( Ingrid[node_index].m_Layer == nextLayer && Ingrid[node_index].m_type != GridNode::VIRTUAL_NODE){
+	      nextNodes.push_back(&Ingrid[node_index]);
+	      dbgtrkz("Adding %d, layer %d", Ingrid[node_index].m_detID,Ingrid[node_index].m_Layer  );
+	      cntAft ++;
+	      i++;
+	    } else{
+	      dbgtrkz("Found node %d on layer %d, too far for now", nodeID ,Ingrid[node_index].m_Layer);
+	      break;
+	    }
+	  }
+
+	  anchorNext= *nextNodes[0];
+
+	  dbgtrkz("Taking average of %lu tubes", nextNodes.size());
+
+	  if(nextNodes.size() > 1){
+	    for(size_t p =1; p < nextNodes.size();p++){
+	      anchorNext.m_x += nextNodes[p]->m_x;
+	      anchorNext.m_y += nextNodes[p]->m_y;
+	      anchorNext.m_z += nextNodes[p]->m_z;
+	    }
+	    anchorNext.m_x /= (float) nextNodes.size();
+	    anchorNext.m_y /= (float) nextNodes.size();
+	    anchorNext.m_z /= (float) nextNodes.size();
+	  }
+	}
+
+	else {
+	  dbgtrkz("Next anchor needs to be a vitual point, we have %d", nextVirt.size());
+	  anchorNext= *nextVirt[0];
 	  for(size_t p =1; p < nextVirt.size();p++){
 	    anchorNext.m_x += nextVirt[p]->m_x;
 	    anchorNext.m_y += nextVirt[p]->m_y;
@@ -949,98 +723,163 @@ void CompZCoordinates(CoordGrid &hitMap, PathCandidate *trk)
 	  anchorNext.m_x /= (float) nextVirt.size();
 	  anchorNext.m_y /= (float) nextVirt.size();
 	  anchorNext.m_z /= (float) nextVirt.size();
+	
 	}
+
+	dbgtrkz("Second anchor location is x %f, y %f, z %f", anchorNext.m_x, anchorNext.m_y, anchorNext.m_z);
+
+
+	
+	dbgtrkz("Using found anchors to find z intersection");
+
+      } else if(anchorNext.m_detID != -1) {
+	dbgtrkz("We reached the end of the vector size, but we can use the previous anchors");
+	xPts.push_back((double) anchorNext.m_x);
+	yPts.push_back((double) anchorNext.m_y);
+	zPts.push_back((double) anchorNext.m_z);
+      } else {
+	dbgtrkz("Not enough points in virtuals for interpolations, going out");
+	break;
       }
 
-      dbgtrkz("Second anchor %f, %f, %f", anchorNext.m_x, anchorNext.m_y, anchorNext.m_z);
+      if(prevLayer == nextLayer){
+	dbgtrkz("We came back to the same layer of virtual, let's continue");
+      } else if (	interNodesL1.size() > 3 || 	interNodesL2.size() > 3){
+	dbgtrkz("Too many nodes in between, let's pass");
+      }else {
+	dbgtrkz("First layer %d with %lu nodes",interNodesL1[0]->m_Layer, interNodesL1.size());
 
-
-      GridNode anchorInter =  *interNodesL1[0];
-
+	if(interNodesL1.size() == 0)
+	  error("No node found on first layer");
+	/*	else if(interNodesL1.size() >2){
+	  dbgtrkz("We have more than 2 nodes on a same layer, warning");
+	  float dist1 = sqrt(pow(anchorPrev.m_x - interNodesL1[0]->m_x,2) + pow(anchorPrev.m_y - interNodesL1[0]->m_y,2));
+	  float dist2 = sqrt(pow(anchorPrev.m_x - interNodesL1.back()->m_x,2) + pow(anchorPrev.m_y - interNodesL1.back()->m_y,2));
+	  if(dist2 < dist1)
+	    std::reverse(interNodesL1.begin(), interNodesL1.end());
+	    }*/
       
-      dbgtrkz("First layer with %lu nodes", interNodesL1.size());
-      for (size_t p = 1; p < interNodesL1.size(); p++){
+	GridNode anchorInter =  *interNodesL1[0];
+	for (size_t p = 1; p < MIN(interNodesL1.size(),numElts); p++){
 	  anchorInter.m_x += interNodesL1[p]->m_x;
 	  anchorInter.m_y += interNodesL1[p]->m_y;
 	  anchorInter.m_z += interNodesL1[p]->m_z;
-      }
-      anchorInter.m_x /= (float) interNodesL1.size();
-      anchorInter.m_y /= (float) interNodesL1.size();
-      anchorInter.m_z /= (float) interNodesL1.size();
-      dbgtrkz("Finding intersection with %f, %f, %f", anchorInter.m_detID, anchorInter.m_x, anchorInter.m_y, anchorInter.m_z);
-      float xInt, yInt, zInt;
-      LineLineIntersect( anchorPrev, anchorNext, anchorInter, xInt, yInt, zInt);
-      dbgtrkz("Intersect point is %f, %f, %f", xInt, yInt, zInt);
+	}
+	anchorInter.m_x /= (float) MIN(interNodesL1.size(),numElts);//interNodesL1.size();
+	anchorInter.m_y /= (float)MIN(interNodesL1.size(),numElts);// interNodesL1.size();
+	anchorInter.m_z /= (float) MIN(interNodesL1.size(),numElts);//;interNodesL1.size();
+      
+	dbgtrkz("Finding intersection with %f, %f, %f", anchorInter.m_x, anchorInter.m_y, anchorInter.m_z);
+	float xInt, yInt, zInt;
+	LineLineIntersect( anchorPrev, anchorNext, anchorInter, xInt, yInt, zInt);
+	dbgtrkz("Intersect point is %f, %f, %f", xInt, yInt, zInt);
 
-      for (size_t p = 0; p < interNodesL1.size(); p++){
-	interNodesL1[p]->m_xDet = xInt;
-	interNodesL1[p]->m_yDet = yInt;
-	interNodesL1[p]->m_z_Det = zInt;
-      }
+	/*	for (size_t p = 0; p < interNodesL1.size(); p++){
+	  interNodesL1[p]->m_xDet = xInt;
+	  interNodesL1[p]->m_yDet = yInt;
+	  interNodesL1[p]->m_z_Det = zInt;
+	  }*/
 
-      TVector3 xyz = { xInt, yInt, zInt};
-      goodPoints.push_back(xyz);
-      xPts.push_back((double) xInt);
-      yPts.push_back((double) yInt);
-      zPts.push_back((double) zInt);
+	xPts.push_back((double) xInt);
+	yPts.push_back((double) yInt);
+	zPts.push_back((double) zInt);
 
-       anchorInter =  *interNodesL2[0];
+	dbgtrkz("Second layer with %lu nodes", interNodesL2.size());
 
-       dbgtrkz("Second layer with %lu nodes", interNodesL2.size());
-      for (size_t p = 1; p < interNodesL2.size(); p++){
+	if(interNodesL2.size() == 0)
+	  error("No node found on second layer");
+	/*	else if(interNodesL2.size() >3){
+	  dbgtrkz("We have more than 3 nodes on a same layer, interpolation will be biased");
+	   float dist1 = sqrt(pow(anchorNext.m_x - interNodesL2[0]->m_x,2) + pow(anchorNext.m_y - interNodesL2[0]->m_y,2));
+	  float dist2 = sqrt(pow(anchorNext.m_x - interNodesL2.back()->m_x,2) + pow(anchorNext.m_y - interNodesL2.back()->m_y,2));
+	  if(dist2 < dist1)
+	  std::reverse(interNodesL2.begin(), interNodesL2.end());
+	  }*/
+      
+	anchorInter =  *interNodesL2[0];
+
+      
+	for (size_t p = 1; p < MIN(interNodesL2.size(),numElts); p++){
 	  anchorInter.m_x += interNodesL2[p]->m_x;
 	  anchorInter.m_y += interNodesL2[p]->m_y;
 	  anchorInter.m_z += interNodesL2[p]->m_z;
+	}
+	anchorInter.m_x /= (float) MIN(interNodesL2.size(),numElts);//interNodesL2.size();
+	anchorInter.m_y /= (float) MIN(interNodesL2.size(),numElts);//interNodesL2.size();
+	anchorInter.m_z /= (float) MIN(interNodesL2.size(),numElts);//interNodesL2.size();
+	dbgtrkz("Finding intersection with %f, %f, %f", anchorInter.m_x, anchorInter.m_y, anchorInter.m_z);
+
+	LineLineIntersect( anchorPrev, anchorNext, anchorInter, xInt, yInt, zInt);
+	dbgtrkz("Intersect point is %f, %f, %f", xInt, yInt, zInt);
+
+	/*	for (size_t p = 0; p < interNodesL2.size(); p++){
+	  interNodesL2[p]->m_xDet = xInt;
+	  interNodesL2[p]->m_yDet = yInt;
+	  interNodesL2[p]->m_z_Det = zInt;
+	  }*/
+
+	xPts.push_back((double) xInt);
+	yPts.push_back((double) yInt);
+	zPts.push_back((double) zInt);
       }
-      anchorInter.m_x /= (float) interNodesL2.size();
-      anchorInter.m_y /= (float) interNodesL2.size();
-      anchorInter.m_z /= (float) interNodesL2.size();
-      dbgtrkz("Finding intersection with %f, %f, %f", anchorInter.m_detID, anchorInter.m_x, anchorInter.m_y, anchorInter.m_z);
 
-      LineLineIntersect( anchorPrev, anchorNext, anchorInter, xInt, yInt, zInt);
-      dbgtrkz("Intersect point is %f, %f, %f", xInt, yInt, zInt);
 
-      for (size_t p = 0; p < interNodesL2.size(); p++){
-	interNodesL2[p]->m_xDet = xInt;
-	interNodesL2[p]->m_yDet = yInt;
-	interNodesL2[p]->m_z_Det = zInt;
-      }
+      dbgtrkz("Prev Lay %d, next Laye %d, dir %d", prevLayer, nextLayer, dir);
 
-      xyz = { xInt, yInt, zInt};
-      goodPoints.push_back(xyz);
-      xPts.push_back((double) xInt);
-      yPts.push_back((double) yInt);
-      zPts.push_back((double) zInt);
+      if(prevLayer < nextLayer)
+	dir = 1;
+      else if(nextLayer < prevLayer)
+	dir = -1;
+      else
+	dir *=-1;
+
+      dbgtrkz("Prev Lay %d, next Laye %d, dir %d", prevLayer, nextLayer, dir);
 
       prevNodes.clear();
-      prevNodes.insert(prevNodes.end(), interNodesL2.begin(), interNodesL2.end());
-      layerPrev = (prevNodes[prevNodes.size()-1])->m_Layer;
-      prevPara = nextPara;//prevNodes[prevNodes.size()-1]).m_type != GridNode::STT_TYPE_SKEW ? 1:0;
-      interNodesL1.clear();
-      interNodesL2.clear();
-
-      interNodesL1.insert(interNodesL1.end(), nextNodes.begin(), nextNodes.end());
-      nextNodes.clear();
-      nextVirt.clear();
-      
+      if(nextLayer == prevLayer){	
+	prevNodes.insert(prevNodes.end(), interNodesL1.begin(), interNodesL1.end());
+      }else {
+	prevNodes.insert(prevNodes.end(), interNodesL2.begin(), interNodesL2.end());
+      }
+      if(!nextPara){
+	dbgtrkz("Continuing with virtuals, dir %d", dir);
+	prevLayer = dir == 1? nextLayer-1: nextLayer+1;//(prevNodes[prevNodes.size()-1])->m_Layer;
+	prevPara = nextPara;//prevNodes[prevNodes.size()-1]).m_type != GridNode::STT_TYPE_SKEW ? 1:0;
+	interNodesL1.clear();
+	interNodesL2.clear();
+	interNodesL1.insert(interNodesL1.end(), nextNodes.begin(), nextNodes.end());
+	nextNodes.clear();
+	nextVirt.clear();
+	visitVirt = 1;
+      } else {
+	dbgtrkz("We reached the next layer of parallel tubes, resetting");
+	interNodesL1.clear();
+	interNodesL2.clear();
+	interNodesL1.insert(interNodesL1.end(), nextNodes.begin(), nextNodes.end());
+	nextNodes.clear();
+	nextVirt.clear();
+	visitVirt = 0;
+	anchorPrev = anchorNext =  GridNode();
+      }
+      dbgtrkz("End for, prevLayer is %d, nextLayer is %d", prevLayer, nextLayer);
     }
-    else{
-      prevNodes.push_back(&node);
-    }
-
+   
   }
 
-  if(goodPoints.size()>3){
+  if(xPts.size()>1){
+    
     dbgtrkz("Coordinates found for fitting");
-    for(size_t i = 0; i < goodPoints.size(); i++)
+    for(size_t i = 0; i < zPts.size(); i++)
       dbgtrkz("x %lf, y %lf, z %lf", xPts[i],  yPts[i],  zPts[i]);
 
 
     std::vector<double> p;
-    zPts.erase(zPts.begin());
-    yPts.erase(yPts.begin());
-    zPts.pop_back();
-    yPts.pop_back();
+      if(xPts.size() > 10){
+      zPts.erase(zPts.begin());
+      yPts.erase(yPts.begin());
+      zPts.pop_back();
+      yPts.pop_back();
+      }
 
     p.push_back(0.);
     for (size_t i = 0; i <  zPts.size()-1; i++){ 
@@ -1050,10 +889,22 @@ void CompZCoordinates(CoordGrid &hitMap, PathCandidate *trk)
 
     double *z_coef = polyFit(p, zPts, 1);
     double *y_coef = polyFit(p, yPts, 1);
-    dbgtrkz("Coordinates found for fitting %lf, %lf", z_coef[0], z_coef[1]);
+
+    dbgtrkz("Fitted track is %f + p%f", z_coef[0], z_coef[1]);
+    for(size_t i = 0; i < vect->size(); i++){
+      //    int nodeID = vect->at(i);
+      //    size_t node_index = hitMap.Find(nodeID);
+      //    GridNode  &node = Ingrid[node_index];
+      double pval = (y[i] - y_coef[0])/y_coef[1];
+      z[i] = z_coef[0] + z_coef[1]*pval;
+      dbgtrkz("%f, %f", y[i], z[i]);
+      //node.m_z_Det = z_coef[0] + z_coef[1]*pval;
+    }
+    
   } else
     dbgtrkz("No enough good coord found");
 
+  dbgtrkz("Finished cur track \n\n\n");
   
 }
 

@@ -15,8 +15,8 @@ void runCollector( size_t plength = 1,
                    std::string const &OutFileName = "Tracks_output.root",
 		   size_t dim = 2,// Plot dimension
 		   size_t gapSize = 0,// Number of layers to skip
-		   int firstEvt = 6, //3, //9, //0,
-		   int lastEvt  =7//10  //6
+		   int firstEvt = 2, //3, //9, //0,
+		   int lastEvt  =3//10  //6
 		   )//50->61, 4->5
 {
   // Load basic libs and headers.

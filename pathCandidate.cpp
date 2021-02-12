@@ -48,6 +48,7 @@ PathCandidate::PathCandidate()
     m_toMergeHead(std::vector<unsigned int>()),
     m_toMergeTail(std::vector<unsigned int>()),
     m_listSkewed(std::vector<unsigned int>()),
+    m_sectors(std::vector<unsigned int>()),
     m_x(std::vector<double>()),
     m_y(std::vector<double>()),
     m_z(std::vector<double>()),
@@ -95,6 +96,7 @@ PathCandidate::PathCandidate(PathCandidate const &ot)
     m_tailNeigh(ot.m_tailNeigh),
     m_toMergeHead(ot.m_toMergeHead),
     m_toMergeTail(ot.m_toMergeTail),
+    m_sectors(ot.m_sectors),
     m_parents(ot.m_parents),
     m_childeren(ot.m_childeren),
     m_eigevValue1(ot.m_eigevValue1),
@@ -165,6 +167,7 @@ PathCandidate& PathCandidate::operator=(PathCandidate const &ot)
     this->m_isOnSectorLimit = ot.m_isOnSectorLimit;
     this->m_headNode = ot.m_headNode ;
     this->m_tailNode = ot.m_tailNode;
+    this->m_sectors = ot.m_sectors;
 
     /**/
     this->m_meanVector[0] = ot.m_meanVector[0];
@@ -218,7 +221,8 @@ void PathCandidate::insertNewNode(CoordGrid &gr, GridNode *node,  std::vector<in
 
   m_memberIdSet->insert(id);
   m_memberList->insert(it,id);
-
+  if (std::find(m_sectors.begin(), m_sectors.end(),node->m_Sector)==m_sectors.end())
+    m_sectors.push_back(node->m_Sector);
 
   (node->m_cm).push_back(m_id);
 
@@ -287,15 +291,15 @@ void PathCandidate::insertNewNode(CoordGrid &gr, GridNode *node,  std::vector<in
      
       float x_diff = node->m_x - lastVirtNode.m_x;
       float y_diff = node->m_y - lastVirtNode.m_y;
-      float z_diff = node->m_z - lastVirtNode.m_z;
+      //  float z_diff = node->m_z - lastVirtNode.m_z;
 
       x_diff /= static_cast<float>(m_listSkewed.size()+1);
       y_diff /= static_cast<float>(m_listSkewed.size()+1);
-      z_diff /= static_cast<float>(m_listSkewed.size()+1);
+      //  z_diff /= static_cast<float>(m_listSkewed.size()+1);
 
       float xInc = lastVirtNode.m_x + x_diff;
       float yInc = lastVirtNode.m_y + y_diff;
-      float zInc = lastVirtNode.m_z + z_diff;
+      //   float zInc = lastVirtNode.m_z + z_diff;
 
       /* Correct xy-coordinates of the skewed nodes */
       for(size_t m = 0; m < m_listSkewed.size(); ++m) {
@@ -305,9 +309,8 @@ void PathCandidate::insertNewNode(CoordGrid &gr, GridNode *node,  std::vector<in
 	  skewedToproc.m_xDet = xInc;
 	  skewedToproc.m_yDet = yInc;
 	}
-	skewedToproc.m_z_Det = zInc;
-	auto it = find(m_memberList->begin(), 
-		       m_memberList->end(), m_listSkewed[m]); 
+	//	skewedToproc.m_z_Det = zInc;
+	auto it = find(m_memberList->begin(), m_memberList->end(), m_listSkewed[m]); 
   
 	int index = distance(m_memberList->begin(), it); 
     
@@ -334,7 +337,7 @@ void PathCandidate::insertNewNode(CoordGrid &gr, GridNode *node,  std::vector<in
 	//	printf("New node %d with %lf and %lf, (r %lf, theta %lf) \n",m_listSkewed[m], skewedToproc.m_xDet ,  skewedToproc.m_yDet,m_r[index], theta_deg ); 
 	xInc += x_diff;
 	yInc += y_diff;
-	zInc += z_diff;
+	//	zInc += z_diff;
       }
       
       m_listSkewed.clear();

@@ -153,9 +153,9 @@ void CoordGrid::FillGrid(std::vector < HitCoordinate* > const& hitcoords)
   // All real tubes are activated.  Now we need to activate virtual
   // tubes as well. Note that every virtual tube has ONLY two
   // neighbors. These are the parent neigbours.
-  std::vector<int> tocheck;
+   std::vector<int> tocheck;
   char *visited 	= (char *) calloc(firstVirtIdx, sizeof(char));
-
+  /*
   for(size_t j = firstVirtIdx; j < m_grid.size(); j++) {
     GridNode &Virtual_tube = m_grid[j];
     if( Virtual_tube.m_type == GridNode::VIRTUAL_NODE) {
@@ -265,7 +265,7 @@ void CoordGrid::FillGrid(std::vector < HitCoordinate* > const& hitcoords)
 	//	int skeIdx = Find(skeID);
 	//	GridNode const &skeNode  = m_grid[neighIdx];
 	
-	
+	*/
   /*int cnt = 0;
     int xdir = First.m_x - Virtual_tube.m_x > 0? 1: 0;
     int ydir = First.m_y - Virtual_tube.m_y > 0? 1: 0;

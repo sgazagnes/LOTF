@@ -220,7 +220,8 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       pos->Draw("my:mx",ePlotCondition.c_str(),"same");
     }
     c4->Update();
-    
+    c4->SaveAs("MC_xy.pdf");
+
   }
   // Read data
   {
@@ -248,6 +249,8 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       pos->Draw("y:x",ePlotCondition.c_str(),"same");
     }
     c5->Update();
+    c5->SaveAs("Read_xy.pdf");
+
   }
   // MC in Z-coordinate
   {
@@ -275,6 +278,8 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       pos->Draw("my:mz",ePlotCondition.c_str(),"same");
     }
     c6->Update();
+    c6->SaveAs("MC_yz.pdf");
+
   }
 
   if(dim == 3) {

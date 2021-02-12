@@ -964,7 +964,7 @@ void addTracklets (CoordGrid &gr, PathCandidate *newCand, PathCandidate &mergeCa
 
 
 
-bool IntersectionPoint(CoordGrid const &hitMap,
+double IntersectionPointSkePar(CoordGrid const &hitMap,
 				   GridNode &tubeA, GridNode &tubeB,
 				   GridNode &out)
 {
@@ -1079,40 +1079,20 @@ bool IntersectionPoint(CoordGrid const &hitMap,
     double diff_y = (double) ((1.0-sc) * startTubeA_y + sc * endTubeA_y) + ((1.0 - tc) * startTubeB_y + tc * endTubeB_y);
     double diff_z = (double) ((1.0-sc) * startTubeA_z + sc * endTubeA_z) + ((1.0 - tc) * startTubeB_z + tc * endTubeB_z);
 
+   double dist = sqrt(pow(((1.0-sc) * startTubeA_x + sc * endTubeA_x) - ((1.0 - tc) * startTubeB_x + tc * endTubeB_x),2)+pow(((1.0-sc) * startTubeA_y + sc * endTubeA_y) - ((1.0 - tc) * startTubeB_y + tc * endTubeB_y),2));
     if(fabs(diff_z/2.) > 140){
       error("Errore, %f", diff_z/2);
       cout << "tube A"<< "\t" << startTubeA_z << "\t" <<   endTubeA_z <<  endl;
       cout << "tube B" << "\t"<< startTubeB_z << "\t" <<  endTubeB_z << endl;
     }
-    /*  fstream outfile;
-    outfile.open("WAZAAAAAAAAA.txt", std::ios_base::app);
-
-    // cout << "Writing to the file" << endl;
-
-   // again write inputted data into the file.
-    outfile << "tube A"<< "\t" << startTubeA_z << "\t" <<   endTubeA_z <<  endl;
-    outfile << "tube B" << "\t"<< startTubeB_z << "\t" <<  endTubeB_z << endl;
-    // outfile << "Close on A"<< "\t" << ((1.0-sc) * startTubeA_x + sc * endTubeA_x) << "\t" << ((1.0-sc) * startTubeA_y + sc * endTubeA_y) << "\t" << ((1.0-sc) * startTubeA_z + sc * endTubeA_z) << endl;
-    // outfile << "Close on B" << "\t" <<((1.0 - tc) * startTubeB_x + tc * endTubeB_x) << "\t" << ((1.0 - tc) * startTubeB_y + tc * endTubeB_y) << "\t" << ((1.0 - tc) * startTubeB_z + tc * endTubeB_z) << endl;
-    outfile << "Intersection point" << "\t" << diff_z/2. << endl;
-
-    outfile.close();
-    */
-    
-																			//  info("TubA x is %lf, tube x is %lf, closest point a x %lf, b x %lf, intersection is %lf",tubeA.m_x, tubeB.m_x, ((1.0-sc) * startTubeA_x + sc * endTubeA_x),((1.0 - tc) * startTubeB_x + tc * endTubeB_x),diff_x/2.);
-																			// info("TubA x is %lf, tube x is %lf, closest point a x %lf, b x %lf, intersection is %lf",tubeA.m_x, tubeB.m_x, ((1.0-sc) * startTubeA_x + sc * endTubeA_x),((1.0 - tc) * startTubeB_x + tc * endTubeB_x),diff_x/2.);
-																			//  info("TubA x is %lf, tube x is %lf, closest point a x %lf, b x %lf, intersection is %lf",tubeA.m_x, tubeB.m_x, ((1.0-sc) * startTubeA_x + sc * endTubeA_x),((1.0 - tc) * startTubeB_x + tc * endTubeB_x),diff_x/2.);
+  
     GridNode TransA(tubeA);// Dit kan beter maar voor nu .... FIXME Later
 
-    // FIXME FIXME Not really optimal (correct??)
-    TransA.m_x     = diff_x/2.;
-    TransA.m_y     = diff_y/2.;
-    TransA.m_xDet  = diff_x/2.;
-    TransA.m_yDet  = diff_y/2.;
-    /* TransA.m_x     = (tubeA.m_x + tubeB.m_x)/2.0;
+
+    TransA.m_x     = (tubeA.m_x + tubeB.m_x)/2.0;
     TransA.m_y     = (tubeA.m_y + tubeB.m_y)/2.0;
     TransA.m_xDet  = (tubeA.m_x + tubeB.m_x)/2.0;
-    TransA.m_yDet  = (tubeA.m_y + tubeB.m_y)/2.0;*/
+    TransA.m_yDet  = (tubeA.m_y + tubeB.m_y)/2.0;
     TransA.m_z     = (float) diff_z/2.;
     TransA.m_z_Det = (float) diff_z/2.;
     // debug("%f", diff_z/2.);
@@ -1132,7 +1112,7 @@ bool IntersectionPoint(CoordGrid const &hitMap,
     out = TransA;
 
     ////////////
-    return true;
+    return dist;
 
 }
 
@@ -1189,7 +1169,7 @@ bool LineLineIntersect( GridNode &tubeA, GridNode &tubeB, GridNode &tubeC, float
   return true; //All OK
 }
 
-bool IntersectionPointZ(CoordGrid const &hitMap,
+double IntersectionPointSkeSke(CoordGrid const &hitMap,
 				   GridNode &tubeA, GridNode &tubeB,
 				   GridNode &out)
 {
@@ -1304,6 +1284,7 @@ bool IntersectionPointZ(CoordGrid const &hitMap,
     double diff_y = (double) ((1.0-sc) * startTubeA_y + sc * endTubeA_y) + ((1.0 - tc) * startTubeB_y + tc * endTubeB_y);
     double diff_z = (double) ((1.0-sc) * startTubeA_z + sc * endTubeA_z) + ((1.0 - tc) * startTubeB_z + tc * endTubeB_z);
 
+    double dist = sqrt(pow(((1.0-sc) * startTubeA_x + sc * endTubeA_x) - ((1.0 - tc) * startTubeB_x + tc * endTubeB_x),2)+pow(((1.0-sc) * startTubeA_y + sc * endTubeA_y) - ((1.0 - tc) * startTubeB_y + tc * endTubeB_y),2));
     if(fabs(diff_z/2.) > 140){
       error("Errore, %f", diff_z/2);
       cout << "tube A"<< "\t" << startTubeA_z << "\t" <<   endTubeA_z <<  endl;
@@ -1329,6 +1310,139 @@ bool IntersectionPointZ(CoordGrid const &hitMap,
     TransA.m_halfLength  = 0;// A point. No half length
     // Add parents to the neigboring list
     (TransA.m_neighbors).clear();
+
+    (TransA.m_neighbors).push_back(tubeA.m_detID);
+    (TransA.m_neighbors).push_back(tubeB.m_detID);
+
+    /* tubeA.m_xDet = ((1.0-sc) * startTubeA_x + sc * endTubeA_x);
+    tubeA.m_yDet  = (1.0-sc) * startTubeA_y + sc * endTubeA_y;
+    tubeA.m_z_Det = (1.0-sc) * startTubeA_z + sc * endTubeA_z;
+
+    tubeB.m_xDet = ((1.0-tc) * startTubeB_x + tc * endTubeB_x);
+    tubeB.m_yDet  = (1.0-tc) * startTubeB_y + tc * endTubeB_y;
+    tubeB.m_z_Det = (1.0-tc) * startTubeB_z + tc * endTubeB_z;*/
+
+    out = TransA;
+
+    ////////////
+    return dist;
+
+}
+
+
+void IntersectionPointCoord(GridNode &tubeA, GridNode &tubeB)
+{
+  TVector3 dirA = tubeA.m_WireDirection;
+  float R_A =  tubeA.m_halfLength / sqrt( (dirA[0]*dirA[0]) + (dirA[1]*dirA[1]) + (dirA[2]*dirA[2]) );
+  TVector3 dirB = tubeB.m_WireDirection;
+  float R_B =  tubeB.m_halfLength / sqrt( (dirB[0]*dirB[0]) + (dirB[1]*dirB[1]) + (dirB[2]*dirB[2]) );
+
+  float startTubeB_x =  tubeB.m_x - tubeB.m_halfLength * dirB[0]-0.10;
+  float startTubeB_y =  tubeB.m_y - tubeB.m_halfLength * dirB[1]-0.10;
+  float startTubeB_z =  tubeB.m_z - tubeB.m_halfLength * dirB[2];
+
+  float endTubeB_x =  tubeB.m_x + tubeB.m_halfLength * dirB[0]+0.10;
+  float endTubeB_y =  tubeB.m_y + tubeB.m_halfLength * dirB[1]+0.10;
+  float endTubeB_z =  tubeB.m_z + tubeB.m_halfLength * dirB[2];
+
+  
+  float startTubeA_x =  tubeA.m_x - tubeA.m_halfLength * dirA[0]-0.10;
+  float startTubeA_y =  tubeA.m_y - tubeA.m_halfLength * dirA[1]-0.10;
+  float startTubeA_z =  tubeA.m_z - tubeA.m_halfLength * dirA[2];
+
+  float endTubeA_x =  tubeA.m_x + tubeA.m_halfLength * dirA[0]+0.10;
+  float endTubeA_y =  tubeA.m_y + tubeA.m_halfLength * dirA[1]+0.10;
+  float endTubeA_z =  tubeA.m_z + tubeA.m_halfLength * dirA[2];
+  
+  //segment(center - (halflength * direction), center + (halflength * direction))
+
+  float u_x = endTubeA_x - startTubeA_x;
+  float u_y = endTubeA_y - startTubeA_y;
+  float u_z = endTubeA_z - startTubeA_z;
+
+  float v_x = endTubeB_x - startTubeB_x;
+  float v_y = endTubeB_y - startTubeB_y;
+  float v_z = endTubeB_z - startTubeB_z;
+
+  float w_x = startTubeA_x - startTubeB_x;
+  float w_y = startTubeA_y - startTubeB_y;
+  float w_z = startTubeA_z - startTubeB_z;
+  
+  /* GRVector3 P0 = start;
+    GRVector3 P1 = end;
+    GRVector3 Q0 = line.start;
+    GRVector3 Q1 = line.end;*/
+
+    double const SMALL_NUM = std::numeric_limits<double>::epsilon();
+    /*   GRVector3   u = P1 - P0;
+    GRVector3   v = Q1 - Q0;
+    GRVector3   w = P0 - Q0;*/
+    double    a = (double) u_x*u_x + u_y*u_y + u_z*u_z;         // always >= 0
+    double    b = (double) u_x*v_x + u_y*v_y + u_z*v_z;
+    double    c = (double) v_x*v_x + v_y*v_y + v_z*v_z;         // always >= 0
+    double    d = (double) u_x*w_x + u_y*w_y + u_z*w_z; //u.dot(w);
+    double    e = (double) v_x*w_x + v_y*w_y + v_z*w_z; // v.dot(w);
+    double    D = (double) a*c - b*b;        // always >= 0
+    double    sc, sN, sD = D;       // sc = sN / sD, default sD = D >= 0
+    double    tc, tN, tD = D;       // tc = tN / tD, default tD = D >= 0
+
+    // compute the line parameters of the two closest points
+    if (D < SMALL_NUM) { // the lines are almost parallel
+        sN = 0.0;         // force using point P0 on segment S1
+        sD = 1.0;         // to prevent possible division by 0.0 later
+        tN = e;
+        tD = c;
+    }
+    else {                 // get the closest points on the infinite lines
+        sN = (b*e - c*d);
+        tN = (a*e - b*d);
+        if (sN < 0.0) {        // sc < 0 => the s=0 edge is visible
+            sN = 0.0;
+            tN = e;
+            tD = c;
+        }
+        else if (sN > sD) {  // sc > 1  => the s=1 edge is visible
+            sN = sD;
+            tN = e + b;
+            tD = c;
+        }
+    }
+
+    if (tN < 0.0) {            // tc < 0 => the t=0 edge is visible
+        tN = 0.0;
+        // recompute sc for this edge
+        if (-d < 0.0)
+            sN = 0.0;
+        else if (-d > a)
+            sN = sD;
+        else {
+            sN = -d;
+            sD = a;
+        }
+    }
+    else if (tN > tD) {      // tc > 1  => the t=1 edge is visible
+        tN = tD;
+        // recompute sc for this edge
+        if ((-d + b) < 0.0)
+            sN = 0;
+        else if ((-d + b) > a)
+            sN = sD;
+        else {
+            sN = (-d + b);
+            sD = a;
+        }
+    }
+    
+    // finally do the division to get sc and tc
+    sc = (std::abs(sN) < SMALL_NUM ? 0.0 : sN / sD);
+    tc = (std::abs(tN) < SMALL_NUM ? 0.0 : tN / tD);
+
+    //  GRVector3 diff = ((1.0 - sc) * P0 + sc * P1) - ((1.0 - tc) * Q0 + tc * Q1);
+
+
+    //  (TransA.m_neighbors).push_back(tubeA.m_detID);
+    //  (TransA.m_neighbors).push_back(tubeB.m_detID);
+
     tubeA.m_xDet = ((1.0-sc) * startTubeA_x + sc * endTubeA_x);
     tubeA.m_yDet  = (1.0-sc) * startTubeA_y + sc * endTubeA_y;
     tubeA.m_z_Det = (1.0-sc) * startTubeA_z + sc * endTubeA_z;
@@ -1337,14 +1451,9 @@ bool IntersectionPointZ(CoordGrid const &hitMap,
     tubeB.m_yDet  = (1.0-tc) * startTubeB_y + tc * endTubeB_y;
     tubeB.m_z_Det = (1.0-tc) * startTubeB_z + tc * endTubeB_z;
 
-    error("Errore, %f", diff_z/2);
-    cout << "tube A"<< "\t" << startTubeA_z << "\t" <<   endTubeA_z <<  "\t" <<    tubeA.m_z_Det << endl;
-    cout << "tube B" << "\t"<< startTubeB_z << "\t" <<  endTubeB_z << endl;
-    out = TransA;
 
     ////////////
-    return true;
-
+    return;
 }
 
 
@@ -1380,7 +1489,10 @@ void Add_VirtualNodes(CoordGrid &hitMap, std::vector < GridNode > &VNodesLayer, 
       //     if(firstNode.m_type == GridNode::STT_TYPE_SKEW && secondNode.m_type == GridNode::STT_TYPE_SKEW)
       //     //	IntersectionPoint(hitMap, firstNode, secondNode, Dummy_coord) ;
       //     else
-	IntersectionPoint(hitMap, firstNode, secondNode, Dummy_coord) ;
+      if(firstNode.m_type == GridNode::STT_TYPE_SKEW && secondNode.m_type == GridNode::STT_TYPE_SKEW)
+	IntersectionPointSkePar(hitMap, firstNode, secondNode, Dummy_coord);
+      else
+	IntersectionPointSkePar(hitMap, firstNode, secondNode, Dummy_coord);
 
 	// Modify node ID
 	//if( firstNode.m_detID == 979 || secondNode.m_detID == 979)
@@ -1399,7 +1511,7 @@ void Add_VirtualNodes(CoordGrid &hitMap, std::vector < GridNode > &VNodesLayer, 
   }// End for NodePairSet
   // Reset visiting variable for all nodes in the input graph
 
-std::vector< std::vector<size_t> > SectorLeft;
+  std::vector< std::vector<size_t> > SectorLeft;
   std::vector< std::vector<size_t> > SectorRight;
 
   for(size_t i = 0; i < 6; ++i) {
@@ -1457,7 +1569,7 @@ std::vector< std::vector<size_t> > SectorLeft;
 	    (CurLftNode.m_neighbors).push_back(CurRgtNode.m_detID);
 	    GridNode Dummy_coord;
 	    // Find intersection point.
-	    IntersectionPoint(hitMap, CurLftNode, CurRgtNode, Dummy_coord);
+	    IntersectionPointSkePar(hitMap, CurLftNode, CurRgtNode, Dummy_coord);
 	      // Modify node ID
 	      //if( firstNode.m_detID == 979 || secondNode.m_detID == 979)
 	      //  info("%d, %d, %lf", firstNode.m_detID, secondNode.m_detID, distanceBetweenTube(firstNode, secondNode));

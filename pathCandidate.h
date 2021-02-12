@@ -93,6 +93,7 @@ struct PathCandidate{
   int    m_lastVirtual;
   std::vector<unsigned int>	 m_toMergeHead;
   std::vector<unsigned int> 	 m_toMergeTail;
+  std::vector<unsigned int> 	 m_sectors;
 
   std::vector<int> m_headNeigh;
   std::vector<int> m_tailNeigh;

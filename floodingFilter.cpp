@@ -84,8 +84,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
   /* Read all data directly from sim, digi and parameter files */
   std::vector < std::vector<HitCoordinate*>* >* Hit_coords = 
-    CollectSttMvdPoints(detNodes, "./rootfiles/evtmuonz120",Out_Put_File, 1611761510, firstEvt, lastEvt);
-
+    CollectSttMvdPoints(detNodes, "./rootfiles/evtmuonz120",Out_Put_File, 1611844771, firstEvt, lastEvt);
+  //evtmuonz120
   std::vector< std::vector < MCTrackObject* >* > *MC_Tracks = MCTrackPoints(*Hit_coords);
   
   // Write event info to output  
@@ -182,7 +182,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     }
 
     std::vector< GridNode > &Ingrid = gr.m_grid;  
-    std::vector< int > activeId;
+    std::vector< int > activeId, remaining;
 
     int nactiveAll = 0, nactiveReal = 0;
 
@@ -200,17 +200,30 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  for  ( int i = 0; i < curNode.m_neighbors.size();){
 	    int neigh_ID = curNode.m_neighbors[i];
 	    int neigh_index = gr.Find(neigh_ID);
-	    if(!Ingrid[neigh_index].m_active){
-
+	    if(Ingrid[neigh_index].m_type == GridNode::VIRTUAL_NODE){
+	      int nID = Ingrid[neigh_index].m_neighbors[0] == NodeId? Ingrid[neigh_index].m_neighbors[1]:
+		Ingrid[neigh_index].m_neighbors[0];
+	      int nIndex = gr.Find(nID);
+	      GridNode const &First  = Ingrid[nIndex];
+	      if(First.m_active)
+		Ingrid[neigh_index].m_active = true;
+	      else{
+		(curNode.m_neighbors).erase((curNode.m_neighbors).begin()+i);
+		continue;
+	      }
+		
+	    }else if(!Ingrid[neigh_index].m_active){
 	      (curNode.m_neighbors).erase((curNode.m_neighbors).begin()+i);
-	      //  i--;
-	    } else i++;
+	      continue;
+	    }
+	    i++;
 	  }
 	}	
 	nactiveAll++;
       }      
     }
 
+    remaining = activeId;
     info("Found %d active detectors (%d with virtuals)", nactiveReal, nactiveAll);
 
     std::vector< int > sectorToCheck;
@@ -221,7 +234,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
     std::vector < PathCandidate* > tracklets;
     int candidateId 	= 0;
-    char *visited 	= (char *) calloc(15000, sizeof(char));
+    char *visited 	= (char *) calloc(50000, sizeof(char));
 
     info("First step, let's find the obvious tracks");
     
@@ -229,6 +242,15 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     findEasyTracks (gr, tracklets, activeId, visited, &candidateId);
     timing("Connect phase ended. Time %lf s",  std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count());
 #endif
+
+
+    for(unsigned int n = 0; n < activeId.size(); ++n) {
+      int curId 		= activeId[n];
+      if(visited[curId] == 4){
+	activeId.erase(activeId.begin() + n);
+	n--;
+      }
+    }
     
     info("We found %d tracklets\n", candidateId);
 
@@ -249,7 +271,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     /* ++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 
 #if(DO_FITTING)
-    dbgfit("Starting fitting pahse");
+    dbgfit("Starting fitting phase");
 
     int **sayYes =  (int **) calloc(tracklets.size(), sizeof(int*));
     for (size_t i =0; i < tracklets.size(); i++)
@@ -261,8 +283,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
       PathCandidate &curCand = *(tracklets[l]);
       dbgfit("Track %d, status %d, length %d", curCand.m_id, curCand.m_finished,curCand.m_length);
 	
-      if (curCand.m_finished >= 2 || curCand.m_length < 5 ) continue;
-	
+      if (curCand.m_finished == 3 || curCand.m_length < 5 ) continue;
+
       int first =  curCand.m_tailNode;
       int firstIdx = gr.Find(first);
       GridNode &firstNode = Ingrid[firstIdx];
@@ -270,9 +292,11 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
       int last =  curCand.m_headNode;
       int lastIdx = gr.Find(last);
       GridNode &lastNode = Ingrid[lastIdx];
-	
+
+      
       dbgfit("Tail node %d (num neigh %d),  head node %d (num neigh %d)", first, curCand.m_tailNeigh.size(), last, curCand.m_headNeigh.size());
 
+      
       for(int k = 0; k < 2; k++){ // First Tail, then Head
 	int prevId = k == 1? curCand.m_headNode: curCand.m_tailNode;
 	//int curLayer = k == 1? lastNode.m_Layer: firstNode.m_Layer;
@@ -283,8 +307,70 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	std::vector<unsigned int> *curMerge = k == 1? &(curCand.m_toMergeHead):&(curCand.m_toMergeTail);
 	std::vector<int> next;
 
-	if(curNeigh->size() == 0 || curMerge->size() > 0)
+	if(curNeigh->size() == 0 && curMerge->size() > 0)
 	  continue;
+
+
+	if (curCand.m_finished == 2){
+	  //  continue;
+	  dbgfit("There is no neighbors, can we find some further");
+	  dbgfit("Looking into %lu remaining nodes", activeId.size());
+
+	  for(unsigned int n = 0; n < activeId.size(); ++n) {
+	    int testID 		= activeId[n];
+	    int testIdx = gr.Find(testID);
+	    GridNode &testNode = Ingrid[testIdx];
+	    float currDist =sqrt((prevNode->m_x - testNode.m_x) * (prevNode->m_x - testNode.m_x) +
+				     (prevNode->m_y - testNode.m_y) * (prevNode->m_y - testNode.m_y));
+
+	    if(currDist<5.){
+		curNeigh->push_back(testID);
+		dbgfit("Adding node %d to potential neighbors, into k %d", testID, k);	     
+	    }
+	  }
+
+	  dbgfit("Looking into %lu  tracklets", tracklets.size());
+
+	  for(unsigned int n = 0; n < tracklets.size(); ++n) {
+	    PathCandidate &testCand = *(tracklets[n]);
+	
+	    if (testCand.m_finished == 3 || n == l) continue;
+
+	    int tailId =  testCand.m_tailNode;
+	    int  tailIdx = gr.Find(tailId);
+	    GridNode &tailNode = Ingrid[tailIdx];
+
+	    int headId =  testCand.m_headNode;
+	    int headIdx = gr.Find(headId);
+	    GridNode &headNode = Ingrid[headIdx];
+
+	    GridNode Dummy;
+	    
+	    double currDistTail = IntersectionPointSkePar(gr, *prevNode, tailNode, Dummy);//sqrt((prevNode->m_x - tailNode.m_x) * (prevNode->m_x - tailNode.m_x) +
+				  //   (prevNode->m_y - tailNode.m_y) * (prevNode->m_y - tailNode.m_y));
+	    double currDistHead = IntersectionPointSkePar(gr, *prevNode, headNode, Dummy);//sqrt((prevNode->m_x - headNode.m_x) * (prevNode->m_x - headNode.m_x) +
+	      //(prevNode->m_y - headNode.m_y) * (prevNode->m_y - headNode.m_y));
+	    dbgfit("%d %f, %d %f", tailId, currDistTail, headId, currDistHead);
+	    if(currDistTail < 5. || currDistHead < 5.){
+	      if(currDistTail <= currDistHead){
+		curNeigh->push_back(tailId);
+		dbgfit("Adding node %d to potential neighborsl", tailId);
+	      } else {
+		curNeigh->push_back(headId);
+		dbgfit("Adding node %d to potential neighbors of head", headId);
+	      }
+	    }
+	  }
+	  
+	}
+
+	
+	if(curNeigh->size() == 0){
+	  dbgfit("No good candidate has been found");
+	  continue;
+	}
+	
+
 
 	k == 1? dbgfit("HEAD : Fitting next neighbors "): dbgfit("TAIL : Fitting next neighbors");
 	      
@@ -292,13 +378,14 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  int id = curNeigh->at(i);
 	  int idx = gr.Find(id);
 	  GridNode &node = Ingrid[idx];
-	  for (size_t j = 0; j < node.m_neighbors.size(); j++) {
-	    if(node.m_type == GridNode::VIRTUAL_NODE){ // Remove second order neighbors from virtual
+	  if(node.m_type == GridNode::VIRTUAL_NODE){
+	    //	  for (size_t j = 0; j < node.m_neighbors.size(); j++) {
+	       // Remove second order neighbors from virtual
 	      int neigh1 = node.m_neighbors[0];
 	      int neigh2 = node.m_neighbors[1];
 	      curNeigh->erase(std::remove(curNeigh->begin(), curNeigh->end(), neigh1), curNeigh->end());
 	      curNeigh->erase(std::remove(curNeigh->begin(), curNeigh->end(), neigh2), curNeigh->end());
-	    }
+	      //  }
 	  }
 	}
 	  
@@ -384,7 +471,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		   willMerge = true;
 		   }*/
 
-	    if(!willMerge){
+	    //	    if(!willMerge){
 
 	      std::vector<int>::iterator it = std::find((neighCand.m_memberList)->begin(), (neighCand.m_memberList)->end(), goodId);
 	      int index = std::distance((neighCand.m_memberList)->begin(), it);
@@ -393,7 +480,10 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      int dir = 0;
 
 	      dbgfit("This node %d already belongs to a CM (%d), tail Node %d, and head Node %d", id, goodNode->m_cm[0],neighCand.m_tailNode,neighCand.m_headNode);
-
+	      if (std::find(curCand.m_toMergeHead.begin(), curCand.m_toMergeHead.end(), goodNode->m_cm[0]) != curCand.m_toMergeHead.end() || std::find(curCand.m_toMergeTail.begin(), curCand.m_toMergeTail.end(), goodNode->m_cm[0]) != curCand.m_toMergeTail.end() ){
+		dbgfit("We were already planning to merge, then let's stop here");
+		break;
+	      }  
 
 	      if(id != neighCand.m_headNode && id != neighCand.m_tailNode){
 		dbgfit("The index is neither the tail or the head, we should continue");
@@ -403,6 +493,10 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		  nextNeigh = index-1;
 		  dir = k == 1? 3: 1; // head to head or tail to head
 		  k == 1? curCand.m_toMergeHead.push_back(potCm):  curCand.m_toMergeTail.push_back(potCm);
+		  /*  if((neighCand.m_toMergeHead).size() > 0){
+		    dbgfit("WE WERE ALREADY MERGING IN THAT DIRECTION ?");
+		    break;
+		    }*/
 		  neighCand.m_toMergeHead.push_back(curCand.m_id);
 		  sayYes[curCand.m_id][potCm] = dir;
 		} else if ( id == neighCand.m_tailNode ) {
@@ -410,6 +504,10 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		  nextNeigh= index+1;
 		  dir = k == 1? 2: 0; // head to tail or tail to tail
 		  k == 1? curCand.m_toMergeHead.push_back(potCm):  curCand.m_toMergeTail.push_back(potCm);
+		  /*  if((neighCand.m_toMergeTail).size() > 0){
+		    dbgfit("WE WERE ALREADY MERGING IN THAT DIRECTION ?");
+		    break;
+		    }*/
 		  neighCand.m_toMergeTail.push_back(curCand.m_id);
 		  sayYes[curCand.m_id][potCm] = dir;
 		}
@@ -423,8 +521,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 		  
 		break;
 	      }
-	    } else 
-	      dbgfit("we did not merge because we were in the middle of an other track");
+	      //    // } else 
+	      //     dbgfit("we did not merge because we were in the middle of an other track");
 	  } // Visited good id 4
 	  /*else {
 	    debug("we must find which is the direction");
@@ -574,6 +672,17 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
       dbgfit("Finished with current tracklet, moving to next \n");
     } // for k trackets
     // timing("Fitting phase ended. Real time %f s, CPU time %f s.", timer.RealTime(),timer.CpuTime());
+
+
+    for(unsigned int n = 0; n < activeId.size(); ++n) {
+      int curId 		= activeId[n];
+      if(visited[curId] == 4){
+	activeId.erase(activeId.begin() + n);
+	n--;
+      }
+    }
+    info("We have %lu remaining active nodes and %\n",  activeId.size());
+
     timing("Fitting phase ended. Time %lf s",  std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count());
 
 #endif // IF TRUE
@@ -598,10 +707,10 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  else
 	    dbgmerge("No potential merging candidates, we're done");
 	  curCand.m_isValid = 1;	
-	} else if (curCand.m_finished ==  2){
+	}/* else if (curCand.m_finished ==  2){
 	  dbgmerge("This CM needs to be checked");
 	  curCand.m_isValid = 1;
-	} else if (curCand.m_isMerged == 1){
+	  }*/ else if (curCand.m_isMerged == 1){
 	  dbgmerge("This CM has already been merged");
 	  curCand.m_isValid = 0;
 	}
@@ -611,9 +720,10 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  int sizeMergeHead =  curCand.m_toMergeHead.size();
 	  int sizeMergeTail =  curCand.m_toMergeTail.size();
 
-	  if(sizeMergeHead == 0 && sizeMergeTail == 0)
+	  if(sizeMergeHead == 0 && sizeMergeTail == 0){
 	    dbgmerge("NEW CAND FOR NOTHIIIING");
-	
+	    continue;
+	  }
 
 	  PathCandidate *newCand 	= new PathCandidate();// Create a new candidate
 	  newCand->m_id 		= candidateId++;// Set id
@@ -720,7 +830,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  curCand.m_isValid = 0;
 	  curCand.m_isMerged = 1;
 	  newCand->m_isValid = 1;
-	  newCand->m_finished = 2;
+	  newCand->m_finished = 3;
 	
 	  dbgmerge("Pushing new merged cm %d:  length is %d, tail node %d, head node %d, min layer %d, max layer %d,    IsOnSectorLimit %d, finished ? %d. ", newCand->m_id, newCand->m_length, newCand->m_tailNode, newCand->m_headNode,newCand->m_minLayer, newCand->m_maxLayer, newCand->m_isOnSectorLimit, newCand->m_finished);
 
@@ -744,7 +854,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
       std::vector<int> const *vect = curCand->m_memberList;
 
        if(curCand->m_isValid) {
-	 CompZCoordinates(gr, curCand);
+       	 CompZCoordinates(gr, curCand);
 	 std::set<int> *comp = new std::set<int>((*trk));	    
 	 connectedComp->push_back(comp);	 
       }
@@ -753,7 +863,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     int NumConnComp = connectedComp->size();
     info("Number of connected components: %d", NumConnComp);    
     std::vector<TrackObject*>* MVDMergedTraks = MergeConnectedComponentsWithMVD(gr, connectedComp);
-    TrackZ_CoordinatesDistNorm(gr, MVDMergedTraks);
+    // TrackZ_CoordinatesDistNorm(gr, MVDMergedTraks);
     timer.Stop();
   
     //__________________ Determind eth Z-coordinate values.
@@ -785,7 +895,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  //			x[i], y[i], 0);
 	//else
 	    ConnectedCoord.Fill(k, cm, node.m_detID, node.m_x, node.m_y, node.m_z, node.m_r,node.m_thetaDeg,
-				x[i], y[i], node.m_z_Det);
+				x[i],y[i],z[i]);
 	  /*	for( int i = 0;  i < vect->size(); ++i) {
 		int detID = vect->at(i);// Id of the current detector
 		//	printf("CM %d, id %d \n", cm, detID);

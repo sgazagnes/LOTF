@@ -58,12 +58,11 @@ double distanceBetweenTube(GridNode & tubeA, GridNode & tubeB);
 
 void Fix_InterSector_Nodes(CoordGrid &hitMap, size_t const numSectors);
 
-bool IntersectionPoint(CoordGrid const &hitMap,
-				   GridNode &tubeA, GridNode &tubeB,
-		       GridNode &out);
-bool IntersectionPointZ(CoordGrid const &hitMap,
-				   GridNode &tubeA, GridNode &tubeB,
-			GridNode &out);
+double IntersectionPointSkePar(CoordGrid const &hitMap,
+				   GridNode &tubeA, GridNode &tubeB,  GridNode &out);
+double IntersectionPointSkeSke(CoordGrid const &hitMap,
+				   GridNode &tubeA, GridNode &tubeB,  GridNode &out);
+void IntersectionPointCoord(GridNode &tubeA, GridNode &tubeB);
 void addTracklets (CoordGrid &gr, PathCandidate *newCand, PathCandidate &mergeCand,  int curdir, int mergedir);
 #endif
 void Add_VirtualNodes(CoordGrid &hitMap, std::vector < GridNode > &VNodesLayer,  std::vector < GridNode > &VNodesSector);
