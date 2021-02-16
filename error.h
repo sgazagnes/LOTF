@@ -41,7 +41,7 @@ MCMatchingErrorStruct()
   float  isNotmatched;//if it is a no matching error. Total error.
   size_t NumberOfMCTracks;// MC-Tracks
   size_t NumberOfTracklets;// Reconstructed
-  
+  int Complex;
   float  Error_underMerge;
   float  Error_overMerge;
   float  TotalError;
@@ -50,7 +50,8 @@ MCMatchingErrorStruct()
   float  Error_underMergeNorm;
   float  Error_overMergeNorm;
   float  TotalErrorNorm;
-  
+  float Jacardsingle;
+  float Jacardaverage;
   // Variables for per track error evaluations.
   size_t BestMatchMCLength;// Length of best MC match
   size_t CurrentTrackLength;// Length of current tack
@@ -74,6 +75,7 @@ MCMatchingErrorStruct()
  */
 
 void complexSectors(CoordGrid &gr,  std::vector< int > &activeId, std::vector< int >* sectorTC);
+void complexTracks(CoordGrid &gr,  std::vector< MCTrackObject* >  const *MCTracks, std::vector< int > *idComplex);
 
 MCMatchingError* MatchMCTracksWithConnectedComponents(std::vector< MCTrackObject* >  const *MCTracks,
 						      std::vector< std::set<int>* >  const *connectedComp);
@@ -85,6 +87,7 @@ MCMatchingError* MatchComplexMCTracks(CoordGrid &gr,
 
 std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitMap,
                                                            std::vector < MCTrackObject* > const *MCTracks,
-                                                           std::vector< std::set<int>* > const *connectedComp);
+                                                           std::vector< std::set<int>* > const *connectedComp,
+							   std::vector<int >  &idComplex);
 
 #endif

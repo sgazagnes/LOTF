@@ -39,6 +39,7 @@
 #define DO_CONNECT 1
 #define DO_FITTING 1
 #define DO_MERGING 1
+#define DO_ZRECONS 0
 #define WRITE_CONNECTED_COMPONENTS 1
 #define INCLUDE_MVD_INOUTPUT_TRACK 0
 #define WRITE_CONNECTED_COMPONENTS_JSON 0
@@ -69,8 +70,9 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   TNtuple ErrorNtuple("ErrorEstimate","Segmentation error values", errorParameter.c_str());
 
   // Second error type. Per track error value. Based on curvature data.
-  std::string PerTrkErrPars = "misMatched:BestMatchMCLength:CurrentTrackLength";
-  PerTrkErrPars += ":MCMinCurrentLength:CurrentMinMCLength";
+  std::string PerTrkErrPars = "complex:misMatched";
+  // PerTrkErrPars += ":MCMinCurrentLength:CurrentMinMCLength";
+  PerTrkErrPars += ":Jacardsingle:Jacardaverage";
   PerTrkErrPars += ":UnderMergeError:OverMergeError:MC_a:MC_b:MC_r:MC_E:tr_a:tr_b:tr_r:tr_E";
   TNtuple ErrorNtuplePerTrack("PerTrackError","Per track values of error", PerTrkErrPars.c_str());
   
@@ -84,7 +86,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
   /* Read all data directly from sim, digi and parameter files */
   std::vector < std::vector<HitCoordinate*>* >* Hit_coords = 
-    CollectSttMvdPoints(detNodes, "./rootfiles/evtmuonz120",Out_Put_File, 1611844771, firstEvt, lastEvt);
+    CollectSttMvdPoints(detNodes, "./rootfiles/evtcomplete",Out_Put_File, 1583944737, firstEvt, lastEvt);
   //evtmuonz120
   std::vector< std::vector < MCTrackObject* >* > *MC_Tracks = MCTrackPoints(*Hit_coords);
   
@@ -161,11 +163,13 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   info("There will be %u event(s) to process", totalnumEvt);
   // Start the timer.
 
+  //  CoordGrid grCopy;
+
 #if(DO_RECONSTRUCTION == 1)
 
-  std::vector< std::set<int>* >* connectedComp = 0;
-  connectedComp = new std::vector< std::set<int>* >();
-  
+  //  std::vector< std::set<int>* >* connectedComp = 0;
+  //  connectedComp = new std::vector< std::set<int>* >();
+
   timer.Start();
   auto t1 = std::chrono::high_resolution_clock::now();
 
@@ -173,6 +177,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   // Event loop
 
   for(size_t k = 0; k < Hit_coords->size(); ++k) {
+    std::vector< std::set<int>* >* connectedComp = 0;
+connectedComp = new std::vector< std::set<int>* >();
     // Data for the current event
     info("Processing event: %d", k);
     std::vector<HitCoordinate*> const *dd = 0;
@@ -180,8 +186,12 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     if(dd) {
       gr.FillGrid(*dd);
     }
+    //   CoordGrid grCopy (gr);
+    std::vector< GridNode > &Ingridori = gr.m_grid;
+    info("Ingridori %d", Ingridori[0].m_detID);
+    std::vector< GridNode > Ingrid(Ingridori);  
+    info("Ingrid %d", Ingrid[0].m_detID);
 
-    std::vector< GridNode > &Ingrid = gr.m_grid;  
     std::vector< int > activeId, remaining;
 
     int nactiveAll = 0, nactiveReal = 0;
@@ -232,6 +242,12 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     
     info("Found %d complex sectors", sectorToCheck.size());
 
+    dbgtrkerror("Finding complex tracks");
+    std::vector< int > idComplex;  
+    
+    complexTracks(gr, MC_Tracks->at(k), &idComplex);
+
+    
     std::vector < PathCandidate* > tracklets;
     int candidateId 	= 0;
     char *visited 	= (char *) calloc(50000, sizeof(char));
@@ -239,7 +255,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     info("First step, let's find the obvious tracks");
     
 #if(DO_CONNECT == 1)
-    findEasyTracks (gr, tracklets, activeId, visited, &candidateId);
+    findEasyTracks (gr, Ingrid, tracklets, activeId, visited, &candidateId);
     timing("Connect phase ended. Time %lf s",  std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count());
 #endif
 
@@ -846,199 +862,213 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
     //fitZCoordinates(gr, tracklets);
 
-    if(tracklets.size() > 0){
-    
-    for(unsigned int l = 0; l < tracklets.size(); l++){
-      PathCandidate *curCand = tracklets[l];
-      std::set<int> const *trk = curCand->m_memberIdSet;
-      std::vector<int> const *vect = curCand->m_memberList;
+      //    if(tracklets.size() > 0){
+    	info("Number of tracklets: %d", tracklets.size());    
 
-       if(curCand->m_isValid) {
-       	 CompZCoordinates(gr, curCand);
-	 std::set<int> *comp = new std::set<int>((*trk));	    
-	 connectedComp->push_back(comp);	 
-      }
-    }
-    
-    int NumConnComp = connectedComp->size();
-    info("Number of connected components: %d", NumConnComp);    
-    std::vector<TrackObject*>* MVDMergedTraks = MergeConnectedComponentsWithMVD(gr, connectedComp);
-    // TrackZ_CoordinatesDistNorm(gr, MVDMergedTraks);
-    timer.Stop();
-  
-    //__________________ Determind eth Z-coordinate values.
-    
-    ComponentPerEvt.Fill(k, NumConnComp);
+	for(unsigned int l = 0; l < tracklets.size(); l++){
+	  PathCandidate *curCand = tracklets[l];
+	  std::set<int> const *trk = curCand->m_memberIdSet;
+	  std::vector<int> const *vect = curCand->m_memberList;
 
-
-    int cm =0;
-    for(unsigned int l = 0; l < tracklets.size(); l++){
-      PathCandidate &curCand = *(tracklets[l]);
-      std::set<int> const *trk = curCand.m_memberIdSet;
-      std::vector<int> const *vect = curCand.m_memberList;
-      std::vector<double> &x =  curCand.m_x;
-      std::vector<double> &y =  curCand.m_y;
-      std::vector<double> &z =  curCand.m_z; 
-
-      std::vector<double> &r =  curCand.m_r;
-      std::vector<double> &theta =  curCand.m_theta; 
-
-      if(curCand.m_isValid) {
-	for( size_t i = 0;  i < vect->size(); ++i) {
-	  int detID = vect->at(i);// Id of the current detector
-	  //	printf("CM %d, id %d \n", cm, detID);
-	  int d_Index = gr.Find(detID);// Index in the grid
-	  GridNode  &node = Ingrid[d_Index];
-	  //  debug("%lf, %lf, %lf", x[i], y[i], z[i]);
-	  //if(node.m_type!= GridNode::STT_TYPE_SKEW)
-	  // .. ConnectedCoord.Fill(k, cm, detID, node.m_x, node.m_y, node.m_z , node.m_r,node.m_thetaDeg,
-	  //			x[i], y[i], 0);
-	//else
-	    ConnectedCoord.Fill(k, cm, node.m_detID, node.m_x, node.m_y, node.m_z, node.m_r,node.m_thetaDeg,
-				x[i],y[i],z[i]);
-	  /*	for( int i = 0;  i < vect->size(); ++i) {
-		int detID = vect->at(i);// Id of the current detector
-		//	printf("CM %d, id %d \n", cm, detID);
-		int d_Index = gr.Find(detID);// Index in the grid
-		GridNode  &node = Ingrid[d_Index];	
-		if(curCand.m_x[i] == -1)
-		ConnectedCoord.Fill(k, cm, node.m_detID, node.m_x, node.m_y, node.m_z, node.m_r,node.m_thetaDeg,
-		node.m_xDet, node.m_yDet, node.m_z_Det);
-		else
-		ConnectedCoord.Fill(k, cm, node.m_detID, node.m_x, node.m_y, node.m_z, node.m_r,node.m_thetaDeg,
-		curCand.m_x[i], curCand.m_y[i], node.m_z_Det);
-		}*/
+	  if(curCand->m_isValid) {
+	    #if (DO_ZRECONS > 0)  
+	    CompZCoordinates(gr, curCand);
+	    #endif
+	    std::set<int> *comp = new std::set<int>((*trk));	    
+	    connectedComp->push_back(comp);	 
+	  }
 	}
-	cm++;
+    
+	int NumConnComp = connectedComp->size();
+	info("Number of connected components: %d", NumConnComp);    
+	std::vector<TrackObject*>* MVDMergedTraks = MergeConnectedComponentsWithMVD(gr, connectedComp);
+	// TrackZ_CoordinatesDistNorm(gr, MVDMergedTraks);
+	timer.Stop();
+  
+	//__________________ Determind eth Z-coordinate values.
+    
+	ComponentPerEvt.Fill(k, NumConnComp);
+
+
+	int cm =0;
+	for(unsigned int l = 0; l < tracklets.size(); l++){
+	  PathCandidate &curCand = *(tracklets[l]);
+	  std::set<int> const *trk = curCand.m_memberIdSet;
+	  std::vector<int> const *vect = curCand.m_memberList;
+	  std::vector<double> &x =  curCand.m_x;
+	  std::vector<double> &y =  curCand.m_y;
+	  std::vector<double> &z =  curCand.m_z; 
+
+	  std::vector<double> &r =  curCand.m_r;
+	  std::vector<double> &theta =  curCand.m_theta; 
+
+	  if(curCand.m_isValid) {
+	    for( size_t i = 0;  i < vect->size(); ++i) {
+	      int detID = vect->at(i);// Id of the current detector
+	      //	printf("CM %d, id %d \n", cm, detID);
+	      int d_Index = gr.Find(detID);// Index in the grid
+	      GridNode  &node = Ingrid[d_Index];
+	      //  debug("%lf, %lf, %lf", x[i], y[i], z[i]);
+	      //if(node.m_type!= GridNode::STT_TYPE_SKEW)
+	      // .. ConnectedCoord.Fill(k, cm, detID, node.m_x, node.m_y, node.m_z , node.m_r,node.m_thetaDeg,
+	      //			x[i], y[i], 0);
+	      //else
+	      ConnectedCoord.Fill(k, cm, node.m_detID, node.m_x, node.m_y, node.m_z, node.m_r,node.m_thetaDeg,
+				  x[i],y[i],z[i]);
+	      /*	for( int i = 0;  i < vect->size(); ++i) {
+			int detID = vect->at(i);// Id of the current detector
+			//	printf("CM %d, id %d \n", cm, detID);
+			int d_Index = gr.Find(detID);// Index in the grid
+			GridNode  &node = Ingrid[d_Index];	
+			if(curCand.m_x[i] == -1)
+			ConnectedCoord.Fill(k, cm, node.m_detID, node.m_x, node.m_y, node.m_z, node.m_r,node.m_thetaDeg,
+			node.m_xDet, node.m_yDet, node.m_z_Det);
+			else
+			ConnectedCoord.Fill(k, cm, node.m_detID, node.m_x, node.m_y, node.m_z, node.m_r,node.m_thetaDeg,
+			curCand.m_x[i], curCand.m_y[i], node.m_z_Det);
+			}*/
+	    }
+	    cm++;
 		  
-      }
-    }
-
-    
-
-    
-    // Store the data for each constructed component
-    /* for(size_t cm = 0 ; cm < connectedComp->size(); ++cm) {
-       std::set<int> const* idset = connectedComp->at(cm);
-      if(!idset){
-	continue;
-      }
-      std::set<int>::iterator it;
-      for( it = idset->begin(); it != idset->end(); ++it) {
-     	int detID = *it;// Id of the current detector
-    	int d_Index = gr.Find(detID);// Index in the grid
-     	GridNode  &node = Ingrid[d_Index];	
-	// k = event number, cm = component number,....
-	
-	//	ConnectedCoord.Fill(k, cm, node.m_detID, node.m_x, node.m_y, node.m_z,
-	//		    node.m_xDet, node.m_yDet, node.m_z_Det);
-	//printf("%d, %d, %d, %f, %f, %f, %f, %f, %f \n", k, cm, node.m_detID, node.m_x, node.m_y, node.m_z,
-	//		    node.m_xDet, node.m_yDet, node.m_z_Det);
-
-
-      }
-    // Print Info
-    }*/
-    
-     // ------------------------------------------------------------------------
-    #if (WRITE_CM_ASCII_FILE > 0)  
-    // Write to an ASCII file
-    //////////// Comments to write to file
-    std::string header = "cm,x,y,z,mx,my,mz\n";
-    //////// End of comments.
-    std::ofstream OutTxtFile;
-    OutTxtFile.open ("ConnectedComponents.csv");
-  
-    if (OutTxtFile.is_open()) {
-      OutTxtFile << header;
-      for(unsigned int l = 0; l < tracklets.size(); l++){
-	PathCandidate &curCand = *(tracklets[l]);
-	std::vector<int>  *trk = curCand.m_memberList;
-	for(size_t cm = 0 ; cm < trk->size(); ++cm) {
-	  int detID = trk->at(cm);// Id of the current detector
-	  //	printf("CM %d, id %d \n", cm, detID);
-	  int d_Index = gr.Find(detID);// Index in the grid
-	  GridNode  &node = Ingrid[d_Index];
-	  OutTxtFile << l << "," << node.m_x <<"," << node.m_y <<"," << node.m_z <<"," <<	  node.m_xDet<<"," << node.m_yDet<<"," << node.m_z_Det<< '\n';
-	  // k = event number, cm = component number,....
-	  //	ConnectedCoord.Fill(k, cm, node.m_detID, node.m_x, node.m_y, node.m_z,
-	  //			    node.m_xDet, node.m_yDet, node.m_z_Det);
-	  //printf("%d, %d, %d, %f, %f, %f, %f, %f, %f \n", k, cm, node.m_detID, node.m_x, node.m_y, node.m_z,
-	  //		    node.m_xDet, node.m_yDet, node.m_z_Det);
-
-
+	  }
 	}
-	// Print Info
-      }
-      // Writ
-    }
-  
-    //OutTxtFile.close();
-    #endif
 
     
-    dbgtrkerror("Error for all sectors");
 
-    // Determine the segmentation error. Based on total area.
-    MCMatchingError *MC_match_error =  MatchMCTracksWithConnectedComponents(MC_Tracks->at(k), connectedComp);
+    
+	// Store the data for each constructed component
+	/* for(size_t cm = 0 ; cm < connectedComp->size(); ++cm) {
+	   std::set<int> const* idset = connectedComp->at(cm);
+	   if(!idset){
+	   continue;
+	   }
+	   std::set<int>::iterator it;
+	   for( it = idset->begin(); it != idset->end(); ++it) {
+	   int detID = *it;// Id of the current detector
+	   int d_Index = gr.Find(detID);// Index in the grid
+	   GridNode  &node = Ingrid[d_Index];	
+	   // k = event number, cm = component number,....
+	
+	   //	ConnectedCoord.Fill(k, cm, node.m_detID, node.m_x, node.m_y, node.m_z,
+	   //		    node.m_xDet, node.m_yDet, node.m_z_Det);
+	   //printf("%d, %d, %d, %f, %f, %f, %f, %f, %f \n", k, cm, node.m_detID, node.m_x, node.m_y, node.m_z,
+	   //		    node.m_xDet, node.m_yDet, node.m_z_Det);
+
+
+	   }
+	   // Print Info
+	   }*/
+    
+	// ------------------------------------------------------------------------
+	#if (WRITE_CM_ASCII_FILE > 0)  
+	// Write to an ASCII file
+	//////////// Comments to write to file
+	std::string header = "cm,x,y,z,mx,my,mz\n";
+	//////// End of comments.
+	std::ofstream OutTxtFile;
+	OutTxtFile.open ("ConnectedComponents.csv");
+  
+	if (OutTxtFile.is_open()) {
+	  OutTxtFile << header;
+	  for(unsigned int l = 0; l < tracklets.size(); l++){
+	    PathCandidate &curCand = *(tracklets[l]);
+	    std::vector<int>  *trk = curCand.m_memberList;
+	    for(size_t cm = 0 ; cm < trk->size(); ++cm) {
+	      int detID = trk->at(cm);// Id of the current detector
+	      //	printf("CM %d, id %d \n", cm, detID);
+	      int d_Index = gr.Find(detID);// Index in the grid
+	      GridNode  &node = Ingrid[d_Index];
+	      OutTxtFile << l << "," << node.m_x <<"," << node.m_y <<"," << node.m_z <<"," <<	  node.m_xDet<<"," << node.m_yDet<<"," << node.m_z_Det<< '\n';
+	      // k = event number, cm = component number,....
+	      //	ConnectedCoord.Fill(k, cm, node.m_detID, node.m_x, node.m_y, node.m_z,
+	      //			    node.m_xDet, node.m_yDet, node.m_z_Det);
+	      //printf("%d, %d, %d, %f, %f, %f, %f, %f, %f \n", k, cm, node.m_detID, node.m_x, node.m_y, node.m_z,
+	      //		    node.m_xDet, node.m_yDet, node.m_z_Det);
+
+
+	    }
+	    // Print Info
+	  }
+	  // Writ
+	}
+  
+	//OutTxtFile.close();
+	#endif
+
+
+    
+    
+	dbgtrkerror("Error for all sectors");
+
+	// Determine the segmentation error. Based on total area.
+	MCMatchingError *MC_match_error =  MatchMCTracksWithConnectedComponents(MC_Tracks->at(k), connectedComp);
       
-    ErrorNtuple.Fill(MC_match_error->Error_underMerge,
-		     MC_match_error->Error_overMerge,
-		     MC_match_error->TotalError,
-		     MC_match_error->Error_underMergeNorm,
-		     MC_match_error->Error_overMergeNorm,
-		     MC_match_error->TotalErrorNorm);
+	ErrorNtuple.Fill(MC_match_error->Error_underMerge,
+			 MC_match_error->Error_overMerge,
+			 MC_match_error->TotalError,
+			 MC_match_error->Error_underMergeNorm,
+			 MC_match_error->Error_overMergeNorm,
+			 MC_match_error->TotalErrorNorm);
 
-    delete MC_match_error;
+	delete MC_match_error;
 
-    dbgtrkerror("Error for complex sectors");
-    MC_match_error = MatchComplexMCTracks(gr,  MC_Tracks->at(k), connectedComp, sectorToCheck);
-    delete MC_match_error;
+	dbgtrkerror("Error for complex sectors");
+	MC_match_error = MatchComplexMCTracks(gr,  MC_Tracks->at(k), connectedComp, idComplex);
+	delete MC_match_error;
 
-    // FIXME This prcedure is not complete yet It returns 0 (intentionaly).
-    /* Evaluate error per track. Start from MC-Tracks and match to
-       components. */
+	// FIXME This prcedure is not complete yet It returns 0 (intentionaly).
+	/* Evaluate error per track. Start from MC-Tracks and match to
+	   components. */
 
-    dbgtrkerror("Error per track");
+	dbgtrkerror("Error per track");
 
-   std::vector < MCTrackObject* > *mcTracksCurrentEvent = MC_Tracks->at(k);
-    // SOrt MC tracks increasing length
-    std::sort(mcTracksCurrentEvent->begin(), mcTracksCurrentEvent->end(), greaterThanLength);
-    std::vector< MCMatchingErrorStruct* > *match_error2 =
-      MatchPerTrackWithMCTracks(gr, mcTracksCurrentEvent, connectedComp);
-    if(match_error2 != 0) {
-      for(size_t f = 0; f < match_error2->size(); ++f) {
-        MCMatchingErrorStruct const *erObj = match_error2->at(f);
-        ErrorNtuplePerTrack.Fill(static_cast<float>(erObj->isNotmatched),
-                                 static_cast<float>(erObj->BestMatchMCLength),
-                                 static_cast<float>(erObj->CurrentTrackLength),
-                                 static_cast<float>(erObj->MCMinCurrentLength),
-                                 static_cast<float>(erObj->CurrentMinMCLength),
-                                 erObj->Error_underMerge,
-                                 erObj->Error_overMerge,
-                                 erObj->MC_a, erObj->MC_b, erObj->MC_r,
-                                 erObj->MC_E, erObj->tr_a, erObj->tr_b,
-                                 erObj->tr_r, erObj->tr_E);
-      }//
-      // Clean memory for now. Maybe better to put all lists in a main
-      // list and fill the ntuple later.(HINT FIXME later)
-      for(size_t r = 0; r < match_error2->size(); ++r) {
-        delete match_error2->at(r);
+	std::vector < MCTrackObject* > *mcTracksCurrentEvent = MC_Tracks->at(k);
+	// SOrt MC tracks increasing length
+	std::sort(mcTracksCurrentEvent->begin(), mcTracksCurrentEvent->end(), greaterThanLength);
+	std::vector< MCMatchingErrorStruct* > *match_error2 =
+	  MatchPerTrackWithMCTracks(gr, mcTracksCurrentEvent, connectedComp, idComplex);
+	if(match_error2 != 0) {
+	  for(size_t f = 0; f < match_error2->size(); ++f) {
+	    MCMatchingErrorStruct const *erObj = match_error2->at(f);
+	    ErrorNtuplePerTrack.Fill(static_cast<float>(erObj->Complex),
+				     static_cast<float>(erObj->isNotmatched),
+				     // static_cast<float>(erObj->BestMatchMCLength),
+				     // static_cast<float>(erObj->CurrentTrackLength),
+				     //  static_cast<float>(erObj->MCMinCurrentLength),
+				     //   static_cast<float>(erObj->CurrentMinMCLength),
+				     erObj->Jacardsingle,
+				     erObj->Jacardaverage,
+				     erObj->Error_underMerge,
+				     erObj->Error_overMerge,
+				     erObj->MC_a, erObj->MC_b, erObj->MC_r,
+				     erObj->MC_E, erObj->tr_a, erObj->tr_b,
+				     erObj->tr_r, erObj->tr_E);
+	  }//
+	  // Clean memory for now. Maybe better to put all lists in a main
+	  // list and fill the ntuple later.(HINT FIXME later)
+	  for(size_t r = 0; r < match_error2->size(); ++r) {
+	    delete match_error2->at(r);
+	  }
+	  delete match_error2;
+	}
+	//}
+
+    
+
+      if(connectedComp != 0) {
+	for(size_t c = 0; c < connectedComp->size(); ++c) {
+	  delete connectedComp->at(c);
+	}
+	delete connectedComp;
       }
-      delete match_error2;
-    }
-    }
-    CollectGridToTree(gr, coord);
 
-    if(connectedComp != 0) {
-      for(size_t c = 0; c < connectedComp->size(); ++c) {
-        delete connectedComp->at(c);
-      }
-      delete connectedComp;
-    }
-
+      CollectGridToTree(gr, coord);
+      
+      gr.ResetGrid();
   }
-#endif
+  #endif
+  
+
 
   ComponentPerEvt.Write();
   ConnectedCoord.Write();

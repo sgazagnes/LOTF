@@ -845,6 +845,8 @@ MCTrackPoints( std::vector < std::vector<HitCoordinate*>* > const &evtData)
 	  ((evtTracks->at(trackPos))->m_pointMVDCoordList).push_back(spacePoint);
 	  ((evtTracks->at(trackPos))->m_MVD_Component).push_back(currentHit->m_detID);
 	}
+	(evtTracks->at(trackPos))->m_trackID = trackPos;
+      
       }// END if not HIT_EXCLUSION
     }// END
     outVar->push_back(evtTracks);

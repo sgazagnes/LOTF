@@ -26,6 +26,8 @@ struct CoordGrid {
   CoordGrid();
   
   virtual ~CoordGrid();
+  CoordGrid( CoordGrid const& ot);
+  CoordGrid& operator=(CoordGrid const& ot);
 
 // Get the total number of available nodes in grid.  
   inline size_t GetNumNodes() const;
@@ -88,8 +90,6 @@ struct CoordGrid {
   
   //______________________ PRIVATE members ________________
  private:
-  CoordGrid( CoordGrid const& ot);
-  CoordGrid& operator=(CoordGrid const& ot);
   bool operator==(CoordGrid const& ot) const;
   bool operator>(CoordGrid const& ot) const;
   bool operator<(CoordGrid const& ot) const;

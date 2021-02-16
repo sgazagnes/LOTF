@@ -71,6 +71,7 @@ struct MCTrackObject {
   std::vector<int> m_MVD_Component;
 
   bool m_matched;// If have been matched before
+  int m_trackID;
   //_________ Protected functions and members _______
   //protected:
 

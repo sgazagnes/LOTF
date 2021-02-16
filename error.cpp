@@ -34,6 +34,69 @@ void complexSectors(CoordGrid &gr,  std::vector< int > &activeId, std::vector< i
   }
 }
 
+void complexTracks(CoordGrid &gr,  std::vector< MCTrackObject* >  const *MCTracks, std::vector< int > *idComplex)
+{
+  std::vector< GridNode > &Ingrid = gr.m_grid;  
+
+  for(size_t j = 0; j < MCTracks->size(); ++j) {
+    // Current MC track
+    MCTrackObject const *MCtrack = MCTracks->at(j);
+    // Stt component of the current MC track.
+    std::vector<int> MCSttComp(MCtrack->m_STT_Component);
+    for(size_t k = 0; k < MCSttComp.size(); k++){
+      int curId = MCSttComp[k];
+      int curIdx = gr.Find(curId);
+      GridNode &curNode =  Ingrid[curIdx];
+      // dbgtrkerror("%d", curId);
+      for (size_t i = j+1; i <  MCTracks->size(); i++){
+	MCTrackObject const *MCtrack2 = MCTracks->at(i);
+	std::vector<int> MCSttComp2(MCtrack2->m_STT_Component);
+	for(size_t l =0;l< MCSttComp2.size(); l++){
+	  int testId = MCSttComp2[l];
+	  if(testId == curId){
+	    dbgtrkerror("One ID in track %d belongs to the different track %d", MCtrack->m_trackID,MCtrack2->m_trackID);
+	    if(std::find(idComplex->begin(), idComplex->end(),MCtrack->m_trackID)==idComplex->end()){
+	      dbgtrkerror("Adding track %d to list", MCtrack->m_trackID);
+	      idComplex->push_back(MCtrack->m_trackID);
+	    }
+	    
+	    if(std::find(idComplex->begin(), idComplex->end(),MCtrack2->m_trackID)==idComplex->end()){
+	      dbgtrkerror("Adding track %d to list", MCtrack2->m_trackID);
+	      idComplex->push_back(MCtrack2->m_trackID);
+	    }
+	    break;
+	  }
+	  if(curNode.IsNeighboring(testId)){
+	    dbgtrkerror("One ID in track %d is neighbor to the different track %d", MCtrack->m_trackID,MCtrack2->m_trackID);
+	    if(std::find(idComplex->begin(), idComplex->end(),MCtrack->m_trackID)==idComplex->end()){
+	      dbgtrkerror("Adding track %d to list", MCtrack->m_trackID);
+	      idComplex->push_back(MCtrack->m_trackID);
+	    }
+	    
+	    if(std::find(idComplex->begin(), idComplex->end(),MCtrack2->m_trackID)==idComplex->end()){
+	      dbgtrkerror("Adding track %d to list", MCtrack2->m_trackID);
+	      idComplex->push_back(MCtrack2->m_trackID);
+	    }
+	    break;
+	  }
+	}
+      }
+      
+      if(k > 0 && !curNode.IsNeighboring(MCSttComp[k-1])){
+	dbgtrkerror(" ID %d in track %d is not neighbor to %d in the same track, complex?", curId, MCtrack->m_trackID, MCSttComp[k-1]);
+	if(std::find(idComplex->begin(), idComplex->end(),MCtrack->m_trackID)==idComplex->end()){
+	  dbgtrkerror("Adding track %d to list", MCtrack->m_trackID);
+	  idComplex->push_back(MCtrack->m_trackID);
+	}
+	break;
+      }
+    }
+  }
+  return;
+}
+
+
+
 MCMatchingError* MatchMCTracksWithConnectedComponents(std::vector< MCTrackObject* >  const *MCTracks,
 						      std::vector< std::set<int>* >  const *connectedComp)
 {
@@ -66,6 +129,7 @@ MCMatchingError* MatchMCTracksWithConnectedComponents(std::vector< MCTrackObject
   // Component loop(T_j)
   for(size_t i = 0; i < connectedComp->size(); ++i) {
     float matchValue = std::numeric_limits<float>::min();
+    float unionValue = 0;
     // Current connected component to analyse
     std::set<int> const *Cur_comp = connectedComp->at(i);
     std::vector<int> Cur_Comp_list;
@@ -99,6 +163,14 @@ MCMatchingError* MatchMCTracksWithConnectedComponents(std::vector< MCTrackObject
 	matchValue = IntersectionList.size();
 	// A_k
 	mc_length = static_cast<float>(MCSttComp.size());
+
+	std::vector<int> UnionList( (Cur_Comp_list.size() + MCSttComp.size()), 0 );
+
+	it=std::set_union ( Cur_Comp_list.begin(), Cur_Comp_list.end(),
+				  MCSttComp.begin(), MCSttComp.end(),
+			     UnionList.begin());
+	UnionList.resize(it - UnionList.begin());
+	unionValue = static_cast<float>(UnionList.size());
       }
     }// MC tracks loop
 
@@ -109,11 +181,17 @@ MCMatchingError* MatchMCTracksWithConnectedComponents(std::vector< MCTrackObject
     // Normalized Under segment
     Error_underMergeNorm += ( ( ( mc_length - matchValue ) * matchValue )/ mc_length ) / TotalArea;
 
+
     // (alpha_j = Cur_Comp_list.size())
     Error_overMerge  += (static_cast<float>(Cur_Comp_list.size()) - matchValue);
 
     // Normalized over segment
     Error_overMergeNorm += (static_cast<float>(Cur_Comp_list.size()) - matchValue) / TotalArea;
+
+    dbgtrkerror("Undermerge track = %f, over_mergetrack = %f", Error_underMergeNorm,  Error_overMergeNorm);
+   
+    float Jacard = matchValue / unionValue;
+    dbgtrkerror("JACARD %f", Jacard);
 
   }// Components loop
   // compute total error for the current set and normalize by the
@@ -149,7 +227,7 @@ MCMatchingError* MatchMCTracksWithConnectedComponents(std::vector< MCTrackObject
 MCMatchingError* MatchComplexMCTracks(CoordGrid &gr,
 				      std::vector< MCTrackObject* >  const *MCTracks,
 				      std::vector< std::set<int>* >  const *connectedComp,
-				      std::vector<int >  &sectorList )
+				      std::vector<int >  &idComplex )
 {
   if( (MCTracks == 0) || (connectedComp == 0) ) {
     error("[COMPLEX] One of the input parameters for matching is empty.");
@@ -168,24 +246,20 @@ MCMatchingError* MatchComplexMCTracks(CoordGrid &gr,
   float TotalErrorNorm = 0;
   
   float mc_length = 0;
+  bool *include = (bool *) calloc(MCTracks->size(), sizeof(bool));
+  // std::vector< bool > include;
 
   // Determine the total area of the all tracks in the current event.
   for(size_t i = 0; i < MCTracks->size(); ++i) {
     MCTrackObject const *MCtrack = MCTracks->at(i);
     // Stt component of the current MC track.
     std::vector<int> MCSttComp(MCtrack->m_STT_Component);
-    bool include = false;
 
-    for(int i = 0; i < MCSttComp.size(); i++) {
-      int idx = gr.Find(MCSttComp[i]);
-      GridNode* node =&Ingrid[idx];
-      int sector = node->m_Sector;
-
-      if(!include && std::find(sectorList.begin(), sectorList.end(), sector) != sectorList.end())
-	include = true;
-    }
-    if (include)
+    if(std::find(idComplex.begin(), idComplex.end(), MCtrack->m_trackID) != idComplex.end()){
+      include[i] = true;
       TotalArea += (MCtrack->m_STT_Component).size();
+      dbgtrkerror("We will compute an error for the MC track %d with size %d", MCtrack->m_trackID, (MCtrack->m_STT_Component).size());
+    }
   }
   // FORALL elements in "connectedComp"(T_j) find R_k in "MCTracks"
   // such that (T_j intersection R_k) is maximum.
@@ -197,25 +271,28 @@ MCMatchingError* MatchComplexMCTracks(CoordGrid &gr,
     // Current connected component to analyse
     std::set<int> const *Cur_comp = connectedComp->at(i);
     std::vector<int> Cur_Comp_list;
-    bool include = false;
+    //   bool include = false;
     for(compIt = Cur_comp->begin(); compIt != Cur_comp->end(); ++compIt) {
       int id = *compIt;
       // Only Real stt tubes, MC does not know anything of the
       // virtuals
-      if( (id < START_VIRTUAL_ID ) && (id >= 0) ) {
+      if( (id < START_VIRTUAL_ID ) && (id >= 0) ) 
 	Cur_Comp_list.push_back(id);
-	int idx = gr.Find(id);
+	/*	int idx = gr.Find(id);
 	GridNode* node =&Ingrid[idx];
 	int sector = node->m_Sector;
 	if(!include && std::find(sectorList.begin(), sectorList.end(), sector) != sectorList.end())
 	  include = true;
-      }
+	  }*/
     }
-    if (!include) continue;
+  //    if (!include) continue;*/
     std::sort(Cur_Comp_list.begin(), Cur_Comp_list.end());
     // Find which MC track has the largest overlap (R_k)
+    int id = -1;
     for(size_t j = 0; j < MCTracks->size(); ++j) {
       // Current MC track
+      if(!include[j]) continue;
+      
       MCTrackObject const *MCtrack = MCTracks->at(j);
       // Stt component of the current MC track.
       std::vector<int> MCSttComp(MCtrack->m_STT_Component);
@@ -234,10 +311,12 @@ MCMatchingError* MatchComplexMCTracks(CoordGrid &gr,
 	matchValue = IntersectionList.size();
 	// A_k
 	mc_length = static_cast<float>(MCSttComp.size());
+	id = MCtrack->m_trackID;
       }
     }// MC tracks loop
 
-    dbgtrkerror("[COMPLEX] MatchValue = %f, mc_length = %f", matchValue, mc_length);
+    if(id == -1) continue;
+    dbgtrkerror("CC %d, best MatchValue = %f with MC track %d, mc_length = %f", i,  matchValue, id, mc_length);
 
     
     // We have found ( (T_j intersection R_k) is maximum )
@@ -284,7 +363,8 @@ MCMatchingError* MatchComplexMCTracks(CoordGrid &gr,
 /* Function to evaluate error per track. MC is used as ground truth. */
 std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitMap,
                                                            std::vector < MCTrackObject* > const *MCTracks,
-                                                           std::vector< std::set<int>* > const *connectedComp)
+                                                           std::vector< std::set<int>* > const *connectedComp,
+							   std::vector<int >  &idComplex)
 {
   if( (MCTracks == 0) || (connectedComp == 0) ) {
     error("One of the input parameters for matching is empty.");
@@ -300,7 +380,7 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
   }
   
   dbgtrkerror("Input MC has %d members and components has %d",MCTracks->size(), connectedComp->size());
-  dbgtrkerror("first MC has %d elements and last has %d", ((MCTracks->at(0))->m_STT_Component).size(), connectedComp->size() );
+  dbgtrkerror("first MC has %d elements and last has %d", ((MCTracks->at(0))->m_STT_Component).size(),(MCTracks->at(MCTracks->size()-1)->m_STT_Component).size() );
 
   std::vector<int> matchedTrackletIndices;
   std::vector<int>::iterator FindIndexIt;
@@ -310,16 +390,25 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
   std::set<int>::iterator compIt;
   // MC tracks loop
   for(size_t i = 0; i < MCTracks->size(); ++i) {
+    int complex = 0;
+    int found50 = 0;
     // Current MC track(R_k)
     MCTrackObject const *MCtrack = MCTracks->at(i);
     // Stt component of the current MC track.
     std::set<int> MCSttComp((MCtrack->m_STT_Component).begin(), (MCtrack->m_STT_Component).end());
     // Not empty MC-track (How is this possible??, empty MC-Tracks.)
     if( (MCSttComp.size() > 0) ) {
+        if(std::find(idComplex.begin(), idComplex.end(), MCtrack->m_trackID) != idComplex.end())
+	  complex = 1;
       // Local variables for comp....
       int    matchTrackIndex = -1;
       float  match_length = 0;
+      float  mc_length = (float) MCSttComp.size();
+
       float  matchValue = std::numeric_limits<float>::min();
+      float  unionValue = std::numeric_limits<float>::min();
+
+      float FP=0, TP=0, FN=0, ntrack = 0;
       // Tracklets loop (connected components)
       for(size_t j = 0; j < connectedComp->size(); ++j) {
         FindIndexIt = std::find(matchedTrackletIndices.begin(), matchedTrackletIndices.end(), j);
@@ -343,18 +432,54 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
                                       IntersectionList.begin());
           // Resize. "it" points to the position of the last common element
           IntersectionList.resize(it - IntersectionList.begin());
+
+	  
+
           /* FIXME hier veranderd om exacte match te vinden */
-          // if(static_cast<float>(IntersectionList.size()) > matchValue) {
-          if(static_cast<float>(IntersectionList.size()) == MCSttComp.size()) {
+           if(static_cast<float>(IntersectionList.size()) > matchValue) {
+	     //if(static_cast<float>(IntersectionList.size()) == MCSttComp.size()) {
             matchValue = static_cast<float>(IntersectionList.size());
             // Area of matched tracklet (a_j)
             match_length = static_cast<float>(Cur_Comp_list.size());
             // Index of tracklet with largest intersection
             matchTrackIndex = j;
+	    if (matchValue > MCSttComp.size()/2)
+	      found50 = 1;
+	    
+	    std::vector<int> UnionList( (Cur_Comp_list.size() + MCSttComp.size()), 0 );
+          // Determine the sequence intersection. Only real tubes.
+	    it = std::set_union( Cur_Comp_list.begin(), Cur_Comp_list.end(),
+					MCSttComp.begin(), MCSttComp.end(),
+					UnionList.begin());
+	    // Resize. "it" points to the position of the last common element
+	    UnionList.resize(it - UnionList.begin());
+	    unionValue = static_cast<float>(UnionList.size());
+	    //	    dbgtrkerror("Size %lu, %lu",Cur_Comp_list.size(),MCSttComp.size());
+	    //	    dbgtrkerror("%f, %f", matchValue, unionValue);
           }
+
+	   if( static_cast<float>(IntersectionList.size()) > 2){
+
+	    std::vector<int> MCdiffCurComp((IntersectionList.size() + MCSttComp.size()), 0);
+	    it = std::set_difference( MCSttComp.begin(), MCSttComp.end(),
+				      IntersectionList.begin(), IntersectionList.end(),
+				      MCdiffCurComp.begin());
+	    MCdiffCurComp.resize(it - MCdiffCurComp.begin());
+	    // All x in Tracklet and not in MC
+	    std::vector<int> CurCompdiffMC((IntersectionList.size() + MCSttComp.size()), 0);
+	    it = std::set_difference( IntersectionList.begin(), IntersectionList.end(),
+				      MCSttComp.begin(), MCSttComp.end(),
+				      CurCompdiffMC.begin());
+	    CurCompdiffMC.resize(it - CurCompdiffMC.begin());
+	    TP+= static_cast<float>(IntersectionList.size());
+	    FP +=  static_cast<float>(CurCompdiffMC.size());
+	    FN +=  static_cast<float>(MCdiffCurComp.size());
+	    ntrack++;
+	  }
         }// End was not assigned before
       }// Components loop (T_j)
       // We found the best matching tracklet for current MC track
+      // dbgtrkerror("MCTrack %d has a best match %d", i, matchTrackIndex);
       if(matchTrackIndex >= 0) {
         /* Met of zonder teruglegging */
         // Mark as assigned(to avoid multiple assignements)
@@ -384,6 +509,8 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
                                   MCSttComp.begin(), MCSttComp.end(),
                                   CurCompdiffMC.begin());
         CurCompdiffMC.resize(it - CurCompdiffMC.begin());
+
+	//	dbgtrkerror("%d, %d", MCdiffCurComp.size(), CurCompdiffMC.size());
         // Determine curvature parameters for tracklet and MC
         /*______ Curvature for MC points _____*/
         /* HIER was je mee bezig. Het ziet er OK uit. Andere functie
@@ -405,6 +532,7 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
         ComputeCurvatureForListOfnodes(hitMap, bestMatchlist, componentCurvPars);
         // Create error object for current sub-path
         MCMatchingError *erroObject = new MCMatchingError();
+	erroObject->Complex = complex;
         erroObject->BestMatchMCLength  = MCSttComp.size();
         erroObject->CurrentTrackLength = bestMatchlist.size();
         // Set diffs
@@ -412,8 +540,19 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
         erroObject->CurrentMinMCLength = CurCompdiffMC.size();
         // Per track values according to definitions in the book.
         /* {A_k - (T_j ^ R_k)} * (T_j ^ R_k) / A_k */
-        erroObject->Error_underMerge = -1;// Not Computed here
-        erroObject->Error_overMerge  = -1;// Not Computed here
+        erroObject->Error_underMerge = (static_cast<float>(MCSttComp.size()) - matchValue)/unionValue;// Not Computed here
+        erroObject->Error_overMerge  = (static_cast<float>(bestMatchlist.size()) - matchValue)/unionValue;// Not Computed here
+	dbgtrkerror("MCtrack %d, undermerge %f, overmerge %f", i, erroObject->Error_underMerge, erroObject->Error_overMerge );
+
+	float jacardsingle = matchValue/unionValue;
+	dbgtrkerror("MCtrack %d, eroor %f", i, jacardsingle);
+	float jacardave = TP/((FP+FN+TP));
+	dbgtrkerror("MCtrack %d, error 2 is %f (nmatch %f)", i, jacardave, ntrack);
+        erroObject->Jacardsingle  = jacardsingle;// Not Computed here
+        erroObject->Jacardaverage  = jacardave;// Not Computed here
+	
+	erroObject->isNotmatched  = found50? 0: 1;// Not Computed here
+	
         // Store curvature parameters. MC
         erroObject->MC_a = mcCurvPars.m_a;
         erroObject->MC_b = mcCurvPars.m_b;

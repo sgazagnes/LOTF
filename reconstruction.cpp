@@ -20,9 +20,9 @@
 #include "simon_functions.h"
 #include "path_queue.h"
 
-void findEasyTracks (CoordGrid &gr, std::vector < PathCandidate* > &tracklets, std::vector<int> &activeId, char *visited, int *candidateId){
+void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < PathCandidate* > &tracklets, std::vector<int> &activeId, char *visited, int *candidateId){
 
-  std::vector< GridNode > &Ingrid = gr.m_grid;  
+  //std::vector< GridNode > &Ingrid = gr.m_grid;  
 
   for(unsigned int n = 0; n < activeId.size(); ++n) {
       
