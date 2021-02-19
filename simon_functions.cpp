@@ -22,6 +22,13 @@
 
 #define pdd pair<double, double> ;
 
+
+bool sortbysec(const pair<int,unsigned short> &a, 
+              const pair<int,unsigned short> &b) 
+{ 
+    return (a.second < b.second); 
+} 
+
 int determineSkewed_XYPlane_new( CoordGrid &hitMap, GridNode const &VNode,
                             std::vector<int> &ListOfSkewedNodesIndex,
 				   std::vector<int> &ListOfVirtualNodesIndex, char *visited)
@@ -510,9 +517,9 @@ double nodeDistanceToQuadFit(double xdet, double ydet, double *x_coef, double *y
 
 /* fitNextId */
 
-int fitNextId(CoordGrid &gr, PathCandidate &cand, std::vector<int> &next, int k){
+int fitNextId(CoordGrid &gr, std::vector< GridNode > &Ingrid, PathCandidate &cand, std::vector<int> &next, int k){
   
-  std::vector< GridNode > &Ingrid = gr.m_grid;
+  // std::vector< GridNode > &Ingrid = gr.m_grid;
   int goodId     = -1;
   int method;
   int degree, nElts;
@@ -545,7 +552,7 @@ int fitNextId(CoordGrid &gr, PathCandidate &cand, std::vector<int> &next, int k)
   std::vector<int> uncertain;
   std::vector<int> unlikely;
   std::vector<int> *tocheck;
-
+  info("here");
   
   float tol = 90.;
   for (int i = 0; i <next.size(); i++){
@@ -553,12 +560,20 @@ int fitNextId(CoordGrid &gr, PathCandidate &cand, std::vector<int> &next, int k)
     int curIdx = gr.Find(curId);
     GridNode *node = &Ingrid[curIdx];
     if(node->m_type == GridNode::VIRTUAL_NODE){
+      info("here %d", node->m_neighbors.size());
+
       GridNode *neigh = &Ingrid[gr.Find(node->m_neighbors[0])];
-      if(neigh->m_cm.size() > 0 && neigh->m_cm[0] == cand.m_id)
+      //info("here %d, %d,%d ", neigh->m_detID,neigh->m_cm.size(),neigh->m_cm[0]);
+
+      if(neigh->m_cm.size() > 0 && neigh->m_cm[0] == cand.m_id){
+	info("%d, %d", neigh->m_cm[0], cand.m_id);
+
 	neigh = &Ingrid[gr.Find(node->m_neighbors[1])];
+      }
       if(neigh->m_cm.size() > 0 && neigh->m_cm[0] == cand.m_id){
 	//error("All belong to track ?");
-	continue;
+	info("%d, %d", neigh->m_cm[0], cand.m_id);
+	continue;	
       }
       dbgfit("Replacing node %d with %d", node->m_detID, neigh->m_detID);
       node = neigh;
@@ -575,10 +590,11 @@ int fitNextId(CoordGrid &gr, PathCandidate &cand, std::vector<int> &next, int k)
       thetadet -= 1;
     else if(thetadet < 0.15 && prevtheta > 0.85)
       thetadet += 1.;
-    // debug("Points %lf, %lf \t %lf, %lf \t %lf, %lf",r[r.size()-2], r[r.size()-1], rdet, theta[theta.size()-2], theta[theta.size()-1], thetadet);
+    // dbgfit("Points %lf, %lf \t %lf, %lf \t %lf, %lf",r[r.size()-2], r[r.size()-1], rdet, theta[theta.size()-2], theta[theta.size()-1], thetadet);
     float angle_r = returnAngle(r[r.size()-2], r[r.size()-1], rdet, theta[theta.size()-2], theta[theta.size()-1], thetadet);
     
     float angle_xy = returnAngle(x[x.size()-2], x[x.size()-1], xdet, y[y.size()-2], y[y.size()-1], ydet);
+       dbgfit("Points %lf, %lf %lf, \t %lf %lf, %lf",x[x.size()-2], x[x.size()-1], xdet, y[y.size()-2], y[y.size()-1], ydet);
      dbgfit("Angle with %d is %f, %f", curId, angle_r, angle_xy);
       if(fabs(angle_r) > 85 && fabs(angle_xy) > tol)
 	plausible.push_back(curId);
@@ -940,7 +956,7 @@ void addTracklets (CoordGrid &gr, PathCandidate *newCand, PathCandidate &mergeCa
       if(newCand->isInCandidate(curid)) continue;
       int curidx = gr.Find(curid);
       GridNode* node = &Ingrid[curidx];
-      newCand->insertNewNode(gr,node, curdir == 1? newCand->m_memberList->end(): newCand->m_memberList->begin());
+      newCand->insertNewNode(gr, Ingrid, node, curdir == 1? newCand->m_memberList->end(): newCand->m_memberList->begin());
     }
     
   } else {
@@ -952,7 +968,7 @@ void addTracklets (CoordGrid &gr, PathCandidate *newCand, PathCandidate &mergeCa
       if(newCand->isInCandidate(curid)) continue;
       int curidx = gr.Find(curid);
       GridNode* node = &Ingrid[curidx];
-      newCand->insertNewNode(gr, node, curdir == 1? newCand->m_memberList->end(): newCand->m_memberList->begin());
+      newCand->insertNewNode(gr, Ingrid, node, curdir == 1? newCand->m_memberList->end(): newCand->m_memberList->begin());
     }
   }
   
@@ -1163,6 +1179,54 @@ bool LineLineIntersect( GridNode &tubeA, GridNode &tubeB, GridNode &tubeC, float
   ixOut = xnom / denom;   
   iyOut = ynom / denom;
   izOut = z3 + 2*tubeC.m_halfLength*dir[2]*(iyOut - y3)/(2*tubeC.m_halfLength * dir[1]);
+  //if(!isfinite(ixOut) || !isfinite(iyOut)) //Probably a numerical issue
+  //    return false;
+
+  return true; //All OK
+}
+
+bool PointsLineIntersect( GridNode &tubeC, float x1, float x2, float y1, float y2) //Output 
+{
+    //http://mathworld.wolfram.com/Line-LineIntersection.html
+
+  TVector3 dir = tubeC.m_WireDirection;
+
+  /*float x1 =  tubeA.m_x; 
+  float y1 =  tubeA.m_y; 
+
+  float x2 =  tubeB.m_x;
+  float y2 =  tubeB.m_y;*/
+
+  float x3 =  tubeC.m_x - tubeC.m_halfLength * dir[0];
+  float y3 =  tubeC.m_y - tubeC.m_halfLength * dir[1];
+  float z3 =  tubeC.m_z - tubeC.m_halfLength * dir[2];
+  
+  float x4 =  tubeC.m_x + tubeC.m_halfLength * dir[0];
+  float y4 =  tubeC.m_y + tubeC.m_halfLength * dir[1];
+  float z4 =  tubeC.m_z + tubeC.m_halfLength * dir[2];
+
+  float detL1 = Det(x1, y1, x2, y2);
+  float detL2 = Det(x3, y3, x4, y4);
+  float x1mx2 = x1 - x2;
+  float x3mx4 = x3 - x4;
+  float y1my2 = y1 - y2;
+  float y3my4 = y3 - y4;
+
+  float xnom = Det(detL1, x1mx2, detL2, x3mx4);
+  float ynom = Det(detL1, y1my2, detL2, y3my4);
+  float denom = Det(x1mx2, y1my2, x3mx4, y3my4);
+  
+  if(denom == 0.0)//Lines don't seem to cross
+    {
+      //  ixOut = NAN;
+      //  iyOut = NAN;
+      return false;
+      error("Lines do not cross");
+    }
+
+  tubeC.m_xDet = xnom / denom;   
+  tubeC.m_yDet = ynom / denom;
+  tubeC.m_z_Det = z3 + 2*tubeC.m_halfLength*dir[2]*(tubeC.m_yDet  - y3)/(2*tubeC.m_halfLength * dir[1]);
   //if(!isfinite(ixOut) || !isfinite(iyOut)) //Probably a numerical issue
   //    return false;
 
@@ -1490,9 +1554,9 @@ void Add_VirtualNodes(CoordGrid &hitMap, std::vector < GridNode > &VNodesLayer, 
       //     //	IntersectionPoint(hitMap, firstNode, secondNode, Dummy_coord) ;
       //     else
       if(firstNode.m_type == GridNode::STT_TYPE_SKEW && secondNode.m_type == GridNode::STT_TYPE_SKEW)
-	IntersectionPointSkePar(hitMap, firstNode, secondNode, Dummy_coord);
+	IntersectionPointSkeSke(hitMap, firstNode, secondNode, Dummy_coord);
       else
-	IntersectionPointSkePar(hitMap, firstNode, secondNode, Dummy_coord);
+	IntersectionPointSkeSke(hitMap, firstNode, secondNode, Dummy_coord);
 
 	// Modify node ID
 	//if( firstNode.m_detID == 979 || secondNode.m_detID == 979)

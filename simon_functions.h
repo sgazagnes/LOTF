@@ -31,7 +31,8 @@ typedef enum {
   UP = 4
 } Direction;
 
-
+bool sortbysec(const pair<int,unsigned short> &a, 
+	       const pair<int,unsigned short> &b);
 bool sortNeighbors(CoordGrid &gr, GridNode *currentNode, std::vector<int> &prev, std::vector<int> &same, std::vector<int> &next, std::vector<int> &virt, char *visited, int *dir);
 
 int determineSkewed_XYPlane_new( CoordGrid &hitMap, GridNode const &VNode,
@@ -50,10 +51,11 @@ double *polyFit(std::vector<double>  x, std::vector<double>  y, int n);
 
 int returnDirection(double prev, double cur);
 
-int fitNextId(CoordGrid &gr, PathCandidate &cand, std::vector<int> &next, int k);
+int fitNextId(CoordGrid &gr, std::vector< GridNode > &Ingrid, PathCandidate &cand, std::vector<int> &next, int k);
 
 double distanceBetweenTube(GridNode & tubeA, GridNode & tubeB);
 
+bool PointsLineIntersect( GridNode &tubeC, float x1, float x2, float y1, float y2); //Output 
 
 
 void Fix_InterSector_Nodes(CoordGrid &hitMap, size_t const numSectors);

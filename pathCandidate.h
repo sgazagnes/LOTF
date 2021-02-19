@@ -32,7 +32,7 @@ struct PathCandidate{
 
   // Member fuctions
   void updateHeadAndTailNodes();
-  void insertNewNode(CoordGrid &gr, GridNode *node,  std::vector<int>::iterator it);
+  void insertNewNode(CoordGrid &gr, std::vector< GridNode > &Ingrid, GridNode *node,  std::vector<int>::iterator it);
   bool compareTwoPathsLength(PathCandidate *a, PathCandidate *b) ;
 
   inline bool isInCandidate(int nodeId) const;
@@ -56,8 +56,7 @@ struct PathCandidate{
   unsigned int m_level;
   unsigned int m_weight;// Number of member nodes
   float  m_orientation;// The orientation in radians
-  std::vector<int> *m_memberList;// List of members in a vector(delete me)
-  std::set<int>    *m_memberIdSet;// The set of member ids
+
   bool  m_OuterToInner;// Direction of the path
   unsigned int m_length;// Length of the path (>= 1)
   bool m_isValid;
@@ -91,10 +90,15 @@ struct PathCandidate{
 
   int    m_seenVirtual;//id of node with min layer
   int    m_lastVirtual;
+  std::vector<int> *m_memberList;// List of members in a vector(delete me)
+  std::set<int>    *m_memberIdSet;// The set of member ids
+  std::vector<int> 	 m_prevVirtuals;
+
   std::vector<unsigned int>	 m_toMergeHead;
   std::vector<unsigned int> 	 m_toMergeTail;
   std::vector<unsigned int> 	 m_sectors;
-
+  std::vector<int> 	 m_layers;
+  
   std::vector<int> m_headNeigh;
   std::vector<int> m_tailNeigh;
 

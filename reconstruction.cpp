@@ -20,11 +20,11 @@
 #include "simon_functions.h"
 #include "path_queue.h"
 
-void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < PathCandidate* > &tracklets, std::vector<int> &activeId, char *visited, int *candidateId){
+void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < PathCandidate* > &tracklets,     std::vector<pair<int, unsigned short>> idToProcess, char *visited, int *candidateId){
 
   //std::vector< GridNode > &Ingrid = gr.m_grid;  
 
-  for(unsigned int n = 0; n < activeId.size(); ++n) {
+  for(unsigned int n = 0; n < idToProcess.size(); ++n) {
       
     std::vector<int> sameLayer;
     std::vector<int> nextLayer;
@@ -34,20 +34,19 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
     std::vector<int> *v;
       
     int dir 	       	= 0;
-    int curId 		= activeId[n];
+    int curId 		= idToProcess[n].first;
     int curIdx 		= gr.Find(curId);
-    GridNode *currentNode 	= &Ingrid[curIdx];
+    GridNode *currentNode  = &Ingrid[curIdx];
 
     /* ++++++++++++++++++++++++++++++++++++++++++++++++++++ */   
     /* BEGIN WITH NODES WITH ONE NEIGHBOR OR IN LAYER LIMIT */     
     /* ++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-      
-    if(visited[curId] == 0 &&
-       ((currentNode->m_LayerLimit == 1 && currentNode->m_neighbors.size() <= 2)
-	||  currentNode->m_neighbors.size() == 1)){ 
+    if(currentNode->m_neighbors.size() > 3)
+      break;
+    if(visited[curId] == 0 && (currentNode->m_neighbors.size() == 1 || (currentNode->m_LayerLimit == 1 && currentNode->m_neighbors.size() == 2))){ 
 	
       int n_neighbors = currentNode->m_neighbors.size();
-      int curLayer 	= currentNode->m_Layer;
+      int curLayer    = currentNode->m_Layer;
 
       dbgconnect("Starting node %d has %d neighbors", curId, n_neighbors);
 
@@ -68,9 +67,9 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
       // Create a new candidate path
       PathCandidate *cand 	= new PathCandidate();// Create a new candidate
       cand->m_id 		= (*candidateId)++;// Set id
-      cand->m_tailNode 	= curId;
+      cand->m_tailNode 		= curId;
       visited[curId] 		= 4;
-      cand->insertNewNode(gr,currentNode, cand->m_memberList->end());
+      cand->insertNewNode(gr, Ingrid, currentNode, cand->m_memberList->end());
       prevNodes.push_back(curId);
 
 
@@ -96,7 +95,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	      neighId   = nextVirt[i];
 	      neighIdx  = gr.Find(neighId);
 	      neighNode = &Ingrid[neighIdx];
-	      cand->insertNewNode(gr,neighNode,cand->m_memberList->end());
+	      cand->insertNewNode(gr,Ingrid, neighNode,cand->m_memberList->end());
 	      visited[neighId] = 4;
 	      n_connected++;
 	      // removeIdFromNeigh(neighNode, &prevNodes, curId);
@@ -106,7 +105,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	  } // end if virtual nodes
 	    
 	  neighId    = v->at(0); neighIdx   = gr.Find(neighId); neighNode  = &Ingrid[neighIdx];
-	  cand->insertNewNode(gr,neighNode,cand->m_memberList->end());
+	  cand->insertNewNode(gr, Ingrid, neighNode,cand->m_memberList->end());
 	  visited[neighId] = 4;
 	  n_connected++;
 	    
@@ -168,7 +167,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 		
 	      //	info("All neighbors look good, let's insert this one !");
 
-	      cand->insertNewNode(gr,candNode,cand->m_memberList->end());
+	      cand->insertNewNode(gr, Ingrid, candNode,cand->m_memberList->end());
 	      visited[candId] = 4;
 	      n_connected++;
 
@@ -217,7 +216,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 		neighId   = nextVirt[i];
 		neighIdx  = gr.Find(neighId);
 		neighNode = &Ingrid[neighIdx];
-		cand->insertNewNode(gr, neighNode, cand->m_memberList->end());
+		cand->insertNewNode(gr, Ingrid,  neighNode, cand->m_memberList->end());
 		visited[neighId] = 4;
 		n_connected++;
 		//	removeIdFromNeigh(neighNode, &prevNodes, curId);		  
@@ -233,7 +232,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	      neighId   = v->at(i);
 	      neighIdx  = gr.Find(neighId);
 	      neighNode = &Ingrid[neighIdx];
-	      cand-> insertNewNode(gr,neighNode, cand->m_memberList->end());
+	      cand-> insertNewNode(gr, Ingrid, neighNode, cand->m_memberList->end());
 	      visited[neighId] = 4;
 	      n_connected++;
 	      lookneigh.push_back(neighId);
@@ -278,17 +277,17 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 
 	  int firstId         = cand->m_tailNode;
 	  int firstIdx        = gr.Find(firstId);
-	  GridNode *firstNode = &Ingrid[firstIdx];
+	  GridNode &firstNode = Ingrid[firstIdx];
 
 	  int lastId         = cand->m_headNode;
 	  int lastIdx        = gr.Find(lastId);
-	  GridNode *lastNode = &Ingrid[lastIdx];
+	  GridNode &lastNode = Ingrid[lastIdx];
 	    
 	  if(n_neighbors == 0) {
 	      
-	    dbgconnect("No more neighbors in sight, are we finished here ?");
+	    dbgconnect("No more neighbors in sight, checking if could be finished already ?");
 	      
-	    if((cand->m_minLayer == 0 && cand->m_maxLayer > 21) || (firstNode->m_LayerLimit == 1 && lastNode->m_LayerLimit == 1)){		 
+	    if((cand->m_minLayer == 0 && cand->m_maxLayer > 21) || (firstNode.m_LayerLimit == 1 && lastNode.m_LayerLimit == 1)){		 
 	      dbgconnect("track goes through all layers or makes a loop, likily finished");		 
 	      cand->m_finished = 3;		 
 	    } else if(labs(currentNode->m_SectorLimit) > 0 || cand->m_isOnSectorLimit){
@@ -296,7 +295,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	      cand->m_finished = 2;
 	      cand->m_isOnSectorLimit= true;		 
 	    } else {		 
-	      dbgconnect("Candidate has no more neighbors, but doesn't seem finished");
+	      dbgconnect("Candidate has no more neighbors, but doesn't seem finished (First %d, last %d)", firstId, lastId);
 	      cand->m_finished = 2;		 
 	    }
 	      
@@ -327,10 +326,10 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 
 	
       if(cand->m_length > 2){
-	dbgconnect("Pushing cm %d with length %d, tail node %d, head node %d, min layer %d, max layer %d, IsOnSectorLimit %d, finished ? %d. ", cand->m_id, cand->m_length, cand->m_tailNode, cand->m_headNode,cand->m_minLayer, cand->m_maxLayer, cand->m_isOnSectorLimit, cand->m_finished);
+	dbgconnect("Pushing cm %d with length %d, tail node %d, head node %d, min layer %d, max layer %d, IsOnSectorLimit %d, status  %d. ", cand->m_id, cand->m_length, cand->m_tailNode, cand->m_headNode,cand->m_minLayer, cand->m_maxLayer, cand->m_isOnSectorLimit, cand->m_finished);
 	tracklets.push_back(cand);
       } else {
-	dbgconnect("Not a good cm %d",cand->m_headNode);
+	dbgconnect("Not a good cm %d, has length < 2",cand->m_headNode);
 	for(size_t i = 0; i < (cand->m_memberList)->size(); i++){   
 	  visited[(cand->m_memberList)->at(i)] = 0;
 	}
@@ -477,6 +476,302 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 //____
 
 
+
+void fittingPhase(CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < PathCandidate* > &tracklets, std::vector<pair<int, unsigned short>> idToProcess, char *visited, int **sayYes){
+
+
+  for(unsigned int l = 0; l < tracklets.size(); l++){ // Go for each tracklet
+	
+    PathCandidate &curCand = *(tracklets[l]);
+    dbgfit("Track %d, status %d, length %d", curCand.m_id, curCand.m_finished,curCand.m_length);
+	
+    if (curCand.m_finished == 3 || curCand.m_length < 5 ) continue;
+
+    // HEAD and TAIL nodes
+    GridNode &firstNode = Ingrid[gr.Find(curCand.m_tailNode)];
+    GridNode &lastNode = Ingrid[gr.Find(curCand.m_headNode)];
+
+    dbgfit("Tail node %d (num neigh %d),  head node %d (num neigh %d)", firstNode.m_detID, curCand.m_tailNeigh.size(), lastNode.m_detID, curCand.m_headNeigh.size());
+
+    //We might have to fit in the tail or the head direction, check both
+     for(int k = 0; k < 2; k++){ // k == 0 Tail (first node added), k == 1 Head (last node added, most often)
+	int prevId = k == 1? curCand.m_headNode: curCand.m_tailNode;
+	GridNode *prevNode = k == 1? &lastNode: &firstNode;
+
+	//curent list of neighbors from previous phase
+	std::vector<int> *curNeigh = k == 1? &(curCand.m_headNeigh): &(curCand.m_tailNeigh);
+	// Whether the tracklets needs to be merged already
+	std::vector<unsigned int> *curMerge = k == 1? &(curCand.m_toMergeHead):&(curCand.m_toMergeTail);
+	//A vector for the next nodes in the loop
+	std::vector<int> next;
+
+	// If there is no neighbors, or if it already needs to be merged, we pass (for now)
+	if(curNeigh->size() == 0){
+	  dbgfit("k = %d, there is no neighbors in the list, is it consistent with the layer of the node ? %d",
+		 k, prevNode->m_Layer);
+	  continue;
+	}
+
+	if(curMerge->size() > 0){
+	  dbgfit("This tracklets has already %d merging partner(s) in that direction ",curMerge->size() );
+	  continue;
+	}
+
+	
+	if (curCand.m_finished == 2){
+	  //  continue;
+	  dbgfit("We previously assumed that this track could be continued, we should check for second order neighbors in the list of %lu remaining ones", idToProcess.size());
+
+	  for(unsigned int n = 0; n < idToProcess.size(); ++n) {
+	    int testID 		= idToProcess[n].first;
+	    GridNode &testNode  = Ingrid[gr.Find(testID)];
+	    float currDist      = sqrt((prevNode->m_x - testNode.m_x) * (prevNode->m_x - testNode.m_x) +
+				 (prevNode->m_y - testNode.m_y) * (prevNode->m_y - testNode.m_y));
+
+	    if(currDist<5.){
+	      curNeigh->push_back(testID);
+	      dbgfit("Adding node %d to potential neighbors, into k %d", testID, k);	     
+	    }
+	  }
+
+	  dbgfit("Let's now look into the %lu tracklets we found previously", tracklets.size());
+
+	  for(unsigned int n = 0; n < tracklets.size(); ++n) {
+	    PathCandidate &testCand = *(tracklets[n]);
+	
+	    if (testCand.m_finished == 3 || n == l) continue;
+
+	    GridNode &tailNode = Ingrid[gr.Find(testCand.m_tailNode)];
+	    GridNode &headNode = Ingrid[gr.Find(testCand.m_headNode)];
+	    GridNode Dummy;
+	    
+	    double currDistTail = IntersectionPointSkeSke(gr, *prevNode, tailNode, Dummy);
+	    double currDistHead = IntersectionPointSkeSke(gr, *prevNode, headNode, Dummy);
+	    //dbgfit("%d %f, %d %f", tailId, currDistTail, headId, currDistHead);
+	    if(currDistTail < 5. || currDistHead < 5.){
+	      if(currDistTail <= currDistHead){
+		curNeigh->push_back(tailNode.m_detID);
+		dbgfit("Adding tail node %d to potential neighbors", tailNode.m_detID);
+	      } else {
+		curNeigh->push_back(headNode.m_detID);
+		dbgfit("Adding head node %d to potential neighbors of head", headNode.m_detID);
+	      }
+	    }
+	  }
+	  
+	} // End test if cand is status finished 2
+
+	if(curNeigh->size() == 0){
+	  dbgfit("Still no good candidate has been found");
+	  continue;
+	}
+	
+	k == 1? dbgfit("HEAD : Starting fitting next neighbors"):
+	  dbgfit("TAIL : Starting fitting next neighbors");
+
+	// Some pre-processing to reduce the number of nodes to test
+	for(size_t i = 0; i  < curNeigh->size(); i++){ 
+	  int id = curNeigh->at(i);
+	  int idx = gr.Find(id);
+	  GridNode &node = Ingrid[idx];
+	  info("%d", id);
+	  if(node.m_type == GridNode::VIRTUAL_NODE){
+	    //	  for (size_t j = 0; j < node.m_neighbors.size(); j++) {
+	    // Remove second order neighbors from virtual
+	    int neigh1 = node.m_neighbors[0];
+	    int neigh2 = node.m_neighbors[1];
+	    curNeigh->erase(std::remove(curNeigh->begin(), curNeigh->end(), neigh1), curNeigh->end());
+	    curNeigh->erase(std::remove(curNeigh->begin(), curNeigh->end(), neigh2), curNeigh->end());
+	    //  }
+	  }
+	}
+	
+	next.insert(next.end(),  curNeigh->begin(),  curNeigh->end());
+
+	bool cond   = next.size() > 0? true: false;
+
+	std::vector<int> virt;
+	std::vector<int> *trk = curCand.m_memberList;
+
+	int potCm = -1;
+	int id = k == 1? trk->at(trk->size() - 2) : 1;
+	GridNode &node = Ingrid[gr.Find(id)];		
+	   
+	// Starting the big loop
+
+	while (cond){
+	    
+	  GridNode *goodNode;	    	    
+	  int goodId = fitNextId(gr, Ingrid, curCand, next, k);
+	    
+	  if (goodId == -1) {
+	    dbgfit("No good candidates have been found, stop");
+	    dbgfit("Current cm %d: length is %d,  tail node %d  head node %d  Min layer %d, Max layer %d. ", curCand.m_id, curCand.m_length, curCand.m_tailNode, curCand.m_headNode, curCand.m_minLayer, curCand.m_maxLayer);
+	    if((curCand.m_minLayer == 0 && curCand.m_maxLayer > 21) || (firstNode.m_LayerLimit == 1 && lastNode.m_LayerLimit == 1)){		 
+	      dbgfit("track goes through all layers or makes a loop, likily finished");		 
+	      curCand.m_finished = 3;		 
+	    } else {
+	      dbgfit("Are we missing something?");		 
+	      curCand.m_finished = 2;
+	    }
+	    cond = false;
+	    break;
+	  }
+
+	  goodNode = &Ingrid[gr.Find(goodId)];
+
+	  //Check that we did not forget a virtual node before
+	    
+	  if(goodNode->m_type != GridNode::VIRTUAL_NODE){
+	    for(size_t i = 0; i < goodNode->m_neighbors.size(); i++){
+	      int neighId = goodNode->m_neighbors[i];
+	      GridNode *comNode = &Ingrid[gr.Find(neighId)];
+	      if(prevNode->IsNeighboring(neighId) && comNode->m_type == GridNode::VIRTUAL_NODE){
+		curCand.insertNewNode(gr, Ingrid, &Ingrid[gr.Find(neighId)], k == 0? curCand.m_memberList->begin(): curCand.m_memberList->end());
+		visited[neighId] = 4;
+	      }
+	    }
+	  }
+
+
+
+	  // Check if the node found belongs to an other track
+
+	     
+	  if(visited[goodId] == 4 && !goodNode->m_LayerLimit ){
+
+	    if(goodNode->m_cm.size() > 1)
+	      error("This node belongs to several tracks, we should tke care of this");
+	    
+	    potCm = goodNode->m_cm[0];
+	    const auto p = std::find_if(tracklets.begin(), tracklets.end(),
+					[potCm](const PathCandidate *obj){ return obj->m_id == potCm; } );
+
+	    PathCandidate &neighCand = *(*p); // The CC that the node belongs to	   	   
+
+	    //Find where the node is in the list of the other CC
+	    std::vector<int>::iterator it = std::find((neighCand.m_memberList)->begin(),
+						      (neighCand.m_memberList)->end(), goodId);
+	    
+	    int index = std::distance((neighCand.m_memberList)->begin(), it);
+	    int id    = neighCand.m_memberList->at(index);
+	    int dir   = 0;
+	    int nextNeigh;
+
+	    dbgfit("This node %d already belongs to a CM (%d), tail Node %d, and head Node %d", id, goodNode->m_cm[0],neighCand.m_tailNode,neighCand.m_headNode);
+
+	    bool willMerge = neighCand.m_toMergeHead.size() == 0 && neighCand.m_toMergeTail.size() == 0? false:true;
+
+	    dbgfit("Does this track has some merging partners? Head %lu, Tail %lu", neighCand.m_toMergeHead.size(),neighCand.m_toMergeTail.size());
+
+	    // Check if we were already planning a merging
+	    if (std::find(curCand.m_toMergeHead.begin(), curCand.m_toMergeHead.end(), goodNode->m_cm[0]) != curCand.m_toMergeHead.end() || std::find(curCand.m_toMergeTail.begin(), curCand.m_toMergeTail.end(), goodNode->m_cm[0]) != curCand.m_toMergeTail.end() ){
+	      dbgfit("We were already planning to merge with this track, then let's stop here");
+	      cond = false;
+	      break;
+	    }  
+
+	    //Check if the node is somewhere in the middle, so it is unlikely that both tracks go together
+	    if(id != neighCand.m_headNode && id != neighCand.m_tailNode){
+	      dbgfit("The index is neither the tail or the head, we should continue");
+	    }else{
+	      
+	      //Something to implement for later, we should check that the tracks are consistent
+	      float angle_r = returnAngle(prevNode->m_r, goodNode->m_r, neighCand.m_r[nextNeigh], (prevNode->m_thetaDeg+180.)/360., (goodNode->m_thetaDeg+180.)/360., (neighCand.m_theta[nextNeigh]+180.)/360.);
+		  
+	      float angle_xy = returnAngle(prevNode->m_x, goodNode->m_x, neighCand.m_x[nextNeigh], prevNode->m_y, goodNode->m_y, neighCand.m_y[nextNeigh]);
+		  
+	      dbgfit("Angle r with track %f", angle_r);
+	      dbgfit("Angle xy with track %f", angle_xy);
+		  
+	      
+	      if(id == neighCand.m_headNode){
+		dbgfit("We found a match in the tail direction");
+		nextNeigh = index-1;
+		dir = k == 1? 3: 1; // head to head or tail to head
+		k == 1? curCand.m_toMergeHead.push_back(potCm):  curCand.m_toMergeTail.push_back(potCm);
+		neighCand.m_toMergeHead.push_back(curCand.m_id);
+		sayYes[curCand.m_id][potCm] = dir;
+	      }
+
+	      else if ( id == neighCand.m_tailNode ) {
+		dbgfit("We found a match in the head direction");
+		nextNeigh = index+1;
+		dir = k == 1? 2: 0; // head to tail or tail to tail
+		k == 1? curCand.m_toMergeHead.push_back(potCm):  curCand.m_toMergeTail.push_back(potCm);
+		neighCand.m_toMergeTail.push_back(curCand.m_id);
+		sayYes[curCand.m_id][potCm] = dir;
+	      }
+
+	      cond = false;
+	      break;
+	    }
+	  } // End of check for node belonging to other track
+
+	  //If we did not break before, we should then add this node to the track (head or tail depends on k)
+	  curCand.insertNewNode(gr, Ingrid, goodNode, k == 0? curCand.m_memberList->begin(): curCand.m_memberList->end());
+	  visited[goodId] = 4;
+
+	  next.clear(); // Clearing the list of next nodes to check
+
+	  //Finding next neighbors
+	  for(size_t i = 0; i < goodNode->m_neighbors.size(); i++){
+	      
+	    int neighId = goodNode->m_neighbors[i];
+	    if(curCand.isInCandidate(neighId)) continue;
+	      
+	    int neighIdx = gr.Find(neighId);
+	    GridNode *neighNode = &Ingrid[neighIdx];
+
+	    dbgfit("Pushing this node %d to the list", goodNode->parent );
+	    next.push_back(neighId);
+		
+	  }
+
+	  // If the node had a parent from an other track but we decided not to match
+	  // with the track, then we should add this parent
+	  
+	  if(goodNode->parent != -1){
+	    next.push_back(goodNode->parent);
+	    dbgfit("Adding the parent node %d", goodNode->parent );
+	  }
+
+	  // If we found some neighbors, then we can continue;
+	  if(next.size() > 0){	      
+	    prevId = goodId;
+	    prevNode = goodNode;
+	    virt.clear(); // Clearing the list of virtuals that we did not use?
+	    if(goodNode->m_Layer == 0){
+	      dbgfit("We found neighbors but we reached the end ?, should check this");
+	      curCand.m_finished = 2;
+	      cond = false;
+	    }			 
+	  }
+	  
+	  else {	      
+	    dbgfit("we have no more neighbors");
+	    cond = false;
+	      
+	    //We need to find a way to check for second order neighbors
+
+	  }
+	} // END OF BIG LOOP
+     } // END OF FOR = 0 or 1
+
+     dbgfit("Finished with current tracklet");
+     dbgfit("Current cm %d: length is %d,  tail node %d  head node %d  Min layer %d, Max layer %d. ", curCand.m_id, curCand.m_length, curCand.m_tailNode, curCand.m_headNode, curCand.m_minLayer, curCand.m_maxLayer);
+     if((curCand.m_minLayer == 0 && curCand.m_maxLayer > 21) || (firstNode.m_LayerLimit == 1 && lastNode.m_LayerLimit == 1)){		 
+       dbgfit("track goes through all layers or makes a loop, likily finished");		 
+       curCand.m_finished = 3;		 
+     } else {
+       dbgfit("Are we missing something?");		 
+       curCand.m_finished = 2;
+     }
+
+     dbgfit("Moving to next track\n");
+  } // END OF ALL TRACKLETS
+}
+     
 void CompZCoordinates(CoordGrid &hitMap, PathCandidate *trk)
 {
  
@@ -533,7 +828,7 @@ void CompZCoordinates(CoordGrid &hitMap, PathCandidate *trk)
   int nextPara = 0, prevPara =0;
   int dir  = 0, loop = 0;
   dbgtrkz("Finding virtuals for interpolation");
-  int numElts = 2;
+  int numElts = 2, firstid = -1, lastid = 0;
   for(size_t i = 0; i < vect->size(); i++){
     int nodeID = vect->at(i);
     size_t node_index = hitMap.Find(nodeID);
@@ -564,7 +859,7 @@ void CompZCoordinates(CoordGrid &hitMap, PathCandidate *trk)
 	} else
 	  break;
       }
-      
+      if(firstid == -1) firstid = i;
       visitVirt = 1;
     }
 
@@ -575,16 +870,22 @@ void CompZCoordinates(CoordGrid &hitMap, PathCandidate *trk)
       if(labs(node.m_Layer - prevLayer) == 1 ){
 	dbgtrkz("Pushing on first layer");
 	interNodesL1.push_back(&node);
+	lastid = i;
       }
       else if (labs(node.m_Layer - prevLayer) == 2){
 	dbgtrkz("Pushing on second layer");
 	interNodesL2.push_back(&node);
+	lastid = i;
       }
       else {
 	//	if(labs(node.m_Layer - prevLayer) > 3)
 	//	  anchorNext.m_detID = -1;
 	//	else{
 	dbgtrkz("We are too far in layers, missing virtual, creating one");
+	if(interNodesL2.size() == 0){
+	  error("Error");
+	  break;
+	}
 	GridNode &prevNode = *interNodesL2.back();
 	GridNode Dummy_coord;
 	// Find intersection point.
@@ -614,6 +915,8 @@ void CompZCoordinates(CoordGrid &hitMap, PathCandidate *trk)
 	  nextLayer = Ingrid[node_index].m_Layer;
 	  nextPara =  Ingrid[node_index].m_type == GridNode::STT_TYPE_SKEW ? 0 : 1;
 	  nextNodes.push_back(&Ingrid[node_index]);
+	  dbgtrkz("Next node after virtual is %d and is para %d?", nodeID, nextPara);
+
 	  i++;
 	  break;
 	}
@@ -788,43 +1091,44 @@ void CompZCoordinates(CoordGrid &hitMap, PathCandidate *trk)
 
 	if(interNodesL2.size() == 0)
 	  error("No node found on second layer");
+	else{
 	/*	else if(interNodesL2.size() >3){
 	  dbgtrkz("We have more than 3 nodes on a same layer, interpolation will be biased");
-	   float dist1 = sqrt(pow(anchorNext.m_x - interNodesL2[0]->m_x,2) + pow(anchorNext.m_y - interNodesL2[0]->m_y,2));
+	  float dist1 = sqrt(pow(anchorNext.m_x - interNodesL2[0]->m_x,2) + pow(anchorNext.m_y - interNodesL2[0]->m_y,2));
 	  float dist2 = sqrt(pow(anchorNext.m_x - interNodesL2.back()->m_x,2) + pow(anchorNext.m_y - interNodesL2.back()->m_y,2));
 	  if(dist2 < dist1)
 	  std::reverse(interNodesL2.begin(), interNodesL2.end());
 	  }*/
       
-	anchorInter =  *interNodesL2[0];
+	  anchorInter =  *interNodesL2[0];
 
       
-	for (size_t p = 1; p < MIN(interNodesL2.size(),numElts); p++){
-	  anchorInter.m_x += interNodesL2[p]->m_x;
-	  anchorInter.m_y += interNodesL2[p]->m_y;
-	  anchorInter.m_z += interNodesL2[p]->m_z;
+	  for (size_t p = 1; p < MIN(interNodesL2.size(),numElts); p++){
+	    anchorInter.m_x += interNodesL2[p]->m_x;
+	    anchorInter.m_y += interNodesL2[p]->m_y;
+	    anchorInter.m_z += interNodesL2[p]->m_z;
+	  }
+	  anchorInter.m_x /= (float) MIN(interNodesL2.size(),numElts);//interNodesL2.size();
+	  anchorInter.m_y /= (float) MIN(interNodesL2.size(),numElts);//interNodesL2.size();
+	  anchorInter.m_z /= (float) MIN(interNodesL2.size(),numElts);//interNodesL2.size();
+	  dbgtrkz("Finding intersection with %f, %f, %f", anchorInter.m_x, anchorInter.m_y, anchorInter.m_z);
+
+	  LineLineIntersect( anchorPrev, anchorNext, anchorInter, xInt, yInt, zInt);
+	  dbgtrkz("Intersect point is %f, %f, %f", xInt, yInt, zInt);
+
+	  /*	for (size_t p = 0; p < interNodesL2.size(); p++){
+		interNodesL2[p]->m_xDet = xInt;
+		interNodesL2[p]->m_yDet = yInt;
+		interNodesL2[p]->m_z_Det = zInt;
+		}*/
+
+	  xPts.push_back((double) xInt);
+	  yPts.push_back((double) yInt);
+	  zPts.push_back((double) zInt);
 	}
-	anchorInter.m_x /= (float) MIN(interNodesL2.size(),numElts);//interNodesL2.size();
-	anchorInter.m_y /= (float) MIN(interNodesL2.size(),numElts);//interNodesL2.size();
-	anchorInter.m_z /= (float) MIN(interNodesL2.size(),numElts);//interNodesL2.size();
-	dbgtrkz("Finding intersection with %f, %f, %f", anchorInter.m_x, anchorInter.m_y, anchorInter.m_z);
-
-	LineLineIntersect( anchorPrev, anchorNext, anchorInter, xInt, yInt, zInt);
-	dbgtrkz("Intersect point is %f, %f, %f", xInt, yInt, zInt);
-
-	/*	for (size_t p = 0; p < interNodesL2.size(); p++){
-	  interNodesL2[p]->m_xDet = xInt;
-	  interNodesL2[p]->m_yDet = yInt;
-	  interNodesL2[p]->m_z_Det = zInt;
-	  }*/
-
-	xPts.push_back((double) xInt);
-	yPts.push_back((double) yInt);
-	zPts.push_back((double) zInt);
       }
 
 
-      dbgtrkz("Prev Lay %d, next Laye %d, dir %d", prevLayer, nextLayer, dir);
 
       if(prevLayer < nextLayer)
 	dir = 1;
@@ -869,37 +1173,135 @@ void CompZCoordinates(CoordGrid &hitMap, PathCandidate *trk)
   if(xPts.size()>1){
     
     dbgtrkz("Coordinates found for fitting");
+      if(xPts.size() > 10){
+	zPts.erase(zPts.begin());
+	yPts.erase(yPts.begin());
+	zPts.pop_back();
+      yPts.pop_back();
+      }
+       if(dir == -1){
+      xPts.push_back(0.);
+      yPts.push_back(0.);
+      zPts.push_back(0.);
+    } else {
+      xPts.insert(xPts.begin(), 0.);
+      yPts.insert(yPts.begin(), 0.);
+      zPts.insert(zPts.begin(), 0.);
+      }
     for(size_t i = 0; i < zPts.size(); i++)
       dbgtrkz("x %lf, y %lf, z %lf", xPts[i],  yPts[i],  zPts[i]);
 
 
     std::vector<double> p;
-      if(xPts.size() > 10){
-      zPts.erase(zPts.begin());
-      yPts.erase(yPts.begin());
-      zPts.pop_back();
-      yPts.pop_back();
-      }
+    std::vector<double> distxy;
 
+    double newval;
+    double distxx = 0;
     p.push_back(0.);
+    distxy.push_back(0.);
+    int start =1;
+
     for (size_t i = 0; i <  zPts.size()-1; i++){ 
-      double newval = p[i] + sqrt(pow(zPts[i+1]-zPts[i],2.) + pow(yPts[i+1]-yPts[i],2.));
+       newval = p[i] + sqrt(pow(zPts[i+1]-zPts[i],2.) + pow(yPts[i+1]-yPts[i],2.));
       p.push_back(newval);
+      //if(i >=start){
+	//	distxx +=  sqrt(pow(xPts[i+1]-xPts[i],2.) + pow(yPts[i+1]-yPts[i],2.));
+      //	distxy.push_back(newval);
+      //  }
+      //  dbgtrkz("%lf", newval);
     }
 
+    if(dir == -1){
+      distxx += sqrt(x.back()*x.back()+y.back()*y.back());
+      for(int i =vect->size()-1; i >=lastid; i--)
+	distxx +=  sqrt(pow(x[i-1]-x[i],2.) + pow(y[i-1]-y[i],2.));
+    }else{
+      distxx += sqrt(x[0]*x[0]+y[0]*y[0]);
+      for(size_t i =0; i <lastid; i++)
+	distxx +=  sqrt(pow(x[i+1]-x[i],2.) + pow(y[i+1]-y[i],2.));    
+    }
     double *z_coef = polyFit(p, zPts, 1);
     double *y_coef = polyFit(p, yPts, 1);
 
-    dbgtrkz("Fitted track is %f + p%f", z_coef[0], z_coef[1]);
-    for(size_t i = 0; i < vect->size(); i++){
+    dbgtrkz("Fitted z track is %f + p%f", z_coef[0], z_coef[1]);
+    dbgtrkz("Fitted y track is %f + p%f", y_coef[0], y_coef[1]);
+    dbgtrkz("p: %lf, %lf", p[start], p[p.size()-1]);
+
+    double pfirst = (y[0] - y_coef[0])/y_coef[1];
+    double Node_distance =0;
+    double z0 = dir == -1? zPts.back(): zPts[0];//z_coef[0]+z_coef[1]*p[start];
+    double zf = dir == -1? z_coef[0]:z_coef[0]+z_coef[1]*p[p.size()-1];
+    dbgtrkz("z: %lf, %lf", z0, zf);
+    double y0 =y_coef[0]+y_coef[1]*p[start];
+    double yf =y_coef[0]+y_coef[1]*p[p.size()-1];
+    dbgtrkz("y: %lf, %lf", y0, yf);
+
+    double totxydist =  distxx;//sqrt( pow(xPts.back()-xPts[start],2) + pow(yPts.back()-yPts[start],2));// * (node.m_xDet - prevNodeCoord.m_x) +
+    //      (node.m_yDet - prevNodeCoord.m_y) * (node.m_yDet - prevNodeCoord.m_y) );
+    //	Node_distance += sqrt( (node.m_xDet - prevNodeCoord.m_x) * (node.m_xDet - prevNodeCoord.m_x) +
+    //			       (node.m_yDet - prevNodeCoord.m_y) * (node.m_yDet - prevNodeCoord.m_y) );
+    dbgtrkz("Total fist %lf, slope %lf", totxydist, (zf-z0)/totxydist);
+    bool change =0;
+
+    /* for(int i = firstid; i >= 0; i--){
+      Node_distance += sqrt(pow(x[i]-x[i+1],2)+pow(y[i]-y[i+1],2));//-xPts[start]-yPts[start]
+      z[i] = z0 - (zf-z0)*Node_distance/totxydist;
+      dbgtrkz("Dist cur %lf", Node_distance);
+      dbgtrkz("New %f, %f, %f", x[i], y[i], z[i]);
+
+      }*/
+
+    /* Node_distance = 0;
+    for(size_t i = 0; i <vect->size(); i++){
+      if(i > firstid) Node_distance += sqrt(pow(x[i]-x[i-1],2)+pow(y[i]-y[i-1],2));//-xPts[start]-yPts[start]
+      z[i] = z0 + (zf-z0)*Node_distance/totxydist;
+      dbgtrkz("Dist cur %lf", Node_distance);
+      dbgtrkz("New %f, %f, %f", x[i], y[i], z[i]);
+      }*/
+    if(dir == -1){
+      for(int i = vect->size()-1; i >=0; i--){
+	if(i < vect->size()-1) Node_distance += sqrt(pow(x[i]-x[i+1],2)+pow(y[i]-y[i+1],2));//-xPts[start]-yPts[start]
+	else Node_distance += sqrt(pow(x[i],2)+pow(y[i],2));
+	
+	z[i] = z0 + (zf-z0)*Node_distance/totxydist;
+	dbgtrkz("Dist cur %lf", Node_distance);
+	dbgtrkz("New %f, %f, %f", x[i], y[i], z[i]);
+      }
+    }else{
+      for(size_t i = 0; i <vect->size(); i++){
+	if(i >= 0) Node_distance += sqrt(pow(x[i]-x[i-1],2)+pow(y[i]-y[i-1],2));//-xPts[start]-yPts[start]
+	else Node_distance += sqrt(pow(x[i],2)+pow(y[i],2));
+	
+	z[i] = z0 + (zf-z0)*Node_distance/totxydist;
+	dbgtrkz("Dist cur %lf", Node_distance);
+	dbgtrkz("New %f, %f, %f", x[i], y[i], z[i]);
+      }
+  }
+    //  Node_distance = 0;
+    //z_coef[0] + z_coef[1]*(100.*i/vect->size());
+      // dbgtrkz("%f",pval);
+      //node.m_z_Det = z_coef[0] + z_coef[1]*pval;
+    /*for(size_t i = 0; i < vect->size(); i++){
       //    int nodeID = vect->at(i);
       //    size_t node_index = hitMap.Find(nodeID);
       //    GridNode  &node = Ingrid[node_index];
-      double pval = (y[i] - y_coef[0])/y_coef[1];
-      z[i] = z_coef[0] + z_coef[1]*pval;
-      dbgtrkz("%f, %f", y[i], z[i]);
+      //dbgtrkz("%f, %f, %f", x[i], y[i], z[i]);
+      if(i == firstid)
+	change = 1;
+      //  double pval = (y[i] - y_coef[0])/y_coef[1];
+      //      if(i != 0)
+      //	Node_distance += sqrt(pow(x[i],2)+pow(y[i],2));
+      //   else
+      Node_distance = sqrt(pow(x[i]-xPts[start],2)+pow(y[i]-yPts[start],2));//-xPts[start]-yPts[start]
+    dbgtrkz("Dist cur %lf", Node_distance);
+
+    if(change) z[i] = z0 + (zf-z0)*Node_distance/totxydist;
+    else z[i] = z0 - (zf-z0)*Node_distance/totxydist;//z_coef[0] + z_coef[1]*(100.*i/vect->size());
+      // dbgtrkz("%f",pval);
       //node.m_z_Det = z_coef[0] + z_coef[1]*pval;
-    }
+            dbgtrkz("New %f, %f, %f", x[i], y[i], z[i]);
+
+	    }*/
     
   } else
     dbgtrkz("No enough good coord found");

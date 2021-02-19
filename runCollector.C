@@ -15,8 +15,8 @@ void runCollector( size_t plength = 1,
                    std::string const &OutFileName = "Tracks_output.root",
 		   size_t dim = 2,// Plot dimension
 		   size_t gapSize = 0,// Number of layers to skip
-		   int firstEvt = 0, //3, //9, //0,
-		   int lastEvt  =9//10  //6
+		   int firstEvt =0, //3, //9, //0,
+		   int lastEvt  =1//10  //6
 		   )//50->61, 4->5
 {
   // Load basic libs and headers.
@@ -27,7 +27,7 @@ void runCollector( size_t plength = 1,
   //  CompileOptions += " -Wshadow -Wfloat-equal -Wredundant-decls";
   // CompileOptions += " -O2 -march=native -mtune=native -include sstream";
   // CompileOptions += " -fPIC -fPIE";// -fstack-check";
-  // CompileOptions += " -ansi -pedantic -std=c++11";// -std=gnu++11";
+  // CompileOptions += " -ansi -pedanticflo -std=c++11";// -std=gnu++11";
   //CompileOptions += " -funroll-loops -fopenmp -malign-double";
   
   //  gSystem->SetAclicMode(TSystem::kOpt);

@@ -398,3 +398,387 @@ void fitZCoordinates(CoordGrid &hitMap, PathCandidate *trk)
   // Determine the largest Z value (Virtual node)
   }
 }
+
+
+
+      
+    for(unsigned int l = 0; l < tracklets.size(); l++){ // Go for each tracklet
+	
+      PathCandidate &curCand = *(tracklets[l]);
+      dbgfit("Track %d, status %d, length %d", curCand.m_id, curCand.m_finished,curCand.m_length);
+	
+      if (curCand.m_finished == 3 || curCand.m_length < 5 ) continue;
+
+      int first =  curCand.m_tailNode;
+      int firstIdx = gr.Find(first);
+      GridNode &firstNode = Ingrid[firstIdx];
+
+      int last =  curCand.m_headNode;
+      int lastIdx = gr.Find(last);
+      GridNode &lastNode = Ingrid[lastIdx];
+
+      
+      dbgfit("Tail node %d (num neigh %d),  head node %d (num neigh %d)", first, curCand.m_tailNeigh.size(), last, curCand.m_headNeigh.size());
+
+      
+      for(int k = 0; k < 2; k++){ // First Tail, then Head
+	int prevId = k == 1? curCand.m_headNode: curCand.m_tailNode;
+	//int curLayer = k == 1? lastNode.m_Layer: firstNode.m_Layer;
+	// int layerCurDiff;
+	GridNode *prevNode = k == 1? &lastNode: &firstNode;
+	
+	std::vector<int> *curNeigh = k == 1? &(curCand.m_headNeigh): &(curCand.m_tailNeigh);
+	std::vector<unsigned int> *curMerge = k == 1? &(curCand.m_toMergeHead):&(curCand.m_toMergeTail);
+	std::vector<int> next;
+
+	if(curNeigh->size() == 0 && curMerge->size() > 0)
+	  continue;
+
+
+	if (curCand.m_finished == 2){
+	  //  continue;
+	  dbgfit("There is no neighbors, can we find some further");
+	  dbgfit("Looking into %lu remaining nodes", activeId.size());
+
+	  for(unsigned int n = 0; n < activeId.size(); ++n) {
+	    int testID 		= activeId[n];
+	    int testIdx = gr.Find(testID);
+	    GridNode &testNode = Ingrid[testIdx];
+	    float currDist =sqrt((prevNode->m_x - testNode.m_x) * (prevNode->m_x - testNode.m_x) +
+				     (prevNode->m_y - testNode.m_y) * (prevNode->m_y - testNode.m_y));
+
+	    if(currDist<5.){
+		curNeigh->push_back(testID);
+		dbgfit("Adding node %d to potential neighbors, into k %d", testID, k);	     
+	    }
+	  }
+
+	  dbgfit("Looking into %lu  tracklets", tracklets.size());
+
+	  for(unsigned int n = 0; n < tracklets.size(); ++n) {
+	    PathCandidate &testCand = *(tracklets[n]);
+	
+	    if (testCand.m_finished == 3 || n == l) continue;
+
+	    int tailId =  testCand.m_tailNode;
+	    int  tailIdx = gr.Find(tailId);
+	    GridNode &tailNode = Ingrid[tailIdx];
+
+	    int headId =  testCand.m_headNode;
+	    int headIdx = gr.Find(headId);
+	    GridNode &headNode = Ingrid[headIdx];
+
+	    GridNode Dummy;
+	    
+	    double currDistTail = IntersectionPointSkePar(gr, *prevNode, tailNode, Dummy);//sqrt((prevNode->m_x - tailNode.m_x) * (prevNode->m_x - tailNode.m_x) +
+				  //   (prevNode->m_y - tailNode.m_y) * (prevNode->m_y - tailNode.m_y));
+	    double currDistHead = IntersectionPointSkePar(gr, *prevNode, headNode, Dummy);//sqrt((prevNode->m_x - headNode.m_x) * (prevNode->m_x - headNode.m_x) +
+	      //(prevNode->m_y - headNode.m_y) * (prevNode->m_y - headNode.m_y));
+	    dbgfit("%d %f, %d %f", tailId, currDistTail, headId, currDistHead);
+	    if(currDistTail < 5. || currDistHead < 5.){
+	      if(currDistTail <= currDistHead){
+		curNeigh->push_back(tailId);
+		dbgfit("Adding node %d to potential neighborsl", tailId);
+	      } else {
+		curNeigh->push_back(headId);
+		dbgfit("Adding node %d to potential neighbors of head", headId);
+	      }
+	    }
+	  }
+	  
+	}
+
+	
+	if(curNeigh->size() == 0){
+	  dbgfit("No good candidate has been found");
+	  continue;
+	}
+	
+
+
+	k == 1? dbgfit("HEAD : Fitting next neighbors "): dbgfit("TAIL : Fitting next neighbors");
+	      
+	for(size_t i = 0; i  < curNeigh->size(); i++){ 
+	  int id = curNeigh->at(i);
+	  int idx = gr.Find(id);
+	  GridNode &node = Ingrid[idx];
+	  if(node.m_type == GridNode::VIRTUAL_NODE){
+	    //	  for (size_t j = 0; j < node.m_neighbors.size(); j++) {
+	       // Remove second order neighbors from virtual
+	      int neigh1 = node.m_neighbors[0];
+	      int neigh2 = node.m_neighbors[1];
+	      curNeigh->erase(std::remove(curNeigh->begin(), curNeigh->end(), neigh1), curNeigh->end());
+	      curNeigh->erase(std::remove(curNeigh->begin(), curNeigh->end(), neigh2), curNeigh->end());
+	      //  }
+	  }
+	}
+	  
+	next.insert(next.end(),  curNeigh->begin(),  curNeigh->end());
+
+	bool cond = next.size() > 0? true: false;
+	bool adding = true;
+
+	std::vector<int> virt;
+	std::vector<int> *trk = curCand.m_memberList;
+
+	int potCm = -1;
+	int id = k == 1? trk->at(trk->size() - 2) : 1;
+	int idx = gr.Find(id);
+	GridNode &node = Ingrid[idx];		
+	   
+
+	while (cond){
+	    
+	  GridNode *goodNode;	    
+	    
+	  int goodId = fitNextId(gr, curCand, next, k);
+	    
+	  if (goodId == -1) {
+	    dbgfit("No good candidates have been found, stop");
+	    dbgfit("Current cm %d: length is %d,  tail node %d  head node %d  Min layer %d, Max layer %d. ", curCand.m_id, curCand.m_length, curCand.m_tailNode, curCand.m_headNode, curCand.m_minLayer, curCand.m_maxLayer);
+	    if((curCand.m_minLayer == 0 && curCand.m_maxLayer > 21) || (firstNode.m_LayerLimit == 1 && lastNode.m_LayerLimit == 1)){		 
+	      dbgfit("track goes through all layers or makes a loop, likily finished");		 
+	      curCand.m_finished = 3;		 
+	    } else {
+	      curCand.m_finished = 2;
+	      cond = false;
+	      break;
+	    }
+	  }
+
+
+	      
+	  int goodIdx = gr.Find(goodId);
+	  goodNode = &Ingrid[goodIdx];
+
+	      
+	 
+	    
+	  // Automatically add next neighbord if we just found a virtual node
+	    
+	  if(goodNode->m_type == GridNode::VIRTUAL_NODE){
+	    curCand.insertNewNode(gr,goodNode, k == 0? curCand.m_memberList->begin(): curCand.m_memberList->end());
+	    visited[goodId] = 4;
+	    int neighId = curCand.isInCandidate(goodNode->m_neighbors[0]) ? goodNode->m_neighbors[1]:goodNode->m_neighbors[0];
+	    int neighIdx = gr.Find(neighId);
+	    goodNode = &Ingrid[neighIdx];
+	    dbgfit("We added a virtual node, also adding the next neighbord %d", neighId);
+	    goodId = neighId;
+	  }
+	    
+	    
+	  if(visited[goodId] == 4 && !goodNode->m_LayerLimit ){
+
+	    potCm = goodNode->m_cm[0];
+	    const auto p = std::find_if(tracklets.begin(), tracklets.end(),
+					[potCm](const PathCandidate *obj){ return obj->m_id == potCm; } );
+
+	    PathCandidate &neighCand = *(*p);
+
+	    bool willMerge = neighCand.m_toMergeHead.size() == 0 && neighCand.m_toMergeTail.size() == 0?false:true;
+	    /*     for(int i = 0; i<tracklets.size(); i++){
+		   if(sayYes[potCm][i] != 0)
+		   willMerge = true;
+		   }*/
+
+	    //	    if(!willMerge){
+
+	      std::vector<int>::iterator it = std::find((neighCand.m_memberList)->begin(), (neighCand.m_memberList)->end(), goodId);
+	      int index = std::distance((neighCand.m_memberList)->begin(), it);
+	      int id = neighCand.m_memberList->at(index);
+	      int nextNeigh;
+	      int dir = 0;
+
+	      dbgfit("This node %d already belongs to a CM (%d), tail Node %d, and head Node %d", id, goodNode->m_cm[0],neighCand.m_tailNode,neighCand.m_headNode);
+	      if (std::find(curCand.m_toMergeHead.begin(), curCand.m_toMergeHead.end(), goodNode->m_cm[0]) != curCand.m_toMergeHead.end() || std::find(curCand.m_toMergeTail.begin(), curCand.m_toMergeTail.end(), goodNode->m_cm[0]) != curCand.m_toMergeTail.end() ){
+		dbgfit("We were already planning to merge, then let's stop here");
+		break;
+	      }  
+
+	      if(id != neighCand.m_headNode && id != neighCand.m_tailNode){
+		dbgfit("The index is neither the tail or the head, we should continue");
+	      }else{
+		if(id == neighCand.m_headNode){
+		  dbgfit("We will merge in the tail direction");
+		  nextNeigh = index-1;
+		  dir = k == 1? 3: 1; // head to head or tail to head
+		  k == 1? curCand.m_toMergeHead.push_back(potCm):  curCand.m_toMergeTail.push_back(potCm);
+		  /*  if((neighCand.m_toMergeHead).size() > 0){
+		    dbgfit("WE WERE ALREADY MERGING IN THAT DIRECTION ?");
+		    break;
+		    }*/
+		  neighCand.m_toMergeHead.push_back(curCand.m_id);
+		  sayYes[curCand.m_id][potCm] = dir;
+		} else if ( id == neighCand.m_tailNode ) {
+		  dbgfit("We will merge in the head direction");
+		  nextNeigh= index+1;
+		  dir = k == 1? 2: 0; // head to tail or tail to tail
+		  k == 1? curCand.m_toMergeHead.push_back(potCm):  curCand.m_toMergeTail.push_back(potCm);
+		  /*  if((neighCand.m_toMergeTail).size() > 0){
+		    dbgfit("WE WERE ALREADY MERGING IN THAT DIRECTION ?");
+		    break;
+		    }*/
+		  neighCand.m_toMergeTail.push_back(curCand.m_id);
+		  sayYes[curCand.m_id][potCm] = dir;
+		}
+		  
+		float angle_r = returnAngle(prevNode->m_r, goodNode->m_r, neighCand.m_r[nextNeigh], (prevNode->m_thetaDeg+180.)/360., (goodNode->m_thetaDeg+180.)/360., (neighCand.m_theta[nextNeigh]+180.)/360.);
+		  
+		float angle_xy = returnAngle(prevNode->m_x, goodNode->m_x, neighCand.m_x[nextNeigh], prevNode->m_y, goodNode->m_y, neighCand.m_y[nextNeigh]);
+		  
+		dbgfit("Angle r track %f", angle_r);
+		dbgfit("Angle xy track %f", angle_xy);
+		  
+		break;
+	      }
+	      //    // } else 
+	      //     dbgfit("we did not merge because we were in the middle of an other track");
+	  } // Visited good id 4
+	  /*else {
+	    debug("we must find which is the direction");
+	    int currr =  neighCand.m_r[index-1] - goodNode->m_r;
+	    int prevr = goodNode->m_r - prevNode->m_r;
+	    if((currr >= 0 && prevr >= 0) || (currr < 0 && prevr < 0)){
+	    debug("Middle node, We are checking in the tail direction");
+	    nextNeigh= index-1;
+	    dir = k == 1? 3: 1; // head to head or tail to head
+	    } else {
+	    debug("Middle node, We are checking in the head direction");
+	    nextNeigh= index+1;
+	    dir = k == 1? 2: 0; // head to head or tail to head
+	    }
+	    }*/
+
+
+
+	       
+	  /*  if(potCm == goodNode->m_cm[0]){
+		  
+	      debug("Two nodes in a row belong to the same cm %d, let's stop and merge them later", potCm);
+	      cond = false;
+	      const auto p = std::find_if(tracklets.begin(), tracklets.end(),
+	      [potCm](const PathCandidate *obj){ return obj->m_id == potCm; } );
+		
+
+	      curCand.m_toMergeHead.push_back(potCm);
+
+	      if(prevId == (*p)->m_headNode){
+	      (*p)->m_toMergeHead.push_back(curCand.m_id);
+	      debug("Merging head to head");
+	      }
+		  
+	      else if(prevId ==  (*p)->m_tailNode){
+	      (*p)->m_toMergeTail.push_back(curCand.m_id);
+	      debug("Merging head to tail");
+	      }
+
+	      else {
+	      std::vector<int>::iterator it = std::find(((*p)->m_memberList)->begin(), ((*p)->m_memberList)->end(), prevId);
+	      int index = std::distance(((*p)->m_memberList)->begin(), it);
+	      if(index >= (tracklets[potCm]->m_memberList)->size()/2){
+	      debug("Merging head to head (to check)");
+	      ( (*p)->m_toMergeHead).push_back(curCand.m_id) ;
+	      } else{
+	      debug("Merging head to tail (to check)");
+	      ( (*p)->m_toMergeTail).push_back(curCand.m_id);
+	      }
+	      }
+	      break; 
+	      //visitedTracks[curCand.m_id] = 1;
+	      // visitedTracks[potCm] = 1;
+	      } else {
+	      potCm = goodNode->m_cm[0];
+	      }	*/	
+	   
+	  //else
+	  // potCm = -1;
+
+	  // goodIdx = gr.Find(goodId);
+	  curCand.insertNewNode(gr, goodNode, k == 0? curCand.m_memberList->begin(): curCand.m_memberList->end());
+	  visited[goodId] = 4;
+
+
+	  //   curLayer = goodNode->m_Layer;
+
+	  next.clear();
+
+	  for(size_t i = 0; i < goodNode->m_neighbors.size(); i++){
+	      
+	    int neighId = goodNode->m_neighbors[i];
+	    //  debug("Node %d has one neig %d, visited %d", goodId, neighId, visited[neighId]);
+
+	    if(curCand.isInCandidate(neighId)) continue;
+
+	      
+
+	    int neighIdx = gr.Find(neighId);
+	    GridNode *neighNode = &Ingrid[neighIdx];
+
+	    next.push_back(neighId);
+		
+	  }// for neighbors
+
+	  if(goodNode->parent != -1){
+	    next.push_back(goodNode->parent);
+	    dbgfit("Also adding this node %d", goodNode->parent );
+	  }
+
+
+	  if(next.size() > 0){	      
+	    prevId = goodId;
+	    prevNode = goodNode;
+	    virt.clear();
+	    if(goodNode->m_Layer == 0){
+	      dbgfit("Reached end ?");
+	      curCand.m_finished = 2;
+	      cond = false;
+	    }			 
+	  }
+
+	  else {
+	      
+	    dbgfit("we have no more neighbors");
+	    cond = false;
+	      
+	    /*if(potCm != -1){
+		
+	      debug("Last node added belonged to a cm %d, let's see if we should merge them", potCm);
+		
+	      curCand.m_toMergeHead.push_back(potCm);
+
+	      const auto p = std::find_if(tracklets.begin(), tracklets.end(), [potCm](const PathCandidate *obj){ return obj->m_id == potCm; } );
+		
+
+	      if(goodId == (*p)->m_headNode){
+	      ((*p)->m_toMergeHead).push_back(curCand.m_id);
+	      debug("Merging head to head");
+	      }
+	      else if(goodId == (*p)->m_tailNode){
+	      ((*p)->m_toMergeTail).push_back(curCand.m_id);
+	      debug("Merging head to tail");
+	      }else{
+	      std::vector<int>::iterator it = std::find(((*p)->m_memberList)->begin(), ((*p)->m_memberList)->end(), goodId);
+	      int index = std::distance(((*p)->m_memberList)->begin(), it);
+	      if(index >= ((*p)->m_memberList)->size()/2){
+	      debug("Merging head to head (to check)");
+	      ((*p)->m_toMergeHead).push_back(curCand.m_id) ;
+	      } else{
+	      debug("Merging head to tail (to check)");
+	      ((*p)->m_toMergeTail).push_back(curCand.m_id) ;
+	      }
+	      }
+	      //	visitedTracks[curCand.m_id] = 1;
+	      //	visitedTracks[potCm] = 1;
+	      } else {
+	      info("No potential neighbors ?");
+	      curCand.m_finished = 2;
+	      }*/
+		     
+	  } // next,size() == 0
+			  	      
+	    //   cond = false;
+	} // WHILE COND
+      } // for k 2
+      dbgfit("Finished with current tracklet, moving to next \n");
+    } // for k trackets
+    // timing("Fitting phase ended. Real time %f s, CPU time %f s.", timer.RealTime(),timer.CpuTime());

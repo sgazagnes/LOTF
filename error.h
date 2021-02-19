@@ -6,7 +6,7 @@
 
 #include "CoordGrid.h"
 #include "trackObject.h"
-
+#include "pathCandidate.h"
 //_____ Structure to hold error evaluation parameters _____
 typedef struct MCMatchingErrorStruct{
   // public:
@@ -68,6 +68,11 @@ MCMatchingErrorStruct()
   double tr_b;
   double tr_r;
   double tr_E;
+
+  double disX;
+  double disY;
+  double disZ;
+  // double tr_E;
 } MCMatchingError;
 ////////////////////////////////
 /**
@@ -85,9 +90,14 @@ MCMatchingError* MatchComplexMCTracks(CoordGrid &gr,
 				      std::vector< std::set<int>* >  const *connectedComp,
 				      std::vector<int >  &sectorList );
 
-std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitMap,
+/*std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitMap,
                                                            std::vector < MCTrackObject* > const *MCTracks,
                                                            std::vector< std::set<int>* > const *connectedComp,
+							   std::vector<int >  &idComplex);/*/
+
+std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitMap,
+                                                           std::vector < MCTrackObject* > const *MCTracks,
+                                                           std::vector < PathCandidate* > const *tracklets,
 							   std::vector<int >  &idComplex);
 
 #endif
