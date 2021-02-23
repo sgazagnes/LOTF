@@ -11,19 +11,11 @@
 #include "gridNode.h"
 #include "pathCandidate.h"
 
+#define MIN(a,b)  ((a<=b) ? (a) : (b))
+#define MAX(a,b)  ((a>=b) ? (a) : (b))
 
-/*#include "CollectSttMvdPoints.h"
-#include "SttMVDEventDataReader.h"
-#include "pathopen.h"
-#include "hitcoordinate.h"
-#include "floodingFilter.h"
-#include "utilfunctions.h"
-#include "trackObject.h"
-#include "logc.h"
-#include "queue.h"
-//#include "performFilter.h"
-#include "path_queue.h"
-*/
+#define pdd pair<double, double> ;
+
 
 typedef enum {
   DOWN = 1,
@@ -31,10 +23,16 @@ typedef enum {
   UP = 4
 } Direction;
 
+typedef enum {
+  ONGOING = 1,
+  TOMERGE = 2,
+  FINISHED = 3
+} Status;
+
 bool sortbysec(const pair<int,unsigned short> &a, 
 	       const pair<int,unsigned short> &b);
-bool sortNeighbors(CoordGrid &gr, GridNode *currentNode, std::vector<int> &prev, std::vector<int> &same, std::vector<int> &next, std::vector<int> &virt, char *visited, int *dir);
-
+//bool sortNeighbors(CoordGrid &gr, GridNode *currentNode, std::vector<int> &prev, std::vector<int> &same, std::vector<int> &next, std::vector<int> &virt, char *visited, int *dir);
+bool sortNeighbors(CoordGrid &gr, GridNode *currentNode,  PathCandidate &cand, std::vector<int> &prev, std::vector<int> &same, std::vector<int> &next, std::vector<int> &virt, char *visited, int *dir);
 int determineSkewed_XYPlane_new( CoordGrid &hitMap, GridNode const &VNode,
                             std::vector<int> &ListOfSkewedNodesIndex,
 				 std::vector<int> &ListOfVirtualNodesIndex, char *visited);
@@ -43,7 +41,8 @@ void resetLists(char *visited, std::vector<int> &prev, std::vector<int> &same, s
 
 void removeIdFromNeigh(GridNode *neighNode, std::vector<int> *prevNodes, int curId);
 
-bool areAdjacent(CoordGrid &gr, std::vector<int> *v);
+//bool areAdjacent(CoordGrid &gr, std::vector<int> *v);
+bool areAdjacent(CoordGrid &gr,  std::vector< GridNode > &Ingrid, std::vector<int> *v);
 
 double returnAngle(double x1, double x2, double x3, double y1, double y2, double y3);
 

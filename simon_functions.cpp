@@ -20,301 +20,12 @@
 #include "path_queue.h"
 
 
-#define pdd pair<double, double> ;
-
 
 bool sortbysec(const pair<int,unsigned short> &a, 
               const pair<int,unsigned short> &b) 
 { 
     return (a.second < b.second); 
 } 
-
-int determineSkewed_XYPlane_new( CoordGrid &hitMap, GridNode const &VNode,
-                            std::vector<int> &ListOfSkewedNodesIndex,
-				   std::vector<int> &ListOfVirtualNodesIndex, char *visited)
-{
-  dbggrid("Correcting xy-coordinates of skewed nodes for this instance for node %d", VNode.m_detID);
-	    
-  // Fetch all graph nodes
-  std::vector< GridNode > &Ingrid = hitMap.m_grid;
-  // Neighbours of the input node
-  std::vector<int> const &ListOfNeighbors = VNode.m_neighbors;
-  // Local variables
-  int LastVirtualNodeIdx = -10;
-  std::pair<float, float> Rad_deg;
-  std::vector<int>::iterator FindIt;
-  PathQueue SkewedNodeIndexQueue;
-  // There are exactly 2 neighbours (different slopes). And there are
-  // two types of virtual nodes (Ax_Vi_Sk or Sk_Vi_S).
-  assert( ListOfNeighbors.size() == 2);
-  int FNode_id    = ListOfNeighbors[0];//First ID
-  int FNode_index = hitMap.Find(FNode_id);//First index
-  GridNode &First_Neigh = Ingrid[FNode_index];
-  int SNode_id    = ListOfNeighbors[1];//Second ID
-  int SNode_index = hitMap.Find(SNode_id);//Second Index
-  GridNode &Second_Neigh = Ingrid[SNode_index];
-  // All neighbours must be active
-  assert( First_Neigh.m_active && Second_Neigh.m_active );
-  size_t LocalCurrentLayer, LocalNextLayer;
-  LocalCurrentLayer = LocalNextLayer = 0;
-  //Axial->Virtual->Skewed
-  bool OuterToInner;
-  if( visited[FNode_id] < 4) {
-    SkewedNodeIndexQueue.inQueue(FNode_index);
-    LocalCurrentLayer = First_Neigh.m_Layer;
-    dbggrid("First node is %d, visited is %d, current layer %d", FNode_id,visited[FNode_id], LocalCurrentLayer);
-    OuterToInner =  First_Neigh.m_Layer -  Second_Neigh.m_Layer > 0 ? true : false;
-  }
-
-  else{ 
-    SkewedNodeIndexQueue.inQueue(SNode_index);
-    LocalCurrentLayer = Second_Neigh.m_Layer;
-    dbggrid("Second node is %d, visited is %d, current layer %d", SNode_id,visited[SNode_id], LocalCurrentLayer);
-    OuterToInner =  Second_Neigh.m_Layer - First_Neigh.m_Layer  > 0 ? true : false;
-  }
-
-  dbggrid("We go in %d direction (first %d, second %d)",OuterToInner, First_Neigh.m_Layer, Second_Neigh.m_Layer);
-  //LocalNextLayer = LocalCurrentLayer + 1;
-  if(OuterToInner){
-    if( LocalCurrentLayer > 0) {
-      LocalNextLayer = LocalCurrentLayer - 1;
-    }
-    else{
-      LocalNextLayer = 0;
-    }
-  }
-  else{// if( !OuterToInner) {// Inner to outer
-    LocalNextLayer = LocalCurrentLayer + 1;
-  }
-  // Process skewed node index queue
-  while( !SkewedNodeIndexQueue.isEmpty() ) {
-    int sk_idx = SkewedNodeIndexQueue.popFront();
-    GridNode &SK_Node = Ingrid[sk_idx];
-    FindIt = std::find(ListOfSkewedNodesIndex.begin(), ListOfSkewedNodesIndex.end(), sk_idx);
-    if( FindIt == ListOfSkewedNodesIndex.end() ) {
-      ListOfSkewedNodesIndex.push_back(sk_idx);
-    }
-    dbggrid("Starting with %d", SK_Node.m_detID);
-    // List of neighbours
-    std::vector<int> const &Neighbours = SK_Node.m_neighbors;
-    for( size_t l = 0; l < Neighbours.size(); ++l) {
-      int sknID  = Neighbours[l];
-
-      int sknIdx = hitMap.Find(sknID);
-      GridNode &SK_NeighNode = Ingrid[sknIdx];
-      dbggrid("First neighbor is %d on layer %d", sknID, SK_NeighNode.m_Layer);
-
-      // Active and skewed
-      if(  SK_NeighNode.m_type == GridNode::STT_TYPE_SKEW ) {
-        // Current or next layer
-        if( SK_NeighNode.m_Layer == LocalCurrentLayer ||
-            SK_NeighNode.m_Layer == LocalNextLayer ) {
-	  dbggrid("Is skewed and on next layer");
-          FindIt = std::find(ListOfSkewedNodesIndex.begin(), ListOfSkewedNodesIndex.end(), sknIdx);
-          // Was not added before
-          if( FindIt == ListOfSkewedNodesIndex.end() ) {
-            SkewedNodeIndexQueue.inQueue(sknIdx);
-            ListOfSkewedNodesIndex.push_back(sknIdx);
-          }// End If not added before
-        }// Current or next layer
-      }// END if active and skewed.
-      // If neighbour node is a virtual node. We can start
-      // correcting and computing the orientations.
-      else if( SK_NeighNode.m_type == GridNode::VIRTUAL_NODE ) {
-	dbggrid("Is virtual and on next layer");
-	FindIt = std::find(ListOfVirtualNodesIndex.begin(), ListOfVirtualNodesIndex.end(), sknIdx);
-	if( (FindIt == ListOfVirtualNodesIndex.end()) && (sknID != VNode.m_detID) ) {
-	  // Outer -> inner layer
-	  if( (OuterToInner) && (SK_NeighNode.m_Layer <= SK_Node.m_Layer)) {
-	    ListOfVirtualNodesIndex.push_back(sknIdx);
-	    LastVirtualNodeIdx = sknIdx;
-	  }
-	  // Inner -> outer layer
-	  if( (!OuterToInner) && (SK_NeighNode.m_Layer >= SK_Node.m_Layer)) {
-	    ListOfVirtualNodesIndex.push_back(sknIdx);
-	    LastVirtualNodeIdx = sknIdx;
-	  }
-	}
-      }// END if active and virtual
-    }//END neighbour loop
-  }//END WHILE (SkewedNodeIndexQueue)
-  int lastVirtualID = -10;
-  if (LastVirtualNodeIdx >= 0) {
-    GridNode &LastVirtual_node = Ingrid[LastVirtualNodeIdx];
-    lastVirtualID = LastVirtual_node.m_detID;
-    /* A list of all skewed nodes between the two virtual nodes is
-       created by now and we can proceed with corrections of the
-       xy-coordinates. Determine the dx and dy between current node and
-       last virtual node.*/
-    float x_diff = fabs(VNode.m_x - LastVirtual_node.m_x);
-    float y_diff = fabs(VNode.m_y - LastVirtual_node.m_y);
-    x_diff /= static_cast<float>(ListOfSkewedNodesIndex.size()+1);
-    y_diff /= static_cast<float>(ListOfSkewedNodesIndex.size()+1);
-    if( VNode.m_x > LastVirtual_node.m_x ) {
-      x_diff *= -1;
-    }
-    if( VNode.m_y > LastVirtual_node.m_y ) {
-      y_diff *= -1;
-    }
-    ////__________________ DEBUG PRINTS ______________________________________
-    dbggrid("ListOfSkewedNodesIndex %d, ListOfVirtualNodesIndex %d, x_diff %f, y_diff %f", ListOfSkewedNodesIndex.size(), ListOfVirtualNodesIndex.size(), x_diff, y_diff);
-
-    std::cout << " Starting from " << VNode.m_detID << "("<< VNode.m_Layer << "): ";
-    for(size_t v = 0; v < ListOfVirtualNodesIndex.size(); ++v) {
-      int indexof = ListOfVirtualNodesIndex[v];
-      GridNode const &Vnd = Ingrid[indexof];
-      std::cout << Vnd.m_detID << "("<< Vnd.m_Layer << "), ";
-    }
-    std::cout << " Last V_id = " << LastVirtual_node.m_detID << std::endl;
-    ////__________________ DEBUG PRINTS ______________________________________
-    float xInc = VNode.m_x + x_diff;
-    float yInc = VNode.m_y + y_diff;
-    /* Correct xy-coordinates of the skewed nodes */
-    for(size_t m = 0; m < ListOfSkewedNodesIndex.size(); ++m) {
-      GridNode &skewedToproc = Ingrid[ListOfSkewedNodesIndex[m]];
-      skewedToproc.m_xDet = xInc;
-      skewedToproc.m_yDet = yInc;
-      xInc += x_diff;
-      yInc += y_diff;
-    }
-  }
-  /* Skewed nodes are pre-processed. RETURN*/
-  return(lastVirtualID);
-}
-
-
-/* sortNeighbors */
-
-bool sortNeighbors(CoordGrid &gr, GridNode *currentNode, std::vector<int> &prev, std::vector<int> &same, std::vector<int> &next, std::vector<int> &virt, char *visited, int *dir){
-
-  int curDir = *dir;
-  std::vector< GridNode > &Ingrid  = gr.m_grid;
-  size_t curLayer 	= currentNode->m_Layer;
-  int curId   		= currentNode->m_detID;
-  bool cond 		= true;
-
-  
-  for(size_t i = 0; i < currentNode->m_neighbors.size(); i++){
-    int neighId 	= currentNode->m_neighbors[i];
-    int neighIdx 	= gr.Find(neighId);
-    GridNode &neighNode = Ingrid[neighIdx];
-    
-    // debug("Node %d has one neig %d", curId, neighId);
-    
-    if(neighNode.m_type == GridNode::VIRTUAL_NODE){
-      virt.push_back(neighId);
-      // if(neighId == 12454)
-//	debug("%d %d", neighNode.m_neighbors[0],  neighNode.m_neighbors[1]);
-      //   determineSkewed_XYPlane_perso( *gr, *neighNode, ListOfSkewedNodesIndex, ListOfVirtualNodesIndex,visited);
-      //error("%d curlaye %d, virtual layer %d", neighId, curLayer, neighNode->m_Layer);
-      continue;
-    }	 
-
-    if(visited[neighId] == 0){ // Not visited
-      if(neighNode.m_Layer > curLayer){
-	//	debug("Node %d has one neigh up %d", curId, neighId);
-	next.push_back(neighId);
-	curDir |= UP;
-	visited[neighId] = 2;
-      }
-
-      else if( neighNode.m_Layer < curLayer) {
-	//	debug("Node %d has one neigh down %d", curId, neighId);
-	prev.push_back(neighId);
-	curDir |= DOWN;
-	visited[neighId] = 2;
-      }
-
-      else {
-	//	debug("Node %d has one neigh on the same %d", curId, neighId);
-	same.push_back(neighId);
-	visited[neighId] = 2;
-      }
-    } // if not visited
-
-    else if(visited[neighId] == 4){ // Already in CM
-      //   debug("Node %d has already been connected, tricky", neighId);
-      cond = false;
-      if(!(std::find(same.begin(), same.end(), neighId) != same.end()))
-	same.push_back(neighId);
-
-    }
-
-    //  else
-      // debug("Node %d has already been added to the list", neighId);
-  }
-
-  	
-  if( curDir > 4 || same.size() > 1){
-    dbgconnect("A complex case to be solved later");
-    cond = false;
-  }
-  
-  *dir = curDir;
-  //debug("Neig cond %d", cond);
-  return cond;
-}
-
-
-/* resetLists */
-
-
-void resetLists(char *visited, std::vector<int> &prev, std::vector<int> &same, std::vector<int> &next){
-  for (size_t i = 0; i < same.size(); i++)
-    if(visited[same[i]] < 4)
-      visited[same[i]] =0;
-	      
-  for (size_t i = 0; i < next.size(); i++)
-    if(visited[next[i]] < 4)
-      visited[next[i]] =0;
-
-  for (size_t i = 0; i < prev.size(); i++)
-    if(visited[prev[i]] < 4)
-      visited[prev[i]] =0;
-}
-
-
-/* removeIdFromNeigh */
-
-
-void removeIdFromNeigh(GridNode *neighNode, std::vector<int> *prevNodes, int curId){
-  for(size_t i = 0; i < prevNodes->size(); i++){
-    if(prevNodes->at(i) != neighNode->m_detID){ 		
-      (neighNode->m_neighbors).erase(std::remove((neighNode->m_neighbors).begin(), (neighNode->m_neighbors).end(),prevNodes->at(i)), (neighNode->m_neighbors).end());
-      if(i == 0)
-	neighNode->parent = curId;
-    }
-  }
-}
-
-
-/* areAdjacent */
-
-
-bool areAdjacent(CoordGrid &gr, std::vector<int> *v){
-  size_t adjacent = 0;
-  std::vector< GridNode > &Ingrid = gr.m_grid;
-
-  for (size_t i = 0; i < v->size(); i++){
-    int neighId   = v->at(i);
-    int neighIdx  = gr.Find(neighId);
-    GridNode &neighNode = Ingrid[neighIdx];
-    //prevNodes.push_back(neighId);
-    
-    for (size_t j = i+1; j < v->size (); j++){
-      //   debug("Are %d and %d connected?", neighId, v->at(j));
-      if(neighId == v->at(j)) dbgconnect("areAdjacent: should not be in vector");
-      else if(neighNode.IsNeighboring(v->at(j)))
-	adjacent++;
-      // else
-    }
-  }
-  
-  if(adjacent >= v->size() -1)
-    return true;
-  else
-    return false;
-}
 
 
 /* polyFit */
@@ -552,36 +263,41 @@ int fitNextId(CoordGrid &gr, std::vector< GridNode > &Ingrid, PathCandidate &can
   std::vector<int> uncertain;
   std::vector<int> unlikely;
   std::vector<int> *tocheck;
-  info("here");
-  
+
   float tol = 90.;
   for (int i = 0; i <next.size(); i++){
     int curId = next[i];
     int curIdx = gr.Find(curId);
     GridNode *node = &Ingrid[curIdx];
+    double xdet = node->m_x;
+    double ydet = node->m_y;
+    //   dbgfit("%d", curId);
     if(node->m_type == GridNode::VIRTUAL_NODE){
-      info("here %d", node->m_neighbors.size());
 
       GridNode *neigh = &Ingrid[gr.Find(node->m_neighbors[0])];
-      //info("here %d, %d,%d ", neigh->m_detID,neigh->m_cm.size(),neigh->m_cm[0]);
+      //    info("here %d, %d", neigh->m_detID,neigh->m_cm.size());
 
-      if(neigh->m_cm.size() > 0 && neigh->m_cm[0] == cand.m_id){
-	info("%d, %d", neigh->m_cm[0], cand.m_id);
-
+      if(neigh->m_cm.size()>0 && std::find(neigh->m_cm.begin(), neigh->m_cm.end(), cand.m_id) != neigh->m_cm.end()){
 	neigh = &Ingrid[gr.Find(node->m_neighbors[1])];
       }
       if(neigh->m_cm.size() > 0 && neigh->m_cm[0] == cand.m_id){
 	//error("All belong to track ?");
-	info("%d, %d", neigh->m_cm[0], cand.m_id);
 	continue;	
       }
-      dbgfit("Replacing node %d with %d", node->m_detID, neigh->m_detID);
+      
+      dbgfit("Replacing node %d with %d, and recorrecting the impact coordinates", node->m_detID, neigh->m_detID);
+      PointsLineIntersect( *neigh, x[x.size()-1], node->m_xDet,
+			   y[y.size()-1], node->m_yDet); //Output 
       node = neigh;
+      xdet = node->m_x;
+      ydet = node->m_y;
+      if(cand.isInCandidate(node->m_detID))
+	 continue;
     }
 	
-	  
-    double xdet = node->m_x;
-    double ydet = node->m_y;
+    // dbgfit("%d", curId);
+ 
+
     double rdet = (double) node->m_r /  sqrt( 2*pow(40,2));
     double thetadet = (double) (node->m_thetaDeg+180.) /360.;
     if(node->m_type == GridNode::STT_TYPE_SKEW)
@@ -594,21 +310,23 @@ int fitNextId(CoordGrid &gr, std::vector< GridNode > &Ingrid, PathCandidate &can
     float angle_r = returnAngle(r[r.size()-2], r[r.size()-1], rdet, theta[theta.size()-2], theta[theta.size()-1], thetadet);
     
     float angle_xy = returnAngle(x[x.size()-2], x[x.size()-1], xdet, y[y.size()-2], y[y.size()-1], ydet);
-       dbgfit("Points %lf, %lf %lf, \t %lf %lf, %lf",x[x.size()-2], x[x.size()-1], xdet, y[y.size()-2], y[y.size()-1], ydet);
-     dbgfit("Angle with %d is %f, %f", curId, angle_r, angle_xy);
-      if(fabs(angle_r) > 85 && fabs(angle_xy) > tol)
-	plausible.push_back(curId);
-      else if((fabs(angle_r) > 85 || fabs(angle_xy) > tol) && fabs(angle_r) > 50 && fabs(angle_xy) > 50)
-	uncertain.push_back(curId);
-      else
-	unlikely.push_back(curId);
+    // dbgfit("Points %lf, %lf %lf, \t %lf %lf, %lf",x[x.size()-2], x[x.size()-1], xdet, y[y.size()-2], y[y.size()-1], ydet);
+    // dbgfit("Angle with %d is %f, %f", node->m_detID, angle_r, angle_xy);
+    //    fabs(angle_r) > 85 && fabs(angle_xy) > tol &&
+     if( std::find(plausible.begin(), plausible.end(), node->m_detID) == plausible.end()) 
+	plausible.push_back(node->m_detID);
+	// else if((fabs(angle_r) > 85 || fabs(angle_xy) > tol) && fabs(angle_r) > 50 && fabs(angle_xy) > 50 && std::find(uncertain.begin(), uncertain.end(), node->m_detID) == uncertain.end())
+     //	uncertain.push_back(node->m_detID);
+	// else if(  std::find(unlikely.begin(), unlikely.end(), node->m_detID) == unlikely.end())
+	// unlikely.push_back(node->m_detID);
   }
 
-  if(plausible.size() == 1){
+  /* if(plausible.size() == 1){
     goodId = plausible[0];
     dbgfit("Only one good choice %d", goodId);
     return goodId;
-  }else  if(plausible.size() > 0){
+    }else */
+  if(plausible.size() > 0){
     dbgfit("We found %d promising candidates", plausible.size());
     tocheck = &plausible;
   }  else if (uncertain.size() > 0) {
@@ -624,7 +342,7 @@ int fitNextId(CoordGrid &gr, std::vector< GridNode > &Ingrid, PathCandidate &can
   } else {
     dbgfit("Unless we want to go backwards, we should stop");
     return -1;
-  }
+    }
 
   // Checking Track angle in polar coord 
 
@@ -632,35 +350,52 @@ int fitNextId(CoordGrid &gr, std::vector< GridNode > &Ingrid, PathCandidate &can
   
   // double curv = returnCurvature(x[0], x[x.size()/2], x[x.size()-1], y[0], y[y.size()/2], y[y.size()-1]);
 
-  float angle = returnAngle(r[0], r[r.size()/2], r[r.size()-1],  theta[0], theta[theta.size()/2], theta[theta.size()-1]);
+  // float angle = returnAngle(r[0], r[r.size()/2], r[r.size()-1],  theta[0], theta[theta.size()/2], theta[theta.size()-1]);
   //debug("Angle of track is %f", angle);
   
-
-  if(fabs(angle) < 170){
-    dbgfit("Quadratic Fit");
-    method = 1;
-    degree = 2;
-    nElts  = x.size() -1;
-  } else {
-    dbgfit("Linear Fit");
-    method = 0;
+  //
+  //if(fabs(angle) < 170){
+  //   dbgfit("Quadratic Fit");
+  //  method = 1;
+    // degree = 2;
+    // nElts  = x.size() -1;
+    // } else {
+  // dbgfit("Linear Fit");
+  method = 0;
     degree = 1;
     nElts = x.size()-1;
-  }
+    //}
  
   std::vector<double> p;
+  std::vector<double> xfit;
+  std::vector<double> yfit;
+
   double minDist = std::numeric_limits<double>::max();
     
   p.push_back(0.);
-  for (int i = 0; i <  nElts; i++){ 
-    double newval = p[i] + sqrt(pow(r[i+1]-r[i],2.) + pow(theta[i+1]-theta[i],2.));
+  xfit.push_back(x[ x.size()-MIN(x.size(),4)]);
+  yfit.push_back(y[ y.size()-MIN(y.size(),4)]);
+
+  for (int i = x.size()-MIN(x.size(),4), inc=0; i <  nElts; i++, inc++){ 
+    //double newval = p[i] + sqrt(pow(r[i+1]-r[i],2.) + pow(theta[i+1]-theta[i],2.));
+    double newval = p[inc] + sqrt(pow(x[i+1]-x[i],2.) + pow(y[i+1]-y[i],2.));
+
+    //  dbgfit("x %f", x[i]);
     p.push_back(newval);
+    xfit.push_back(x[i+1]);
+    yfit.push_back(y[i+1]);
   }
+  // dbgfit("r %f", r[r.size()-1]);
+  // dbgfit("%lf, %lf, %lf", p[0],p[p.size()/2], p[p.size()-1]);
+  dbgfit("%lf, %lf, %lf", p[0], xfit[0], yfit[0]);
+  dbgfit("%lf, %lf, %lf", p[p.size()-1], x[x.size()-1], y[y.size()-1]);
 
-  double *x_coef = polyFit(p, r, degree);
-  double *y_coef = polyFit(p, theta, degree);
+  double *x_coef = polyFit(p, xfit, degree);
+  double *y_coef = polyFit(p, yfit, degree);
 
-  
+  dbgfit("%lf, %lf", x_coef[0], x_coef[1]);
+  dbgfit("%lf, %lf", y_coef[0], y_coef[1]);
+
   //  if(method == 0){ // linear
 
     
@@ -669,17 +404,28 @@ int fitNextId(CoordGrid &gr, std::vector< GridNode > &Ingrid, PathCandidate &can
     int curId = tocheck->at(i);
     int curIdx = gr.Find(curId);
     GridNode *node = &Ingrid[curIdx];
-    double xdet = (double) node->m_r/  sqrt( 2*pow(40,2));//node->m_xDet;
-    double ydet = (double)  (node->m_thetaDeg+180.) /360.;     
-    if(ydet > 0.85 && prevtheta < 0.15)
+    double xdet = (double) node->m_xDet;//node->m_r/  sqrt( 2*pow(40,2));//node->m_xDet;
+    double ydet = (double) node->m_yDet;// (node->m_thetaDeg+180.) /360.;     
+    /*  if(ydet > 0.85 && prevtheta < 0.15)
       ydet -= 1;
     else if(ydet < 0.15 && prevtheta > 0.85)
-      ydet += 1.;
-    double currDist = method == 0? nodeDistanceToLinearFit(xdet, ydet, x_coef, y_coef): nodeDistanceToQuadFit(xdet, ydet, x_coef, y_coef);      
+    ydet += 1.;*/
+    // double newp = p[p.size()-1] + sqrt(pow(xdet-r[r.size()-1],2.) + pow(ydet-theta[theta.size()-1],2.));
+    double newp = p[p.size()-1] + sqrt(pow(xdet-x[x.size()-1],2.) + pow(ydet-y[y.size()-1],2.));
+    double xest =  method == 0? x_coef[0]+x_coef[1]*newp: x_coef[0]+x_coef[1]*newp+x_coef[2]*newp*newp;
+    double yest = method == 0? y_coef[0]+y_coef[1]*newp: (y_coef[0]+y_coef[1]*newp+y_coef[2]*newp*newp);
+    dbgfit("%lf", newp);
 
+    // dbgfit("Estimated new coord %lf, %lf", xest*sqrt( 2*pow(40,2)),yest*360-180);
+    //  dbgfit("Node coord %lf, %lf",xdet*  sqrt( 2*pow(40,2)), ydet*360-180);
+    dbgfit("Estimated new coord %lf, %lf", xest,yest);
+    dbgfit("Node coord %lf, %lf",xdet, ydet);  
+    //dbgfit("Distance to estimated coord is %lf", sqrt(pow(xest -xdet, 2) + pow(yest -ydet,2)));
+    // double currDist = method == 0? nodeDistanceToLinearFit(xdet, ydet, x_coef, y_coef): nodeDistanceToQuadFit(xdet, ydet, x_coef, y_coef);
+    double currDist =sqrt(pow(xest -xdet, 2) + pow(yest -ydet,2));// method == 0? nodeDistanceToLinearFit(xdet, ydet, x_coef, y_coef): nodeDistanceToQuadFit(xdet, ydet, x_coef, y_coef);  
      dbgfit("Node %d is at %lf", curId, currDist);
 		
-    if(minDist > currDist){
+    if(minDist > currDist && currDist < 6){
       minDist = currDist;		  
       goodId = curId;	
     }        
@@ -1349,11 +1095,6 @@ double IntersectionPointSkeSke(CoordGrid const &hitMap,
     double diff_z = (double) ((1.0-sc) * startTubeA_z + sc * endTubeA_z) + ((1.0 - tc) * startTubeB_z + tc * endTubeB_z);
 
     double dist = sqrt(pow(((1.0-sc) * startTubeA_x + sc * endTubeA_x) - ((1.0 - tc) * startTubeB_x + tc * endTubeB_x),2)+pow(((1.0-sc) * startTubeA_y + sc * endTubeA_y) - ((1.0 - tc) * startTubeB_y + tc * endTubeB_y),2));
-    if(fabs(diff_z/2.) > 140){
-      error("Errore, %f", diff_z/2);
-      cout << "tube A"<< "\t" << startTubeA_z << "\t" <<   endTubeA_z <<  endl;
-      cout << "tube B" << "\t"<< startTubeB_z << "\t" <<  endTubeB_z << endl;
-    }
    
     GridNode TransA(tubeA);// Dit kan beter maar voor nu .... FIXME Later
 
@@ -1433,91 +1174,91 @@ void IntersectionPointCoord(GridNode &tubeA, GridNode &tubeB)
   float w_z = startTubeA_z - startTubeB_z;
   
   /* GRVector3 P0 = start;
-    GRVector3 P1 = end;
-    GRVector3 Q0 = line.start;
-    GRVector3 Q1 = line.end;*/
+     GRVector3 P1 = end;
+     GRVector3 Q0 = line.start;
+     GRVector3 Q1 = line.end;*/
 
-    double const SMALL_NUM = std::numeric_limits<double>::epsilon();
-    /*   GRVector3   u = P1 - P0;
-    GRVector3   v = Q1 - Q0;
-    GRVector3   w = P0 - Q0;*/
-    double    a = (double) u_x*u_x + u_y*u_y + u_z*u_z;         // always >= 0
-    double    b = (double) u_x*v_x + u_y*v_y + u_z*v_z;
-    double    c = (double) v_x*v_x + v_y*v_y + v_z*v_z;         // always >= 0
-    double    d = (double) u_x*w_x + u_y*w_y + u_z*w_z; //u.dot(w);
-    double    e = (double) v_x*w_x + v_y*w_y + v_z*w_z; // v.dot(w);
-    double    D = (double) a*c - b*b;        // always >= 0
-    double    sc, sN, sD = D;       // sc = sN / sD, default sD = D >= 0
-    double    tc, tN, tD = D;       // tc = tN / tD, default tD = D >= 0
+  double const SMALL_NUM = std::numeric_limits<double>::epsilon();
+  /*   GRVector3   u = P1 - P0;
+       GRVector3   v = Q1 - Q0;
+       GRVector3   w = P0 - Q0;*/
+  double    a = (double) u_x*u_x + u_y*u_y + u_z*u_z;         // always >= 0
+  double    b = (double) u_x*v_x + u_y*v_y + u_z*v_z;
+  double    c = (double) v_x*v_x + v_y*v_y + v_z*v_z;         // always >= 0
+  double    d = (double) u_x*w_x + u_y*w_y + u_z*w_z; //u.dot(w);
+  double    e = (double) v_x*w_x + v_y*w_y + v_z*w_z; // v.dot(w);
+  double    D = (double) a*c - b*b;        // always >= 0
+  double    sc, sN, sD = D;       // sc = sN / sD, default sD = D >= 0
+  double    tc, tN, tD = D;       // tc = tN / tD, default tD = D >= 0
 
-    // compute the line parameters of the two closest points
-    if (D < SMALL_NUM) { // the lines are almost parallel
-        sN = 0.0;         // force using point P0 on segment S1
-        sD = 1.0;         // to prevent possible division by 0.0 later
-        tN = e;
-        tD = c;
+  // compute the line parameters of the two closest points
+  if (D < SMALL_NUM) { // the lines are almost parallel
+    sN = 0.0;         // force using point P0 on segment S1
+    sD = 1.0;         // to prevent possible division by 0.0 later
+    tN = e;
+    tD = c;
+  }
+  else {                 // get the closest points on the infinite lines
+    sN = (b*e - c*d);
+    tN = (a*e - b*d);
+    if (sN < 0.0) {        // sc < 0 => the s=0 edge is visible
+      sN = 0.0;
+      tN = e;
+      tD = c;
     }
-    else {                 // get the closest points on the infinite lines
-        sN = (b*e - c*d);
-        tN = (a*e - b*d);
-        if (sN < 0.0) {        // sc < 0 => the s=0 edge is visible
-            sN = 0.0;
-            tN = e;
-            tD = c;
-        }
-        else if (sN > sD) {  // sc > 1  => the s=1 edge is visible
-            sN = sD;
-            tN = e + b;
-            tD = c;
-        }
+    else if (sN > sD) {  // sc > 1  => the s=1 edge is visible
+      sN = sD;
+      tN = e + b;
+      tD = c;
     }
+  }
 
-    if (tN < 0.0) {            // tc < 0 => the t=0 edge is visible
-        tN = 0.0;
-        // recompute sc for this edge
-        if (-d < 0.0)
-            sN = 0.0;
-        else if (-d > a)
-            sN = sD;
-        else {
-            sN = -d;
-            sD = a;
-        }
+  if (tN < 0.0) {            // tc < 0 => the t=0 edge is visible
+    tN = 0.0;
+    // recompute sc for this edge
+    if (-d < 0.0)
+      sN = 0.0;
+    else if (-d > a)
+      sN = sD;
+    else {
+      sN = -d;
+      sD = a;
     }
-    else if (tN > tD) {      // tc > 1  => the t=1 edge is visible
-        tN = tD;
-        // recompute sc for this edge
-        if ((-d + b) < 0.0)
-            sN = 0;
-        else if ((-d + b) > a)
-            sN = sD;
-        else {
-            sN = (-d + b);
-            sD = a;
-        }
+  }
+  else if (tN > tD) {      // tc > 1  => the t=1 edge is visible
+    tN = tD;
+    // recompute sc for this edge
+    if ((-d + b) < 0.0)
+      sN = 0;
+    else if ((-d + b) > a)
+      sN = sD;
+    else {
+      sN = (-d + b);
+      sD = a;
     }
+  }
     
-    // finally do the division to get sc and tc
-    sc = (std::abs(sN) < SMALL_NUM ? 0.0 : sN / sD);
-    tc = (std::abs(tN) < SMALL_NUM ? 0.0 : tN / tD);
+  // finally do the division to get sc and tc
+  sc = (std::abs(sN) < SMALL_NUM ? 0.0 : sN / sD);
+  tc = (std::abs(tN) < SMALL_NUM ? 0.0 : tN / tD);
 
-    //  GRVector3 diff = ((1.0 - sc) * P0 + sc * P1) - ((1.0 - tc) * Q0 + tc * Q1);
-
-
-    //  (TransA.m_neighbors).push_back(tubeA.m_detID);
-    //  (TransA.m_neighbors).push_back(tubeB.m_detID);
-
-    tubeA.m_xDet = ((1.0-sc) * startTubeA_x + sc * endTubeA_x);
-    tubeA.m_yDet  = (1.0-sc) * startTubeA_y + sc * endTubeA_y;
-    tubeA.m_z_Det = (1.0-sc) * startTubeA_z + sc * endTubeA_z;
-
-    tubeB.m_xDet = ((1.0-tc) * startTubeB_x + tc * endTubeB_x);
-    tubeB.m_yDet  = (1.0-tc) * startTubeB_y + tc * endTubeB_y;
-    tubeB.m_z_Det = (1.0-tc) * startTubeB_z + tc * endTubeB_z;
+  //  GRVector3 diff = ((1.0 - sc) * P0 + sc * P1) - ((1.0 - tc) * Q0 + tc * Q1);
 
 
-    ////////////
-    return;
+  //  (TransA.m_neighbors).push_back(tubeA.m_detID);
+  //  (TransA.m_neighbors).push_back(tubeB.m_detID);
+
+  tubeA.m_xDet = ((1.0-sc) * startTubeA_x + sc * endTubeA_x);
+  tubeA.m_yDet  = (1.0-sc) * startTubeA_y + sc * endTubeA_y;
+  tubeA.m_z_Det = (1.0-sc) * startTubeA_z + sc * endTubeA_z;
+
+  tubeB.m_xDet = ((1.0-tc) * startTubeB_x + tc * endTubeB_x);
+  tubeB.m_yDet  = (1.0-tc) * startTubeB_y + tc * endTubeB_y;
+  tubeB.m_z_Det = (1.0-tc) * startTubeB_z + tc * endTubeB_z;
+
+
+  ////////////
+  return;
 }
 
 
@@ -1556,7 +1297,7 @@ void Add_VirtualNodes(CoordGrid &hitMap, std::vector < GridNode > &VNodesLayer, 
       if(firstNode.m_type == GridNode::STT_TYPE_SKEW && secondNode.m_type == GridNode::STT_TYPE_SKEW)
 	IntersectionPointSkeSke(hitMap, firstNode, secondNode, Dummy_coord);
       else
-	IntersectionPointSkeSke(hitMap, firstNode, secondNode, Dummy_coord);
+	IntersectionPointSkePar(hitMap, firstNode, secondNode, Dummy_coord);
 
 	// Modify node ID
 	//if( firstNode.m_detID == 979 || secondNode.m_detID == 979)
@@ -1626,31 +1367,28 @@ void Add_VirtualNodes(CoordGrid &hitMap, std::vector < GridNode > &VNodesLayer, 
 	    (CurLftNode.m_Sector != CurRgtNode.m_Sector) &&
 	    (CurLftNode.m_type == GridNode::STT_TYPE_SKEW && CurRgtNode.m_type == GridNode::STT_TYPE_SKEW) &&
 	    (CurLftNode.m_detID != CurRgtNode.m_detID)
-	  ){
-	  currDist =sqrt((CurLftNode.m_x - CurRgtNode.m_x) * (CurLftNode.m_x - CurRgtNode.m_x) +
-			 (CurLftNode.m_y - CurRgtNode.m_y) * (CurLftNode.m_y - CurRgtNode.m_y));// +distanceBetweenTu
-	  if(currDist <5.){
+	    ){
+	  currDist = distanceBetweenTube(CurLftNode, CurRgtNode);
+	  //sqrt((CurLftNode.m_x - CurRgtNode.m_x) * (CurLftNode.m_x - CurRgtNode.m_x) + (CurLftNode.m_y - CurRgtNode.m_y) * (CurLftNode.m_y - CurRgtNode.m_y));
+	  
+	  //if( CurLftNode.m_detID == 1318 || CurRgtNode.m_detID == 1318)
+	  //    /info("%d, %d, %lf", firstNode.m_detID, secondNode.m_detID, distanceBetweenTube(firstNode, secondNode));
+	  //info("Node %d and %d, dist %f", CurLftNode.m_detID, CurRgtNode.m_detID, currDist); 
+	  if(currDist <3.5){
 	    (CurLftNode.m_neighbors).push_back(CurRgtNode.m_detID);
 	    GridNode Dummy_coord;
 	    // Find intersection point.
-	    IntersectionPointSkePar(hitMap, CurLftNode, CurRgtNode, Dummy_coord);
-	      // Modify node ID
-	      //if( firstNode.m_detID == 979 || secondNode.m_detID == 979)
-	      //  info("%d, %d, %lf", firstNode.m_detID, secondNode.m_detID, distanceBetweenTube(firstNode, secondNode));
-	    //   info("DummDummy_coord.m_z %f", Dummy_coord.m_z);
+	    IntersectionPointSkeSke(hitMap, CurLftNode, CurRgtNode, Dummy_coord);
 
-	      Dummy_coord.m_detID      = StartVirtualID + NumTubesAdded;
-	      Dummy_coord.m_Orig_detID = Dummy_coord.m_detID;
-	      std::pair<float, float> r_Theta;
-	      float theta_deg = Cartesian_To_Polar(Dummy_coord.m_xDet, Dummy_coord.m_yDet, r_Theta);
-	      Dummy_coord.m_r = r_Theta.first;
-	      Dummy_coord.m_thetaDeg = theta_deg;
-	      // info("DummDummy_coord.m_z %f", Dummy_coord.m_z);
-	      //Dummy_coord.m_z = Dummy_coord.m_z_Det = 0;
-	      // Add to output.
-	      VNodesSector.push_back(Dummy_coord);
-	      NumTubesAdded++;
-	      //}// If intersect
+	    Dummy_coord.m_detID      = StartVirtualID + NumTubesAdded;
+	    Dummy_coord.m_Orig_detID = Dummy_coord.m_detID;
+	    std::pair<float, float> r_Theta;
+	    float theta_deg = Cartesian_To_Polar(Dummy_coord.m_xDet, Dummy_coord.m_yDet, r_Theta);
+	    Dummy_coord.m_r = r_Theta.first;
+	    Dummy_coord.m_thetaDeg = theta_deg;
+
+	    VNodesSector.push_back(Dummy_coord);
+	    NumTubesAdded++;
 	  }
 	}
       }

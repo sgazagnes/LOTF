@@ -53,13 +53,15 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
 				  std::string const &dirName   = "PlotsCanvas",
 				  Double_t const ww = 1100.00,
 				  Double_t const hh = 1100.00,
-				  size_t  const dim = 3,
+				  size_t  const dim = 2,
 				  size_t evtNum = 0)
 {
   TFile inp(InoutFile.c_str(),"UPDATE");
 
   // Get COnnected components
   TNtuple* ConComps = (TNtuple*) inp.Get("ConnectedComponents");
+  TNtuple* ConCompsAnc = (TNtuple*) inp.Get("ConnectedComponentsAnchors");
+
   TNtuple* Poss   = (TNtuple*) inp.Get("Pos");
   TNtuple* MCposs = (TNtuple*) inp.Get("MCpos");
 
@@ -159,7 +161,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       ConComps->Draw("y_Det:x_Det", ePlotCondition.c_str(), "same");
     }
     c2->Update();
-    c2->SaveAs("myalgo_cm_xy.pdf");
+    //   c2->SaveAs("myalgo_cm_xy.pdf");
 
   }
   // Z-reconstructed Connected components
@@ -190,7 +192,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       ConComps->Draw("y_Det:z_Det", ePlotCondition.c_str(), "same");
     }
     c3->Update();
-    c3->SaveAs("myalgo_cm_z.pdf");
+    // c3->SaveAs("myalgo_cm_z.pdf");
 
   }
    
@@ -220,7 +222,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       pos->Draw("my:mx",ePlotCondition.c_str(),"same");
     }
     c4->Update();
-    c4->SaveAs("MC_xy.pdf");
+    //  c4->SaveAs("MC_xy.pdf");
 
   }
   // Read data
@@ -249,7 +251,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       pos->Draw("y:x",ePlotCondition.c_str(),"same");
     }
     c5->Update();
-    c5->SaveAs("Read_xy.pdf");
+    // c5->SaveAs("Read_xy.pdf");
 
   }
   // MC in Z-coordinate
@@ -278,7 +280,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       pos->Draw("my:mz",ePlotCondition.c_str(),"same");
     }
     c6->Update();
-    c6->SaveAs("MC_yz.pdf");
+    //c6->SaveAs("MC_yz.pdf");
 
   }
 
@@ -394,6 +396,72 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
     }
     c8->Update();
     }*/
+
+
+  {
+
+
+    // Connected components
+    TCanvas *c20 = new TCanvas("c20", "Connected Component Anchors", 300, 300 );
+    grid->Draw("y:x","","");
+    TH2F *htemp = (TH2F*)gPad->GetPrimitive("htemp");
+    htemp->GetXaxis()->SetTitle("x [cm]");
+    htemp->GetYaxis()->SetTitle("y [cm]");
+    htemp->SetTitle("");
+    std::stringstream EeventNumString;
+    EeventNumString << evtNum;
+    std::string ePlotCondition;
+    for(size_t j = 0; j < nComp; j++) {
+      std::stringstream ecomponentNumber;
+      ecomponentNumber << j;
+      // Set marker and colours per component.
+      color = selectCompColour(j, numColours);
+      ConCompsAnc->SetMarkerColor(color);
+      marker = (j % 34);
+      if( marker < 20) { marker += 20; }
+      if( marker > 34) { marker = 34; }
+      ConCompsAnc->SetMarkerStyle(marker);
+      ConCompsAnc->SetMarkerSize(0.8);
+      // Conditions
+      ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
+      ePlotCondition += "(CompNum == " + ecomponentNumber.str() + ")";
+      ConCompsAnc->Draw("y_Det:x_Det", ePlotCondition.c_str(), "same");
+    }
+    c20->Update();
+    // c2->SaveAs("myalgo_cm_xy.pdf");
+
+  }
+  // Z-reconstructed Connected components
+  {
+    TCanvas *c30 = new TCanvas("c30", "Conn.Comp. With Z2", 300, 300 );
+    grid->Draw("y:z","","");
+    TH2F *htemp = (TH2F*)gPad->GetPrimitive("htemp");
+    htemp->GetXaxis()->SetTitle("z [cm]");
+    htemp->GetYaxis()->SetTitle("y [cm]");
+    htemp->SetTitle("");
+    std::stringstream EeventNumString;
+    EeventNumString << evtNum;
+    std::string ePlotCondition;
+    for(size_t j = 0; j < nComp; j++) {
+      std::stringstream ecomponentNumber;
+      ecomponentNumber << j;
+      // Set marker and colours per component.
+      color = selectCompColour(j, numColours);
+      ConCompsAnc->SetMarkerColor(color);
+      marker = (j % 34);
+      if( marker < 20) { marker += 20; }
+      if( marker > 34) { marker = 34; }
+      ConCompsAnc->SetMarkerStyle(marker);
+      ConCompsAnc->SetMarkerSize(0.8);
+      // Conditions
+      ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
+      ePlotCondition += "(CompNum == " + ecomponentNumber.str() + ")";
+      ConCompsAnc->Draw("y_Det:z_Det", ePlotCondition.c_str(), "same");
+    }
+    c30->Update();
+    //c3->SaveAs("myalgo_cm_z.pdf");
+
+  }
     #endif
 
 

@@ -62,6 +62,7 @@ void CoordGrid::Initialize(std::vector < GridNode > const &detNodes)
      if( (detNodes[i].m_type == GridNode::STT_TYPE_PARA) ||
 	 (detNodes[i].m_type == GridNode::STT_TYPE_SKEW) ) {
        m_grid.push_back(detNodes[i]);
+
      }
      else if((detNodes[i].m_type == GridNode::MVD_TYPE_PIXEL) ||
 	     (detNodes[i].m_type == GridNode::MVD_TYPE_STRIP) ) {
@@ -73,7 +74,28 @@ void CoordGrid::Initialize(std::vector < GridNode > const &detNodes)
    dbggrid("Total number of inserts CoordGrid: %lu, first id: %d, last id: %d", m_grid.size(), m_grid[0].m_detID, m_grid[ (m_grid.size() - 1) ].m_detID);
 }
 
+void CoordGrid::CorrectLayerLimit()
+{
+  dbggrid("Correcting the layer Limit  variable");
+  int nLayerAdd = 0;
+  bool found =0;
+  for(size_t i = 0; i < m_grid.size(); ++i) {
+    GridNode &node = m_grid[i];
+    if(node.m_LayerLimit) continue;
+    int numNeigh =  node.m_neighbors.size();
+    for(size_t j =0; j < numNeigh; j++){
+      GridNode &neigh = m_grid[Find(node.m_neighbors[j])];
+      if(neigh.m_Layer > node.m_Layer)
+	found = 1;
+    }
+    if(!found)
+      node.m_LayerLimit = 1;
+  
+  }
+}
 
+
+	 
 /*
  * Modify the node id numbering in order to include the virtual tubes
  * in the correct positions between the layes based on their

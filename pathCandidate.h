@@ -34,7 +34,9 @@ struct PathCandidate{
   void updateHeadAndTailNodes();
   void insertNewNode(CoordGrid &gr, std::vector< GridNode > &Ingrid, GridNode *node,  std::vector<int>::iterator it);
   bool compareTwoPathsLength(PathCandidate *a, PathCandidate *b) ;
-
+  void determineSkewedXY(CoordGrid &gr, std::vector< GridNode > &Ingrid, GridNode *node, size_t vecindex);
+  void addToAnchor(CoordGrid &gr, std::vector< GridNode > &Ingrid,GridNode *node, size_t vecindex, int prevLayer);
+  void correctPrevAnchor(CoordGrid &gr, std::vector< GridNode > &Ingrid,GridNode *node, size_t vecindex);
   inline bool isInCandidate(int nodeId) const;
 
   // Comparison functions
@@ -77,7 +79,7 @@ struct PathCandidate{
   int    m_minLayerNodeId;//id of node with min layer
   int    m_maxLayer; //Layer number of max//id of node with max layer
   int    m_minLayer;// Layer number of min//id of node with min layer
-
+  int    m_nPerLayer;
   int    m_lastNodeVirtual;//id of node with min layer
   // int    m_lastNodeVirtualId;//id of node with min layer
 
@@ -87,12 +89,14 @@ struct PathCandidate{
 
   int    m_headNode;
   int    m_tailNode;
-
+  int    m_lastNodeAdded;
   int    m_seenVirtual;//id of node with min layer
   int    m_lastVirtual;
+  int    m_numVirtual;
   std::vector<int> *m_memberList;// List of members in a vector(delete me)
   std::set<int>    *m_memberIdSet;// The set of member ids
   std::vector<int> 	 m_prevVirtuals;
+  // std::vector<int> 	 m_prevNodes;
 
   std::vector<unsigned int>	 m_toMergeHead;
   std::vector<unsigned int> 	 m_toMergeTail;
@@ -108,6 +112,7 @@ struct PathCandidate{
   std::vector<double> m_z;// List of z
   std::vector<double> m_r;// List of r
   std::vector<double> m_theta;// List of theta
+  std::vector<GridNode> m_anchors;// List of theta
 
   /* Shape and spread parameters */
   

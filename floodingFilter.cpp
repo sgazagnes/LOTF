@@ -31,13 +31,14 @@
 #include "reconstruction.h"
 #include "error.h"
 #include "logc.h"
+#include "phconnect.h"
 
 // DEBUG AND STORE definitions
 #define EVALUATE_ERROR 0
 #define READ_GRID_FROM_FILE 0
 #define DO_RECONSTRUCTION 1
 #define DO_CONNECT 1
-#define DO_FITTING 1
+#define DO_FITTING 0
 #define DO_MERGING 0
 #define DO_ZRECONS 0
 #define WRITE_CONNECTED_COMPONENTS 1
@@ -82,6 +83,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   // NTuple to hold the coordinates of all connected components.
   std::string ConnCompPar = "EvtNum:CompNum:tubeId:x:y:z:r:thetaDeg:x_Det:y_Det:z_Det";
   TNtuple ConnectedCoord ("ConnectedComponents", "Connected component Coordinates", ConnCompPar.c_str());
+   std::string AnchorCCPar = "EvtNum:CompNum:x_Det:y_Det:z_Det";
+  TNtuple AnchorCCCoord ("ConnectedComponentsAnchors", "Connected component anchors Coordinates", AnchorCCPar.c_str());
   // Hold number of components per event
   TNtuple ComponentPerEvt ("ComponentPerEvt", "Component per event","evtNum:numComponents");
 
@@ -101,7 +104,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   
   // Init Grid for STT detector nodes (fill the map).
   gr.Initialize(detNodes);
-
+  gr.CorrectLayerLimit();
   TNtuple Layers("LayerLimits","Layer Limits.","x:y:det_z:z");
   TNtuple Sections("SectionsLimits","Section Limits.","x:y:det_z:z");
   // Isolate Sector and Layer Limits
@@ -180,17 +183,23 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   // Event loop
 
   for(size_t k = 0; k < Hit_coords->size(); ++k) {
-    if(k == 28 || k == 90 || k == 42||k == 55||k==97) continue;
-    if(MC_Tracks->at(k)->size() == 0) continue;
+    //   if(k == 28 || k == 90 || k == 42||k == 55||k==97) continue;
+
+    if(MC_Tracks->at(k)->size() == 0){
+      error("This event did not contain anay tracks");
+      continue;
+    }
+    
     std::vector< std::set<int>* >* connectedComp = 0;
-connectedComp = new std::vector< std::set<int>* >();
+    connectedComp = new std::vector< std::set<int>* >();
+    
     // Data for the current event
     info("Processing event: %d", k);
     std::vector<HitCoordinate*> const *dd = 0;
     dd = Hit_coords->at(k);
-    if(dd) {
+    if(dd) 
       gr.FillGrid(*dd);
-    }
+    
     //   CoordGrid grCopy (gr);
     std::vector< GridNode > &Ingridori = gr.m_grid;
     std::vector< GridNode > Ingrid(Ingridori);  
@@ -201,7 +210,9 @@ connectedComp = new std::vector< std::set<int>* >();
     int nactiveAll = 0, nactiveReal = 0;
 
     /* Pushing all active detectors into queue */
-    timing("Fill grid phase ended. Time %lf s", std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count());
+    timing("Fill grid phase ended. Time %lf s",
+	   std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count());
+
     
     for(size_t n = 0; n < Ingrid.size(); ++n) {
       GridNode &curNode = Ingrid[n];
@@ -217,8 +228,7 @@ connectedComp = new std::vector< std::set<int>* >();
 	    if(Ingrid[neigh_index].m_type == GridNode::VIRTUAL_NODE){
 	      int nID = Ingrid[neigh_index].m_neighbors[0] == NodeId? Ingrid[neigh_index].m_neighbors[1]:
 		Ingrid[neigh_index].m_neighbors[0];
-	      int nIndex = gr.Find(nID);
-	      GridNode const &First  = Ingrid[nIndex];
+	      GridNode const &First  = Ingrid[gr.Find(nID)];
 	      if(First.m_active)
 		Ingrid[neigh_index].m_active = true;
 	      else{
@@ -226,7 +236,7 @@ connectedComp = new std::vector< std::set<int>* >();
 		continue;
 	      }
 		
-	    }else if(!Ingrid[neigh_index].m_active){
+	    } else if(!Ingrid[neigh_index].m_active){
 	      (curNode.m_neighbors).erase((curNode.m_neighbors).begin()+i);
 	      continue;
 	    }
@@ -284,7 +294,7 @@ connectedComp = new std::vector< std::set<int>* >();
     size_t sizeBef = idToProcess.size();
     for(unsigned int n = 0; n < idToProcess.size();) {
       int curId  = idToProcess[n].first;
-      if(visited[curId] == 4){
+      if(visited[curId] == 1){
 	idToProcess.erase(idToProcess.begin() + n);
 	continue;
       }
@@ -295,7 +305,8 @@ connectedComp = new std::vector< std::set<int>* >();
 
 
     info("Reordering current tracklets by size");
-    std::sort(tracklets.begin(), tracklets.end(), compareTwoPathsLength); 
+    std::sort(tracklets.begin(), tracklets.end(), compareTwoPathsLength);
+    std::reverse(tracklets.begin(), tracklets.end());
     /* for(unsigned int l = 0; l < tracklets.size(); l++){
       PathCandidate &curCand = *(tracklets[l]);
       //info("Cm %d has length %d", curCand.m_id, curCand.m_length);
@@ -318,7 +329,7 @@ connectedComp = new std::vector< std::set<int>* >();
 
 
     for(unsigned int n = 0; n < idToProcess.size(); ++n) {
-      if(visited[idToProcess[n].first] == 4){
+      if(visited[idToProcess[n].first] == 1){
 	idToProcess.erase(idToProcess.begin() + n);
 	n--;
       }
@@ -555,6 +566,9 @@ connectedComp = new std::vector< std::set<int>* >();
 			curCand.m_x[i], curCand.m_y[i], node.m_z_Det);
 			}*/
 	    }
+	    for( size_t i = 0;  i < curCand.m_anchors.size(); ++i) {
+	      AnchorCCCoord.Fill(k, cm,  curCand.m_anchors[i].m_xDet,curCand.m_anchors[i].m_yDet,curCand.m_anchors[i].m_z_Det);
+	    }
 	    cm++;
 		  
 	  }
@@ -712,6 +726,7 @@ connectedComp = new std::vector< std::set<int>* >();
 
   ComponentPerEvt.Write();
   ConnectedCoord.Write();
+  AnchorCCCoord.Write();
 
 
   

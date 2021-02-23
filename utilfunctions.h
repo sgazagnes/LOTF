@@ -40,8 +40,7 @@ struct PathCandidate;
 #define CANDIDATE_DISTANCE_CURVATURE_MERGE  6.0 //6.0
 #define CANDIDATE_MAHALANOBIS_DISTANCE_CURVATURE_MERGE 200//200
 
-#define MIN(a,b)  ((a<=b) ? (a) : (b))
-#define MAX(a,b)  ((a>=b) ? (a) : (b))
+
 
 //________________ candidateDistobject __________________________________
 struct candidateDistobject{

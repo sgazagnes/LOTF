@@ -782,3 +782,156 @@ void fitZCoordinates(CoordGrid &hitMap, PathCandidate *trk)
       dbgfit("Finished with current tracklet, moving to next \n");
     } // for k trackets
     // timing("Fitting phase ended. Real time %f s, CPU time %f s.", timer.RealTime(),timer.CpuTime());
+
+int determineSkewed_XYPlane_new( CoordGrid &hitMap, GridNode const &VNode,
+                            std::vector<int> &ListOfSkewedNodesIndex,
+				   std::vector<int> &ListOfVirtualNodesIndex, char *visited)
+{
+  dbggrid("Correcting xy-coordinates of skewed nodes for this instance for node %d", VNode.m_detID);
+	    
+  // Fetch all graph nodes
+  std::vector< GridNode > &Ingrid = hitMap.m_grid;
+  // Neighbours of the input node
+  std::vector<int> const &ListOfNeighbors = VNode.m_neighbors;
+  // Local variables
+  int LastVirtualNodeIdx = -10;
+  std::pair<float, float> Rad_deg;
+  std::vector<int>::iterator FindIt;
+  PathQueue SkewedNodeIndexQueue;
+  // There are exactly 2 neighbours (different slopes). And there are
+  // two types of virtual nodes (Ax_Vi_Sk or Sk_Vi_S).
+  assert( ListOfNeighbors.size() == 2);
+  int FNode_id    = ListOfNeighbors[0];//First ID
+  int FNode_index = hitMap.Find(FNode_id);//First index
+  GridNode &First_Neigh = Ingrid[FNode_index];
+  int SNode_id    = ListOfNeighbors[1];//Second ID
+  int SNode_index = hitMap.Find(SNode_id);//Second Index
+  GridNode &Second_Neigh = Ingrid[SNode_index];
+  // All neighbours must be active
+  assert( First_Neigh.m_active && Second_Neigh.m_active );
+  size_t LocalCurrentLayer, LocalNextLayer;
+  LocalCurrentLayer = LocalNextLayer = 0;
+  //Axial->Virtual->Skewed
+  bool OuterToInner;
+  if( visited[FNode_id] < 4) {
+    SkewedNodeIndexQueue.inQueue(FNode_index);
+    LocalCurrentLayer = First_Neigh.m_Layer;
+    dbggrid("First node is %d, visited is %d, current layer %d", FNode_id,visited[FNode_id], LocalCurrentLayer);
+    OuterToInner =  First_Neigh.m_Layer -  Second_Neigh.m_Layer > 0 ? true : false;
+  }
+
+  else{ 
+    SkewedNodeIndexQueue.inQueue(SNode_index);
+    LocalCurrentLayer = Second_Neigh.m_Layer;
+    dbggrid("Second node is %d, visited is %d, current layer %d", SNode_id,visited[SNode_id], LocalCurrentLayer);
+    OuterToInner =  Second_Neigh.m_Layer - First_Neigh.m_Layer  > 0 ? true : false;
+  }
+
+  dbggrid("We go in %d direction (first %d, second %d)",OuterToInner, First_Neigh.m_Layer, Second_Neigh.m_Layer);
+  //LocalNextLayer = LocalCurrentLayer + 1;
+  if(OuterToInner){
+    if( LocalCurrentLayer > 0) {
+      LocalNextLayer = LocalCurrentLayer - 1;
+    }
+    else{
+      LocalNextLayer = 0;
+    }
+  }
+  else{// if( !OuterToInner) {// Inner to outer
+    LocalNextLayer = LocalCurrentLayer + 1;
+  }
+  // Process skewed node index queue
+  while( !SkewedNodeIndexQueue.isEmpty() ) {
+    int sk_idx = SkewedNodeIndexQueue.popFront();
+    GridNode &SK_Node = Ingrid[sk_idx];
+    FindIt = std::find(ListOfSkewedNodesIndex.begin(), ListOfSkewedNodesIndex.end(), sk_idx);
+    if( FindIt == ListOfSkewedNodesIndex.end() ) {
+      ListOfSkewedNodesIndex.push_back(sk_idx);
+    }
+    dbggrid("Starting with %d", SK_Node.m_detID);
+    // List of neighbours
+    std::vector<int> const &Neighbours = SK_Node.m_neighbors;
+    for( size_t l = 0; l < Neighbours.size(); ++l) {
+      int sknID  = Neighbours[l];
+
+      int sknIdx = hitMap.Find(sknID);
+      GridNode &SK_NeighNode = Ingrid[sknIdx];
+      dbggrid("First neighbor is %d on layer %d", sknID, SK_NeighNode.m_Layer);
+
+      // Active and skewed
+      if(  SK_NeighNode.m_type == GridNode::STT_TYPE_SKEW ) {
+        // Current or next layer
+        if( SK_NeighNode.m_Layer == LocalCurrentLayer ||
+            SK_NeighNode.m_Layer == LocalNextLayer ) {
+	  dbggrid("Is skewed and on next layer");
+          FindIt = std::find(ListOfSkewedNodesIndex.begin(), ListOfSkewedNodesIndex.end(), sknIdx);
+          // Was not added before
+          if( FindIt == ListOfSkewedNodesIndex.end() ) {
+            SkewedNodeIndexQueue.inQueue(sknIdx);
+            ListOfSkewedNodesIndex.push_back(sknIdx);
+          }// End If not added before
+        }// Current or next layer
+      }// END if active and skewed.
+      // If neighbour node is a virtual node. We can start
+      // correcting and computing the orientations.
+      else if( SK_NeighNode.m_type == GridNode::VIRTUAL_NODE ) {
+	dbggrid("Is virtual and on next layer");
+	FindIt = std::find(ListOfVirtualNodesIndex.begin(), ListOfVirtualNodesIndex.end(), sknIdx);
+	if( (FindIt == ListOfVirtualNodesIndex.end()) && (sknID != VNode.m_detID) ) {
+	  // Outer -> inner layer
+	  if( (OuterToInner) && (SK_NeighNode.m_Layer <= SK_Node.m_Layer)) {
+	    ListOfVirtualNodesIndex.push_back(sknIdx);
+	    LastVirtualNodeIdx = sknIdx;
+	  }
+	  // Inner -> outer layer
+	  if( (!OuterToInner) && (SK_NeighNode.m_Layer >= SK_Node.m_Layer)) {
+	    ListOfVirtualNodesIndex.push_back(sknIdx);
+	    LastVirtualNodeIdx = sknIdx;
+	  }
+	}
+      }// END if active and virtual
+    }//END neighbour loop
+  }//END WHILE (SkewedNodeIndexQueue)
+  int lastVirtualID = -10;
+  if (LastVirtualNodeIdx >= 0) {
+    GridNode &LastVirtual_node = Ingrid[LastVirtualNodeIdx];
+    lastVirtualID = LastVirtual_node.m_detID;
+    /* A list of all skewed nodes between the two virtual nodes is
+       created by now and we can proceed with corrections of the
+       xy-coordinates. Determine the dx and dy between current node and
+       last virtual node.*/
+    float x_diff = fabs(VNode.m_x - LastVirtual_node.m_x);
+    float y_diff = fabs(VNode.m_y - LastVirtual_node.m_y);
+    x_diff /= static_cast<float>(ListOfSkewedNodesIndex.size()+1);
+    y_diff /= static_cast<float>(ListOfSkewedNodesIndex.size()+1);
+    if( VNode.m_x > LastVirtual_node.m_x ) {
+      x_diff *= -1;
+    }
+    if( VNode.m_y > LastVirtual_node.m_y ) {
+      y_diff *= -1;
+    }
+    ////__________________ DEBUG PRINTS ______________________________________
+    dbggrid("ListOfSkewedNodesIndex %d, ListOfVirtualNodesIndex %d, x_diff %f, y_diff %f", ListOfSkewedNodesIndex.size(), ListOfVirtualNodesIndex.size(), x_diff, y_diff);
+
+    std::cout << " Starting from " << VNode.m_detID << "("<< VNode.m_Layer << "): ";
+    for(size_t v = 0; v < ListOfVirtualNodesIndex.size(); ++v) {
+      int indexof = ListOfVirtualNodesIndex[v];
+      GridNode const &Vnd = Ingrid[indexof];
+      std::cout << Vnd.m_detID << "("<< Vnd.m_Layer << "), ";
+    }
+    std::cout << " Last V_id = " << LastVirtual_node.m_detID << std::endl;
+    ////__________________ DEBUG PRINTS ______________________________________
+    float xInc = VNode.m_x + x_diff;
+    float yInc = VNode.m_y + y_diff;
+    /* Correct xy-coordinates of the skewed nodes */
+    for(size_t m = 0; m < ListOfSkewedNodesIndex.size(); ++m) {
+      GridNode &skewedToproc = Ingrid[ListOfSkewedNodesIndex[m]];
+      skewedToproc.m_xDet = xInc;
+      skewedToproc.m_yDet = yInc;
+      xInc += x_diff;
+      yInc += y_diff;
+    }
+  }
+  /* Skewed nodes are pre-processed. RETURN*/
+  return(lastVirtualID);
+}

@@ -36,6 +36,8 @@ struct CoordGrid {
    * Init Grid data structure.
    */
   void Initialize(std::vector < GridNode > const &detNodes);
+  void CorrectLayerLimit();
+
   /* Add node(s) to grid */
   void ExtendedGrid(std::vector < GridNode > const &Nodes);
   void AddNodeToGrid(GridNode const &Node);

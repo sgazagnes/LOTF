@@ -1,0 +1,458 @@
+#include <iostream>
+#include <set>
+#include <sstream>
+#include <algorithm>
+#include  <cmath>
+#include <fstream>
+#include <vector>
+#include <gsl/gsl_poly.h>
+
+// Root headers
+#include "TFile.h"
+#include "TNtuple.h"
+#include "TStopwatch.h"
+#include "TH1.h"
+
+//#include "reconstruction.h"
+#include "gridNode.h"
+#include "logc.h"
+#include "simon_functions.h"
+#include "path_queue.h"
+#include "phconnect.h"
+
+
+/* resetLists */
+
+
+void resetLists(char *visited, std::vector<int> &prev, std::vector<int> &same, std::vector<int> &next){
+  for (size_t i = 0; i < same.size(); i++)
+    if(visited[same[i]] < 4)
+      visited[same[i]] =0;
+	      
+  for (size_t i = 0; i < next.size(); i++)
+    if(visited[next[i]] < 4)
+      visited[next[i]] =0;
+
+  for (size_t i = 0; i < prev.size(); i++)
+    if(visited[prev[i]] < 4)
+      visited[prev[i]] =0;
+}
+
+
+/* removeIdFromNeigh */
+
+void removeIdFromNeigh(GridNode *neighNode, std::vector<int> *prevNodes, int curId){
+  for(size_t i = 0; i < prevNodes->size(); i++){
+    if(prevNodes->at(i) != neighNode->m_detID){ 		
+      (neighNode->m_neighbors).erase(std::remove((neighNode->m_neighbors).begin(), (neighNode->m_neighbors).end(),prevNodes->at(i)), (neighNode->m_neighbors).end());
+      if(i == 0)
+	neighNode->parent = curId;
+    }
+  }
+}
+
+
+/* areAdjacent */
+
+
+bool areAdjacent(CoordGrid &gr,  std::vector< GridNode > &Ingrid, std::vector<int> *v){
+  size_t adjacent = 0;
+  //std::vector< GridNode > &Ingrid = gr.m_grid;
+
+  for (size_t i = 0; i < v->size(); i++){
+    int neighId   = v->at(i);
+    int neighIdx  = gr.Find(neighId);
+    GridNode &neighNode = Ingrid[neighIdx];
+    //prevNodes.push_back(neighId);
+    if(neighNode.m_cm.size() >0) break;
+    for (size_t j = i+1; j < v->size (); j++){
+      // info("Are %d and %d connected?", neighId, v->at(j));
+      if(neighId == v->at(j)) dbgconnect("areAdjacent: should not be in vector");
+      else if(neighNode.IsNeighboring(v->at(j)))
+	adjacent++;
+      // else
+    }
+  }
+  
+  if(adjacent >= v->size() -1)
+    return true;
+  else
+    return false;
+}
+
+/* sortNeighbors */
+
+bool sortNeighbors(CoordGrid &gr, GridNode *currentNode,  PathCandidate &cand, std::vector<int> &prev, std::vector<int> &same, std::vector<int> &next, std::vector<int> &virt, char *visited, int *dir){
+
+  int curDir = *dir;
+  std::vector< GridNode > &Ingrid  = gr.m_grid;
+  size_t curLayer 	= currentNode->m_Layer;
+  int curId   		= currentNode->m_detID;
+  bool cond 		= true;
+
+  for(size_t i = 0; i < currentNode->m_neighbors.size(); i++){
+    int neighId 	= currentNode->m_neighbors[i];
+    GridNode &neighNode = Ingrid[gr.Find(neighId)];
+    
+    if(cand.isInCandidate(neighId))
+      continue;
+    // info("Node %d has one neig %d", curId, neighId);
+    
+    if(neighNode.m_type == GridNode::VIRTUAL_NODE){
+      virt.push_back(neighId);
+      continue;
+    }	 
+
+    if(neighNode.m_Layer > curLayer){
+      info("Node %d has one neigh up %d", curId, neighId);
+      next.push_back(neighId);
+      curDir |= UP;
+      //visited[neighId] =MAX(2,visited[neighId]);
+    }	
+    else if( neighNode.m_Layer < curLayer) {
+      info("Node %d has one neigh down %d", curId, neighId);
+      prev.push_back(neighId);
+      curDir |= DOWN;
+      //visited[neighId]=MAX(2,visited[neighId]);      
+    }
+
+    else {
+      info("Node %d has one neigh on the same %d", curId, neighId);
+      same.push_back(neighId);
+      curDir |= SAME;
+      //visited[neighId]=MAX(2,visited[neighId]);
+    }
+  } 
+      
+  
+  sort( next.begin(), next.end() );
+  next.erase( unique( next.begin(), next.end() ), next.end() );
+  sort( prev.begin(), prev.end() );
+  prev.erase( unique( prev.begin(), prev.end() ), prev.end() );
+  sort( same.begin(), same.end() );
+  same.erase( unique( same.begin(), same.end() ), same.end() );
+  	
+  if( curDir > 4 || same.size() > 1){
+    error("Neighbors of %d, a complex case to be solved later", curId);
+    cond = false;
+  }
+  
+  *dir = curDir;
+  return cond;
+}
+
+void addNodesToCand (CoordGrid &gr, std::vector< GridNode > &Ingrid,  PathCandidate &cand, char *visited, std::vector<int> &v){
+
+  for (size_t i = 0; i < v.size(); i++){
+    int neighId   = v[i];
+    GridNode *neighNode = &Ingrid[gr.Find(neighId)];
+    cand.insertNewNode(gr, Ingrid, neighNode, cand.m_memberList->end());
+    visited[neighId] = 1;
+  }
+}
+
+void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < PathCandidate* > &tracklets,     std::vector<pair<int, unsigned short>> idToProcess, char *visited, int *candidateId){
+
+  //std::vector< GridNode > &Ingrid = gr.m_grid;  
+
+  for(unsigned int n = 0; n < idToProcess.size(); ++n) {
+      
+    std::vector<int> sameLayer;
+    std::vector<int> nextLayer;
+    std::vector<int> prevLayer;
+    std::vector<int> nextVirt;
+    std::vector<int> prevNodes;
+    std::vector<int> *v;
+      
+    int curDir 	       	= 0, nextDir = 0;
+    int curId 		= idToProcess[n].first;
+    GridNode *currentNode  = &Ingrid[gr.Find(curId)];
+
+    /* ++++++++++++++++++++++++++++++++++++++++++++++++++++ */   
+    /* BEGIN WITH NODES WITH ONE NEIGHBOR OR IN LAYER LIMIT */     
+    /* ++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+    
+    if(currentNode->m_neighbors.size() > 3)
+      break;
+
+    
+    if(!visited[curId] && (currentNode->m_neighbors.size() == 1 || (currentNode->m_LayerLimit == 1 && currentNode->m_neighbors.size() == 2))){ 
+	
+      int n_neighbors = currentNode->m_neighbors.size();
+      int curLayer    = currentNode->m_Layer;
+
+      // dbgconnect("Starting node %d has %d neighbors", curId, n_neighbors);
+
+      int    		n_connected = 0;
+      int 		neighId;
+      GridNode 		*neighNode;
+      bool   		cond = true;
+
+      /* Find new neighbors */
+      PathCandidate *cand 	= new PathCandidate();// Create a new candidate
+
+      cond = sortNeighbors(gr, currentNode, *cand, prevLayer, sameLayer, nextLayer, nextVirt, visited,  &nextDir);
+	
+      if(cond == false){ // if no simple neighbors, stop 
+	resetLists(visited, prevLayer, sameLayer, nextLayer);
+	delete(cand);
+	continue;
+      }
+
+      // Create a new candidate path
+      cand->m_id 		= (*candidateId)++;// Set id
+      cand->m_tailNode 		= curId;
+      visited[curId] 		= 1;
+      cand->insertNewNode(gr, Ingrid, currentNode, cand->m_memberList->end());
+      prevNodes.push_back(curId);
+
+      /* ++++                    ++++ */
+      /* Start putting nodes together */
+      /* ++++                    ++++ */
+	
+      while(cond){
+	info("With my buddy %d", curId);
+
+	
+	if(n_neighbors == 1){ /* 1 NEIGHBOR */
+
+	  if (nextDir == UP){
+	    v = &nextLayer; // Going up from node %d to node %d", curId, v->at(0));
+	  } else if (nextDir == DOWN){
+	    v = &prevLayer; //Going down from node %d to node %d", curId, v->at(0));
+	  } else {
+	    v = &sameLayer; //Going same level from node %d to node %d", curId, v->at(0));
+	  }
+	     
+	    
+	  if(nextVirt.size() > 0){ // If there were some virtual nodes to add	      
+	    addNodesToCand(gr, Ingrid, *cand, visited, nextVirt); 
+	    n_connected += nextVirt.size();	    
+	    prevNodes.insert(prevNodes.end(),  nextVirt.begin(),  nextVirt.end());
+	    nextVirt.clear();
+	  } 
+	    
+	  neighId    = v->at(0);
+	  neighNode  = &Ingrid[gr.Find(neighId)];
+	  cand->insertNewNode(gr, Ingrid, neighNode,cand->m_memberList->end());
+	  visited[neighId] = 1;
+	  n_connected++;
+	    
+	  removeIdFromNeigh(neighNode, &prevNodes, curId);
+
+	  curId       = neighId;
+	  currentNode = neighNode;
+	  curLayer    = currentNode->m_Layer;
+	    
+	  nextLayer.clear();  sameLayer.clear();   prevLayer.clear();    prevNodes.clear();
+	  prevNodes.push_back(curId);
+	  curDir = 0;
+
+	  cond = sortNeighbors(gr, currentNode, *cand, prevLayer, sameLayer, nextLayer, nextVirt, visited,  &dir);
+	  n_neighbors = sameLayer.size() + prevLayer.size() + nextLayer.size();
+	  info("%d nodes were connected,  %d found for the next step, cond is %d \n", n_connected, n_neighbors, cond);
+	  n_connected = 0;	    
+	} // end if 1 Neighbor
+
+
+
+	else if (sameLayer.size() > 0 ){   /* Same layer neighbors */
+
+	  v = nextDir == UP ? &nextLayer: &prevLayer; // find direction
+	  info("Still on the same layer, curID %d, %d",sameLayer[0], visited[sameLayer[0]]);
+		    
+
+	  if( (!areAdjacent(gr,Ingrid, v) && sameLayer.size()>1) || visited[sameLayer[0]]){ 
+	    // If next layer neighbors are not adjacent
+	    cond = false;	      
+	  }
+	  else { 
+
+	    int candId 	 	= sameLayer[0];
+	    GridNode *candNode  = &Ingrid[gr.Find(candId)];
+	    curLayer            = candNode->m_Layer;
+	    sameLayer.clear();
+
+	    //  info("Still on the same layer, investigating node %d", candId);
+	    //ADD CHECK THAT ALL NODES with respect to previous one
+	    for(size_t i = 0; i < candNode->m_neighbors.size(); i++){//CHECK if neighbors on next layer are adjacent 
+	      neighId = candNode->m_neighbors[i];	      
+	      neighNode = &Ingrid[gr.Find(neighId)];
+		
+	      if (neighId == curId || neighNode->m_type == GridNode::VIRTUAL_NODE)
+		continue;
+	      
+	      int haveNeigh = 0;		
+	      for (size_t j = 0; j < v->size(); j++){		  
+		if(v->at(j) == neighId || (neighNode->IsNeighboring(v->at(j))))
+		  haveNeigh = 1;		  
+	      }
+		
+	      if(haveNeigh == 0){ // If not adjecent, we quit
+		cond = false;
+		break;
+	      }		
+	    } 
+
+	    
+	    if (cond == true){ // All seem to belong to the same track, we can continue
+		
+	      info("All neighbors look good, let's insert this one !");
+
+	      cand->insertNewNode(gr, Ingrid, candNode,cand->m_memberList->end());
+	      visited[candId] = 1;
+	      n_connected++;
+
+	      removeIdFromNeigh(candNode, &prevNodes, curId);
+	      
+	      prevNodes.push_back(candId);
+	      curId       = candId;
+	      currentNode = candNode;
+	      cond = sortNeighbors(gr, currentNode, *cand, prevLayer, sameLayer, nextLayer, nextVirt, visited, &dir);
+
+	      n_neighbors = sameLayer.size()+prevLayer.size()+nextLayer.size();
+	      info("%d nodes were connected,  %d found for the next step \n\n", n_connected, n_neighbors);
+	      n_connected = 0;		
+	    } // IF COND TRUE
+	      
+	    else {
+	      info("Neighbors not connected... \n", n_connected, n_neighbors);
+	      // cand->m_headNeigh.push_back(candId); // Push for future fitting		
+	    } // ELSE (COND IS FALSE)
+	  } // ELSE (neighbors are adjacent
+	} // ELSE IF (same layer size > 0)
+
+
+
+	else if (n_neighbors > 1) {  	  /* Let's have a look to the other neighbors */
+
+	  if (nextDir == UP){ // we are going up 	      
+	    v = &nextLayer;
+	  }  else if (nextDir == DOWN){ // we are going down
+	    v = &prevLayer;
+	  } else // we have no idea where we are going
+	    dbgconnect("WHAT IS THE DIRECTION NOW?");
+	           
+	  if(areAdjacent(gr, Ingrid, v)){ // All neighbors are adjacent ??
+	      
+	    info("Adding %lu nodes to the CM (and %lu virtuals)", v->size(), nextVirt.size());
+	      
+	    if(nextVirt.size() > 0){ // taking care of the virtual nodes
+	      addNodesToCand(gr, Ingrid, *cand, visited, nextVirt); 
+	      n_connected += nextVirt.size();	    	  		
+	      prevNodes.insert(prevNodes.end(),  nextVirt.begin(),  nextVirt.end());
+	      nextVirt.clear();
+	    }
+	      
+	    std::vector<int> lookneigh(*v);
+
+	    for (size_t i = 0; i < v->size(); i++){ // add the next nodes
+	      neighId   = v->at(i);
+	      neighNode = &Ingrid[gr.Find(neighId)];
+	      cand-> insertNewNode(gr, Ingrid, neighNode, cand->m_memberList->end());
+	      visited[neighId] = 1;
+	      n_connected++;
+	      // lookneigh.push_back(neighId);
+	      removeIdFromNeigh(neighNode, &prevNodes, curId);		  
+	    }
+	      
+	    nextLayer.clear(); sameLayer.clear();    prevLayer.clear();    prevNodes.clear();
+	      
+	    curDir = 0;
+	     
+	    curId       = lookneigh[0];
+	    currentNode = &Ingrid[gr.Find(curId)];
+	    curLayer    = currentNode->m_Layer;
+	      
+	    n_neighbors = 0;
+	      
+	    for(size_t i = 0; i < lookneigh.size(); i++){ // Looking for new neighbors
+	      int id         = lookneigh[i];
+      	      GridNode *node = &Ingrid[ gr.Find(id)];
+	      prevNodes.push_back(id);
+	      cond = sortNeighbors(gr, node, *cand, prevLayer, sameLayer, nextLayer, nextVirt, visited,  &dir);
+	    }
+
+	    n_neighbors = sameLayer.size()+prevLayer.size()+nextLayer.size();
+	    info("%d nodes were connected,  %d found for the next step \n", n_connected, n_neighbors);
+	    n_connected = 0;
+	     
+	  } // IF ADJACENT
+
+	  else {
+	    //  info("Some of these nodes are node adjacent", v->size());
+	    cond = false;
+	  }
+	    
+	      
+	} // END IF neighbors size > 0
+
+	else { // We have no more neighbors
+
+	  int firstId         = cand->m_tailNode;
+	  GridNode &firstNode = Ingrid[ gr.Find(firstId)];
+	  int lastId          = cand->m_headNode;
+	  GridNode &lastNode  = Ingrid[gr.Find(lastId)];
+	    
+	  if(n_neighbors == 0) {
+	      
+	    dbgconnect("No more neighbors in sight, checking if could be finished already ?");
+	      
+	    if((cand->m_minLayer == 0 && cand->m_maxLayer > 21)
+	       || (firstNode.m_LayerLimit == 1 && lastNode.m_LayerLimit == 1)){		 
+	      dbgconnect("track goes through all layers or makes a loop, likily finished");		 
+	      cand->m_finished = 3;		 
+	    } else if(labs(currentNode->m_SectorLimit) > 0 || cand->m_isOnSectorLimit){
+	      dbgconnect("Track is on sector limit, might have a connection somewhere else");
+	      cand->m_finished = 2;
+	      cand->m_isOnSectorLimit= true;		 
+	    } else {		 
+	      dbgconnect("Candidate has no more neighbors, but doesn't seem finished (First %d, last %d)", firstId, lastId);
+	      cand->m_finished = 2;		 
+	    }
+	      
+	  } // end if n_neighbors == 0
+
+	    
+	  cond = false;
+	    
+	}
+
+	  	  
+	if(cond == false){ // This track is finished, but let's push neighbors as we need to fit in the next step
+
+	  for (size_t i = 0; i < sameLayer.size(); i++)
+	    cand->m_headNeigh.push_back(sameLayer[i]);
+	      
+	  for (size_t i = 0; i < nextLayer.size(); i++)
+	    cand->m_headNeigh.push_back(nextLayer[i]);
+
+	  for (size_t i = 0; i < prevLayer.size(); i++)
+	    cand->m_headNeigh.push_back(prevLayer[i]);
+
+	  cand->m_headNeigh.insert((cand->m_headNeigh).begin(),  (nextVirt).begin(),  (nextVirt).end());	
+	  // resetLists(visited, prevLayer, sameLayer, nextLayer);
+	}
+
+      }// WHILE COND
+
+	
+      if(cand->m_length > 2){
+	dbgconnect("Pushing cm %d with length %d, tail node %d, head node %d, min layer %d, max layer %d, IsOnSectorLimit %d, status  %d. ", cand->m_id, cand->m_length, cand->m_tailNode, cand->m_headNode,cand->m_minLayer, cand->m_maxLayer, cand->m_isOnSectorLimit, cand->m_finished);
+	tracklets.push_back(cand);
+      } else {
+	dbgconnect("Not a good cm %d, has length < 2",cand->m_headNode);
+	for(size_t i = 0; i < (cand->m_memberList)->size(); i++){   
+	  visited[(cand->m_memberList)->at(i)] = 0;
+	}
+	  
+	delete cand;
+	(*candidateId)--;
+      } // Else Candidate large enough
+	
+    } // for node with a single neighbor
+       	     
+  } // For active nodes
+
+}
+
