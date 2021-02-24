@@ -226,266 +226,191 @@ void PathCandidate::updateHeadAndTailNodes()
 
 void PathCandidate::determineSkewedXY(CoordGrid &gr, std::vector< GridNode > &Ingrid, GridNode *node, size_t vecindex){
 
-
- int layer = node->m_Layer;
+  // To redetermine the xy (and z) of each node in between two virtual layers
  
  int dir = vecindex == m_memberList->size()-1 ? -1 : 1;
- int off = vecindex == m_memberList->size()-1 ? m_anchors.size()-1: 0;
- 
- 
- if(m_anchors[off].m_type  == GridNode::STT_TYPE_PARA){
-   dbgconnect("This was a para node, let's not add any virtual");
- }else{
+ int off = vecindex == m_memberList->size()-1 ? m_memberList->size()-1: 0;
+ int offAnc = vecindex == m_memberList->size()-1 ? m_anchors.size()-1: 0;
+
+ // Because virtual between Para and Ske are not very well determined, we skip them
+ if(m_anchors[offAnc].m_type  != GridNode::STT_TYPE_PARA){
+   // Determine the new anchor based on the virtual nodes found (max 3, otherwise it is messy)
    GridNode virt =  Ingrid[gr.Find(m_prevVirtuals[0])];
-   for(size_t i =1; i< MIN(m_prevVirtuals.size(), 3); i++){
+   size_t nVirt = MIN(m_prevVirtuals.size(), 3);
+   for(size_t i =1; i< nVirt; i++){
      virt.m_xDet += Ingrid[gr.Find(m_prevVirtuals[i])].m_xDet;
      virt.m_yDet += Ingrid[gr.Find(m_prevVirtuals[i])].m_yDet;
      virt.m_z_Det +=Ingrid[gr.Find(m_prevVirtuals[i])].m_z_Det;
    }
-   virt.m_xDet /= MIN(m_prevVirtuals.size(), 3);
-   virt.m_yDet /= MIN(m_prevVirtuals.size(), 3);
-   virt.m_z_Det /= MIN(m_prevVirtuals.size(), 3);
-   dbgconnect("The virt anchor nodes is %f, %f, %f",  virt.m_xDet, virt.m_yDet, virt.m_z_Det) ;
+   virt.m_xDet  /= nVirt;
+   virt.m_yDet  /= nVirt;
+   virt.m_z_Det /= nVirt;
+   // dbgconnect("The virt anchor nodes is %f, %f, %f",  virt.m_xDet, virt.m_yDet, virt.m_z_Det) ;
 
-   
-   int lastAnc = -1;
-   int curLayer = -1;
-   int nNodes = 0;
+   // Determine the last node that xy was previously re-determined 
+   int lastAnc =0, incAnc = 0, curLayer = -1, nNodes = 0; 
    GridNode secondAnc;
-   for(size_t i = 1; i < m_memberList->size(); i++){
+   for(size_t i = 1, j = 0; i < m_memberList->size(); i++){
      GridNode mynode = Ingrid[gr.Find(m_memberList->at(off+dir*i))];
-     dbgtrkerror("%d", mynode->m_weight);
+     //  dbgtrkerror("%d, %d, %d", j, mynode.m_detID, mynode.m_weight);
+
+     if(mynode.m_type == GridNode::VIRTUAL_NODE)
+       continue;
      if(mynode.m_weight == 1 && curLayer == -1){
        lastAnc = i;
-       dbgconnect("First node found is %d",mynode.m_detID);
+       incAnc = j;
+       // dbgconnect("First node found is %d (i %d, j %d)",mynode.m_detID, i ,j);
        secondAnc = mynode;
        nNodes++;
        curLayer = mynode.m_Layer;
        //   break;
      } else if(mynode.m_weight == 1 && mynode.m_Layer == curLayer){
-       dbgconnect("An other node found is %d",mynode.m_detID);
+       //  dbgconnect("An other node found is %d",mynode.m_detID);
        secondAnc.m_xDet += mynode.m_xDet;
        secondAnc.m_yDet += mynode.m_yDet;
        secondAnc.m_z_Det += mynode.m_z_Det;
+       nNodes++;
      } else if( curLayer != -1 && (mynode.m_Layer - curLayer != 0)){
        break;
      }
+     j++;
    }
 
    secondAnc.m_xDet /= nNodes;
    secondAnc.m_yDet /= nNodes;
    secondAnc.m_z_Det /= nNodes;
-   dbgconnect("The previous anchor nodes is %f, %f, %f",  secondAnc.m_xDet, secondAnc.m_yDet, secondAnc.m_z_Det) ;
 
+   if(labs(secondAnc.m_Layer - virt.m_Layer < 2)){
+     dbgconnect("Both these anchors are almost on the same layer, let's be careful and not correct anything");
+     return;
+   }
+   // dbgconnect("The previous anchor nodes is %f, %f, %f",  secondAnc.m_xDet, secondAnc.m_yDet, secondAnc.m_z_Det) ;
+  std::vector<int> layers;
+
+   // Let's correct all nodes found between the first and last node anchors
     GridNode *prev = NULL;
     int nNodeperL = 0;
-    for(size_t i = 0; i < lastAnc; i++){
+    for(int i = 0, j = 0; j < incAnc; i++){
       GridNode &inter =  Ingrid[gr.Find(m_memberList->at(off+dir*lastAnc-dir*(i+1)))];
-      dbgconnect("Correcting %d, %d, %d", inter.m_detID, prev == NULL ? 0:prev->m_Layer, inter.m_Layer);
-      // if(prev->m_Layer != inter.m_Layer)
-      //	nNodeperL = 0;
-      
-      if(prev == NULL || (prev->m_Layer != inter.m_Layer && nNodeperL < 3)){
-	//	dbgconnect("YES");
-	if(prev->m_Layer != inter.m_Layer)
+
+      // dbgconnect("i %d, j%d, Correcting %d, %d, %d", i,j, inter.m_detID, prev == NULL ? 0:prev->m_Layer, inter.m_Layer);
+      if(inter.m_type == GridNode::VIRTUAL_NODE)
+	continue;
+
+
+      if(prev == NULL || prev->m_Layer != inter.m_Layer || nNodeperL < 3){
+	if(prev != NULL && prev->m_Layer != inter.m_Layer)
 	  nNodeperL = 0;
-	PointsLineIntersect( inter, secondAnc.m_xDet, virt.m_xDet, secondAnc.m_yDet, virt.m_yDet);
-	 printf("Finding intersection with %f, %f, %f\n", inter.m_x, inter.m_y, inter.m_z);
+	PointsLineIntersectFinal( inter, secondAnc.m_xDet, virt.m_xDet, secondAnc.m_yDet, virt.m_yDet);
+	auto it = find(m_memberList->begin(), m_memberList->end(), inter.m_detID);
+        int index = it - m_memberList->begin();
+	//	dbgconnect("i %d, ECorrecting %d, %d, %d", i, inter.m_detID, prev == NULL ? 0:prev->m_Layer, inter.m_Layer);
+
+	m_x[index] = inter.m_xDet;
+	m_y[index] = inter.m_yDet;
+	m_z[index] = inter.m_z_Det;
+	//	dbgconnect("i %d, FCorrecting %d, %d, %d", i, inter.m_detID, prev == NULL ? 0:prev->m_Layer, inter.m_Layer);
+
 	inter.m_weight = 1;
-	nNodeperL++;	
+	nNodeperL++;
+
       }
-      
+      j++;
       prev = &inter;
-    }
-      /*
-  
- GridNode &anchorPrev = Ingrid[gr.Find(m_prevVirtuals[0])];
- int layer = node->m_Layer;
-
- if(m_prevVirtuals.size() > 1){
-   for(size_t p =1; p < m_prevVirtuals.size();p++){
-     anchorPrev.m_x += Ingrid[gr.Find(m_prevVirtuals[p])].m_x;
-     anchorPrev.m_y += Ingrid[gr.Find(m_prevVirtuals[p])].m_y;
-     anchorPrev.m_z += Ingrid[gr.Find(m_prevVirtuals[p])].m_z;
-   }
-   anchorPrev.m_x /= (float) m_prevVirtuals.size();
-   anchorPrev.m_y /= (float) m_prevVirtuals.size();
-   anchorPrev.m_z /= (float) m_prevVirtuals.size();
- }
-
- if(anchorPrev.m_Layer == layer){
-   //	printf("Both virtuals are on same layers, better find something else\n");
- } else{
-   //	printf("Find nodes per layer\n");
-   std::vector<GridNode *>    layerN1;     
-   std::vector<GridNode *>    layerN2;
-   int curLayer;
-   for(size_t p =0; p < m_listSkewed.size();p++){
-     if(p == 0)
-       curLayer = Ingrid[gr.Find(m_listSkewed[p])].m_Layer;
-     if(Ingrid[gr.Find(m_listSkewed[p])].m_Layer == curLayer){
-       //   printf("Push %d on firt layer nodes\n", m_listSkewed[p]);
-       layerN1.push_back(&Ingrid[gr.Find(m_listSkewed[p])]);
-     } else if (labs(Ingrid[gr.Find(m_listSkewed[p])].m_Layer - curLayer) <2){
-       //    printf("Push %d on second layer nodes\n", m_listSkewed[p]);
-       layerN2.push_back(&Ingrid[gr.Find(m_listSkewed[p])]);
-     } else {
-       //  printf("We have a too large layer ???? \n");
-     }
-   }
-
-   GridNode anchorInter;
-   if(layerN1.size() > 0){
-     //	  printf("Correcting first layer\n");
-     anchorInter =  *layerN1[0];
-     for (size_t p = 1; p < MIN(layerN1.size(),3); p++){
-       anchorInter.m_x += layerN1[p]->m_x;
-       anchorInter.m_y += layerN1[p]->m_y;
-       anchorInter.m_z += layerN1[p]->m_z;
-     }
-     anchorInter.m_x /= (float) MIN(layerN1.size(),3);//interNodesL1.size();
-     anchorInter.m_y /= (float) MIN(layerN1.size(),3);// interNodesL1.size();
-     anchorInter.m_z /= (float) MIN(layerN1.size(),3);//;interNodesL1.size();
-      
-     //  printf("Finding intersection with %f, %f, %f\n", anchorInter.m_x, anchorInter.m_y, anchorInter.m_z);
-
-     PointsLineIntersect( anchorInter, anchorPrev.m_x, node->m_xDet,
-			  anchorPrev.m_y, node->m_yDet);
-	
-     //  printf("Intersect point is %f, %f, %f\n",anchorInter.m_xDet, anchorInter.m_yDet, anchorInter.m_z_Det);
-     for (size_t p = 0; p <layerN1.size(); p++){
-       auto it = find(m_memberList->begin(), m_memberList->end(), layerN1[p]->m_detID); 
-       int index = distance(m_memberList->begin(), it); 
-	    
-       layerN1[p]->m_xDet = m_x[index] = anchorInter.m_xDet;
-       layerN1[p]->m_yDet = m_y[index] = anchorInter.m_yDet;
-       layerN1[p]->m_z_Det = m_z[index] = anchorInter.m_z_Det;
-     }
- 
-   }
-
-   if(layerN2.size() > 0){
-     //  printf("Correcting second layer\n");
-     anchorInter =  *layerN2[0];
-     for (size_t p = 1; p < MIN(layerN2.size(),3); p++){
-       anchorInter.m_x += layerN2[p]->m_x;
-       anchorInter.m_y += layerN2[p]->m_y;
-       anchorInter.m_z += layerN2[p]->m_z;
-     }
-     anchorInter.m_x /= (float) MIN(layerN2.size(),3);//interNodesL1.size();
-     anchorInter.m_y /= (float) MIN(layerN2.size(),3);// interNodesL1.size();
-     anchorInter.m_z /= (float) MIN(layerN2.size(),3);//;interNodesL1.size();
-      
-     //  printf("Finding intersection with %f, %f, %f\n", anchorInter.m_x, anchorInter.m_y, anchorInter.m_z);
-
-     PointsLineIntersect( anchorInter, anchorPrev.m_x, node->m_xDet,
-			  anchorPrev.m_y, node->m_yDet);
-	
-     // printf("Intersect point is %f, %f, %f\n",anchorInter.m_xDet, anchorInter.m_yDet, anchorInter.m_z_Det);
-     for (size_t p = 0; p <layerN2.size(); p++){
-       auto it = find(m_memberList->begin(), m_memberList->end(), layerN2[p]->m_detID); 
-       int index = distance(m_memberList->begin(), it); 
-	    
-       layerN2[p]->m_xDet = m_x[index] = anchorInter.m_xDet;
-       layerN2[p]->m_yDet = m_y[index] = anchorInter.m_yDet;
-       layerN2[p]->m_z_Det = m_z[index] = anchorInter.m_z_Det;
-     }
- 
-     }*/
+    }     
  }
 }
 
-void PathCandidate::addToAnchor(CoordGrid &gr, std::vector< GridNode > &Ingrid,GridNode *node, size_t vecindex, int prevLayer){
+void PathCandidate::addToAnchor(CoordGrid &gr, std::vector< GridNode > &Ingrid, GridNode *node, size_t vecindex, int prevLayer){
+  
   int layer = node->m_Layer;
   int dir = vecindex == m_memberList->size()-1 ? -1 : 1;
   int off = vecindex == m_memberList->size()-1 ? m_anchors.size()-1: 0;
 
-  //if(toAdd.m_type == GridNode::STT_TYPE_PARA)
-  
-  //GridNode toAdd = *node;
-
-
-  //  dbgconnect("Cur layer %d, prevLayer %d", layer, prevLayer);
+  //  dbgconnect("node %d with  %f %f %f", node->m_detID, node->m_xDet, node->m_yDet, node->m_z_Det);
+  //If we have a new node on an other layer, let's make a new anchor
   if(prevLayer != layer){
-    if(node->m_type == GridNode::STT_TYPE_SKEW && m_length > 2){
-      PointsLineIntersect( *node, m_anchors[off+dir].m_xDet, m_anchors[off].m_xDet,
-			   m_anchors[off+dir].m_yDet, m_anchors[off].m_yDet); //Output
-    }
+     if(node->m_type == GridNode::STT_TYPE_SKEW && m_length > 2){
+      PointsLineIntersectLive( *node, m_anchors[off+3*dir].m_xDet, m_anchors[off].m_xDet,
+			   m_anchors[off+3*dir].m_yDet, m_anchors[off].m_yDet); //Output
+      // dbgconnect("New anchor correct, node %d with  %f %f %f", node->m_detID, node->m_xDet, node->m_yDet, node->m_z_Det);
+
+     }
     m_anchors.push_back(*node);
-    dbgconnect("New anchor is %f %f %f", node->m_xDet, node->m_yDet, node->m_z_Det);
-      
-    //  }
-    m_nPerLayer = 0;
-  } else {
-    dbgconnect("We had %d node on previous layer", m_nPerLayer);
+    m_nPerLayer = 0; // To be corrected for tail and head node
+  }
+  else {
+    // The idea here is to group nodes two by two on the same layer to reduce some scattering in the position    
     if(!(m_nPerLayer%2)){
       m_anchors.push_back(*node);
-      dbgconnect("New anchor on same layer is %f %f %f", node->m_xDet, node->m_yDet, node->m_z_Det);
+      //dbgconnect("New anchor on same layer is %f %f %f", node->m_xDet, node->m_yDet, node->m_z_Det);
     } else {
       m_anchors[off].m_xDet =  (m_anchors[off].m_xDet + node->m_xDet)/2.;
       m_anchors[off].m_yDet =  (m_anchors[off].m_yDet + node->m_yDet)/2.;
       m_anchors[off].m_z_Det =  (m_anchors[off].m_z_Det + node->m_z_Det)/2.;
-      dbgconnect("We corrected previous anchor as %f %f %f", m_anchors[off].m_xDet, m_anchors[off].m_yDet, m_anchors[off].m_z_Det);
-
+      //dbgconnect("We corrected previous anchor as %f %f %f", m_anchors[off].m_xDet, m_anchors[off].m_yDet, m_anchors[off].m_z_Det);
     }
   }
 }
 
 void PathCandidate::correctPrevAnchor(CoordGrid &gr, std::vector< GridNode > &Ingrid,GridNode *node, size_t vecindex){
-  int layer = node->m_Layer;
 
   int dir = vecindex == m_memberList->size()-1 ? -1 : 1;
   int off = vecindex == m_memberList->size()-1 ? m_anchors.size()-1: 0;
 
-
-  if(m_anchors[off].m_type  == GridNode::STT_TYPE_PARA){
-    dbgconnect("This was a para node, let's not add any virtual");
-  } else {
-    dbgconnect("We have %d virtual nodes", m_prevVirtuals.size());
+  if(m_anchors[off].m_type  != GridNode::STT_TYPE_PARA){
+    
+    //   dbgconnect("We have %d virtual nodes", m_prevVirtuals.size());
     GridNode virt =  Ingrid[gr.Find(m_prevVirtuals[0])];
-    for(size_t i =1; i< MIN(m_prevVirtuals.size(), 3); i++){
+    size_t nVirt = MIN(m_prevVirtuals.size(), 3);
+    for(size_t i =1; i< nVirt; i++){
       virt.m_xDet += Ingrid[gr.Find(m_prevVirtuals[i])].m_xDet;
       virt.m_yDet += Ingrid[gr.Find(m_prevVirtuals[i])].m_yDet;
       virt.m_z_Det +=Ingrid[gr.Find(m_prevVirtuals[i])].m_z_Det;
     }
-    virt.m_xDet /= MIN(m_prevVirtuals.size(), 3);
-    virt.m_yDet /= MIN(m_prevVirtuals.size(), 3);
-    virt.m_z_Det /= MIN(m_prevVirtuals.size(), 3);
+    virt.m_xDet  /= nVirt;
+    virt.m_yDet  /= nVirt;
+    virt.m_z_Det /= nVirt;
     
-    dbgconnect("The virtual anchor is %f, %f, %f",     virt.m_xDet, virt.m_yDet, virt.m_z_Det) ;
+    //  dbgconnect("The virtual anchor is %f, %f, %f",     virt.m_xDet, virt.m_yDet, virt.m_z_Det) ;
 
+    // Find last correct anchor
     int lastAnc = -1;
     for(size_t i = 1; i < m_anchors.size(); i++){
       if(m_anchors[off+dir*i].m_weight == 1){
 	lastAnc = i;
-	dbgconnect("Last anchor found is %d", m_anchors[off+dir*i].m_detID);
 	break;
       }
     }
-      //}
+     
+    GridNode &secondAnc = m_anchors[off+dir*lastAnc];   
+    // dbgconnect("The previous anchor is %f, %f, %f",     secondAnc.m_xDet, secondAnc.m_yDet, secondAnc.m_z_Det) ;
 
-    GridNode &secondAnc = m_anchors[off+dir*lastAnc];
-    dbgconnect("The previous anchor is %f, %f, %f",     secondAnc.m_xDet, secondAnc.m_yDet, secondAnc.m_z_Det) ;
-
+    if(labs(secondAnc.m_Layer - virt.m_Layer < 2)){
+      //   dbgconnect("Both these anchors are almost on the same layer, let's be careful and not correct anything");
+      virt.m_weight = 1;
+      m_anchors.push_back(virt);
+      return;
+    }
+    
+    // Correct all anchors in between
     GridNode *prev = NULL;
-    // int dist = off+dir*lastAnc;
-    // dbgconnect("Distance %d", dist);
-    for(size_t i = 0; i < lastAnc; i++){
+    std::vector<int> layers;
+    for(int i = 0; i < lastAnc; i++){
       GridNode &inter = m_anchors[off+dir*lastAnc-dir*(i+1)];
-      dbgconnect("Correcting %d, %d, %d", inter.m_detID, prev == NULL ? 0:prev->m_Layer, inter.m_Layer);
-      if(prev == NULL || prev->m_Layer != inter.m_Layer){
-	//	dbgconnect("YES");
-	PointsLineIntersect( inter, secondAnc.m_xDet, virt.m_xDet, secondAnc.m_yDet, virt.m_yDet);
+      //  dbgconnect("Inter is %f, %f, %f, layer %d",     inter.m_xDet, inter.m_yDet, inter.m_z_Det, inter.m_Layer) ;
+      if(prev == NULL  ||std::find(layers.begin(), layers.end(), inter.m_Layer)==layers.end()){
+	PointsLineIntersectFinal( inter, secondAnc.m_xDet, virt.m_xDet, secondAnc.m_yDet, virt.m_yDet);
 	inter.m_weight = 1;
+	//	dbgconnect("Corrected Inter is %f, %f, %f",     inter.m_xDet, inter.m_yDet, inter.m_z_Det, inter.m_Layer) ;
+	layers.push_back(inter.m_Layer);
       }
-
       prev = &inter;
     }
 
     virt.m_weight = 1;
     m_anchors.push_back(virt);
   }
-
 
 }
 
@@ -494,11 +419,11 @@ void PathCandidate::insertNewNode(CoordGrid &gr, std::vector< GridNode > &Ingrid
   
   int id = node->m_detID;
   int layer = node->m_Layer, prevLayer;
-  float xadd = node->m_xDet, yadd = node->m_yDet, zadd = node->m_z_Det;
+  //  float xadd = node->m_xDet, yadd = node->m_yDet, zadd = node->m_z_Det;
   size_t vecindex = (size_t) std::distance( m_memberList->begin(), it );
   node->m_weight = node->m_type == GridNode::STT_TYPE_PARA? 1: 0;
 
-  dbgconnect("Inserting node %d", id);
+  //  dbgconnect("Inserting node %d", id);
 
   m_memberIdSet->insert(id);
   m_memberList->insert(it,id);
@@ -506,6 +431,11 @@ void PathCandidate::insertNewNode(CoordGrid &gr, std::vector< GridNode > &Ingrid
 
   if(vecindex != m_memberList->size() - 1 && vecindex != 0){
     dbgconnect("We inserted this node in the middle, so let's not do anything else");
+    m_x.insert(m_x.begin() + vecindex, node->m_xDet);
+    m_y.insert(m_y.begin() + vecindex, node->m_yDet);
+    m_z.insert(m_z.begin() + vecindex, node->m_z_Det);     
+    m_r.insert(m_r.begin() + vecindex, node->m_r);    
+    m_theta.insert(m_theta.begin() + vecindex,node->m_thetaDeg);
     return;
   }
   
@@ -528,10 +458,13 @@ void PathCandidate::insertNewNode(CoordGrid &gr, std::vector< GridNode > &Ingrid
     if(m_lastNodeAdded >= START_VIRTUAL_ID){ // We might have an issue when we stop on a skewed layer
       dbgconnect("We need to correct the previous anchors");
       correctPrevAnchor(gr, Ingrid, node, vecindex);
+      dbgconnect("We need to correct the previous nodes");
+
       determineSkewedXY(gr, Ingrid, node, vecindex);
       m_listSkewed.clear();
       m_prevVirtuals.clear();
     }
+      dbgconnect("Adding a new anchor");
 
     // Adding a new anchor, temporary for the skewed nodes
     addToAnchor(gr, Ingrid, node, vecindex, prevLayer);
@@ -551,22 +484,6 @@ void PathCandidate::insertNewNode(CoordGrid &gr, std::vector< GridNode > &Ingrid
       m_listSkewed.push_back(id);    
 
 
-    /*  double newTheta = node->m_thetaDeg;
-    //Add theta, accounting for 2pi circle
-    if(m_length > 2){ 
-      double prevtheta = m_theta.back();
-      if(m_theta.back() > 150 && newTheta < -150)
-	newTheta += 360.;
-      else if (m_theta.back() < -150 && newTheta > 150)
-	newTheta -= 360.;
-    }
-      
-    // Insert he detector xy coord in the list (modify node in addAnchor)
-    m_x.insert(m_x.begin() + vecindex,xadd);
-    m_y.insert(m_y.begin() + vecindex,yadd);
-    m_z.insert(m_z.begin() + vecindex,zadd);
-    m_r.insert(m_r.begin() + vecindex,node->m_r);
-    m_theta.insert(m_theta.begin() + vecindex, newtheta);*/
     
   } else {
 

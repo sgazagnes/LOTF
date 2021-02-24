@@ -50,11 +50,11 @@ double *polyFit(std::vector<double>  x, std::vector<double>  y, int n);
 
 int returnDirection(double prev, double cur);
 
-int fitNextId(CoordGrid &gr, std::vector< GridNode > &Ingrid, PathCandidate &cand, std::vector<int> &next, int k);
 
 double distanceBetweenTube(GridNode & tubeA, GridNode & tubeB);
 
-bool PointsLineIntersect( GridNode &tubeC, float x1, float x2, float y1, float y2); //Output 
+bool PointsLineIntersectLive( GridNode &tubeC, float x1, float x2, float y1, float y2); //Output 
+bool PointsLineIntersectFinal( GridNode &tubeC, float x1, float x2, float y1, float y2); //Output 
 
 
 void Fix_InterSector_Nodes(CoordGrid &hitMap, size_t const numSectors);

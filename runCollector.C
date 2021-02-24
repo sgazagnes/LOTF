@@ -52,6 +52,7 @@ void runCollector( size_t plength = 1,
   gSystem->CompileMacro("simon_functions.cpp","kO");
   gSystem->CompileMacro("reconstruction.cpp","kO");
   gSystem->CompileMacro("phconnect.cpp","kO");
+  gSystem->CompileMacro("phfitting.cpp","kO");
   gSystem->CompileMacro("floodingFilter.cpp","kO");
   gSystem->CompileMacro("error.cpp","kO");
 

@@ -32,13 +32,14 @@
 #include "error.h"
 #include "logc.h"
 #include "phconnect.h"
+#include "phfitting.h"
 
 // DEBUG AND STORE definitions
 #define EVALUATE_ERROR 0
 #define READ_GRID_FROM_FILE 0
 #define DO_RECONSTRUCTION 1
 #define DO_CONNECT 1
-#define DO_FITTING 0
+#define DO_FITTING 1
 #define DO_MERGING 0
 #define DO_ZRECONS 0
 #define WRITE_CONNECTED_COMPONENTS 1
@@ -306,7 +307,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
     info("Reordering current tracklets by size");
     std::sort(tracklets.begin(), tracklets.end(), compareTwoPathsLength);
-    std::reverse(tracklets.begin(), tracklets.end());
+    //std::reverse(tracklets.begin(), tracklets.end());
     /* for(unsigned int l = 0; l < tracklets.size(); l++){
       PathCandidate &curCand = *(tracklets[l]);
       //info("Cm %d has length %d", curCand.m_id, curCand.m_length);
@@ -321,11 +322,11 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 #if(DO_FITTING)
     dbgfit("Starting fitting phase");
 
-    int **sayYes =  (int **) calloc(tracklets.size(), sizeof(int*));
+    int **toMergeWith =  (int **) calloc(tracklets.size(), sizeof(int*));
     for (size_t i =0; i < tracklets.size(); i++)
-      sayYes[i] = (int *) calloc(tracklets.size(), sizeof(int));
+      toMergeWith[i] = (int *) calloc(tracklets.size(), sizeof(int));
     
-    fittingPhase(gr, Ingrid, tracklets, idToProcess, visited, sayYes);
+    fittingPhase(gr, Ingrid, tracklets, idToProcess, visited, toMergeWith);
 
 
     for(unsigned int n = 0; n < idToProcess.size(); ++n) {
@@ -334,7 +335,6 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	n--;
       }
     }
-
     
     info("After fitting, we have %lu remaining active nodes\n",  idToProcess.size());
     timing("Fitting phase ended. Time %lf s",  std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count());
@@ -567,7 +567,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 			}*/
 	    }
 	    for( size_t i = 0;  i < curCand.m_anchors.size(); ++i) {
-	      AnchorCCCoord.Fill(k, cm,  curCand.m_anchors[i].m_xDet,curCand.m_anchors[i].m_yDet,curCand.m_anchors[i].m_z_Det);
+	      //if(curCand.m_anchors[i].m_weight == 1)
+		AnchorCCCoord.Fill(k, cm,  curCand.m_anchors[i].m_xDet,curCand.m_anchors[i].m_yDet,curCand.m_anchors[i].m_z_Det);
 	    }
 	    cm++;
 		  

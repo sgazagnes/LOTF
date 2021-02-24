@@ -86,23 +86,20 @@ bool sortNeighbors(CoordGrid &gr, GridNode *currentNode,  PathCandidate &cand, s
     }	 
 
     if(neighNode.m_Layer > curLayer){
-      info("Node %d has one neigh up %d", curId, neighId);
+      //   dbgconnect("Node %d has one neigh up %d", curId, neighId);
       next.push_back(neighId);
       curDir |= UP;
-      //visited[neighId] =MAX(2,visited[neighId]);
     }	
     else if( neighNode.m_Layer < curLayer) {
-      info("Node %d has one neigh down %d", curId, neighId);
+      //dbgconnect("Node %d has one neigh down %d", curId, neighId);
       prev.push_back(neighId);
       curDir |= DOWN;
-      //visited[neighId]=MAX(2,visited[neighId]);      
     }
 
     else {
-      info("Node %d has one neigh on the same %d", curId, neighId);
+      // dbgconnect("Node %d has one neigh on the same %d", curId, neighId);
       same.push_back(neighId);
       curDir |= SAME;
-      //visited[neighId]=MAX(2,visited[neighId]);
     }
   } 
    
@@ -115,7 +112,7 @@ bool sortNeighbors(CoordGrid &gr, GridNode *currentNode,  PathCandidate &cand, s
   same.erase( unique( same.begin(), same.end() ), same.end() );
   	
   if( curDir > 6){
-    error("Neighbors of %d, a complex case to be solved later", curId);
+    //  dbgconnect("Neighbors of %d, a complex case to be solved later", curId);
     cond = false;
   }
   
@@ -192,7 +189,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 
       // Stqrt the loop
       while(cond){
-	info("With my buddy %d, we have %d neighbors, nextDir is %d", curId, n_neighbors, nextDir);
+	//	dbgconnect("With my buddy %d, we have %d neighbors, nextDir is %d", curId, n_neighbors, nextDir);
 
 	//Choosing the next direction based on previous search of neaighbors    
 	if (nextDir & UP){           // we are going up 	      
@@ -205,48 +202,52 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	
 	if(n_neighbors == 1){ // Easy case, only one neighbor
 
-	  // If there are some virtual nodes to add	  
-	  if(nextVirt.size() > 0){ 	      
-	    addNodesToCand(gr, Ingrid, *cand, visited, nextVirt); 
-	    n_connected += nextVirt.size();	    
-	    prevNodes.insert(prevNodes.end(),  nextVirt.begin(),  nextVirt.end());
-	    nextVirt.clear();
+	  if(visited[v->at(0)])
+	    cond = false;
+	  else{
+	    // If there are some virtual nodes to add	  
+	    if(nextVirt.size() > 0){ 	      
+	      addNodesToCand(gr, Ingrid, *cand, visited, nextVirt); 
+	      n_connected += nextVirt.size();	    
+	      prevNodes.insert(prevNodes.end(),  nextVirt.begin(),  nextVirt.end());
+	      nextVirt.clear();
+	    }
+
+	    //Adding the next neighbor
+	    neighId    = v->at(0);
+	    neighNode  = &Ingrid[gr.Find(neighId)];
+	    cand->insertNewNode(gr, Ingrid, neighNode,cand->m_memberList->end());
+	    visited[neighId] = 1;
+	    n_connected++;
+
+	    //Removing the previous nodes from the neighbor list of this node (to make things faster)
+	    removeIdFromNeigh(neighNode, &prevNodes, curId);
+
+	    //Setting the current node to the one added
+	    curId       = neighId;
+	    curNode = neighNode;
+	    curLayer    = curNode->m_Layer;
+
+	    //Cleaning lists, updating list of previous nodes, setting next direction
+	    nextLayer.clear();  sameLayer.clear();   prevLayer.clear();    prevNodes.clear();
+	    prevNodes.push_back(curId);
+	    curDir = nextDir;
+	    nextDir = 0;
+
+	    //Finding next neighbors
+	    cond = sortNeighbors(gr, curNode, *cand, prevLayer, sameLayer, nextLayer, nextVirt, visited, &nextDir);
+	    n_neighbors = sameLayer.size() + prevLayer.size() + nextLayer.size();
+	    //dbgconnect("%d nodes connected, %d found for next step (cond %d)\n", n_connected, n_neighbors, cond);
+	    n_connected = 0;
 	  }
-
-	  //Adding the next neighbor
-	  neighId    = v->at(0);
-	  neighNode  = &Ingrid[gr.Find(neighId)];
-	  cand->insertNewNode(gr, Ingrid, neighNode,cand->m_memberList->end());
-	  visited[neighId] = 1;
-	  n_connected++;
-
-	  //Removing the previous nodes from the neighbor list of this node (to make things faster)
-	  removeIdFromNeigh(neighNode, &prevNodes, curId);
-
-	  //Setting the current node to the one added
-	  curId       = neighId;
-	  curNode = neighNode;
-	  curLayer    = curNode->m_Layer;
-
-	  //Cleaning lists, updating list of previous nodes, setting next direction
-	  nextLayer.clear();  sameLayer.clear();   prevLayer.clear();    prevNodes.clear();
-	  prevNodes.push_back(curId);
-	  curDir = nextDir;
-	  nextDir = 0;
-
-	  //Finding next neighbors
-	  cond = sortNeighbors(gr, curNode, *cand, prevLayer, sameLayer, nextLayer, nextVirt, visited, &nextDir);
-	  n_neighbors = sameLayer.size() + prevLayer.size() + nextLayer.size();
-	  info("%d nodes connected, %d found for next step (cond %d)\n", n_connected, n_neighbors, cond);
-	  n_connected = 0;	    
 	} // end if 1 Neighbor case
 
 
 
 	else if (sameLayer.size() == 1 ){ // Same layer neighbor to handle... (NEED TO CHECK IS CAN BE MORE THAN 1)
 
-	  info("Check the same layer with the next node %d", sameLayer[0], visited[sameLayer[0]]);		   
-
+	  // dbgconnect("Cur id%d, Check the same layer with the next node %d", curId,sameLayer[0], visited[sameLayer[0]]);
+	  
 	  if(visited[sameLayer[0]])  // If the same layer node has already been visited, we stop
 	    cond = false;	      
 	  
@@ -255,7 +256,6 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	    int candId 	 	= sameLayer[0];
 	    GridNode *candNode  = &Ingrid[gr.Find(candId)];
 	    curLayer            = candNode->m_Layer;
-	    sameLayer.clear();
 
 	    //CHECK if neighbors of the current candidate are all neighbors to one of the node on the next layer
 	    for(size_t i = 0; i < candNode->m_neighbors.size(); i++){
@@ -303,7 +303,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 			}
 		      }
 		    }
-		    info("We are adding the node %d", v->at(j));
+		    //	    dbgconnect("We are adding the node %d", v->at(j));
 
 		    cand->insertNewNode(gr, Ingrid, &mynode,cand->m_memberList->end());
 		    visited[v->at(j)] = 1;
@@ -322,14 +322,14 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	      // to other neighbors, we should stop here
 	      if(haveNeigh == 0){ 
 		cond = false;
-		break;
+	       	break;
 	      }	else if ( v->size() == 0)// Just to solve a case where the next list is empty
 		break;
 	    } // End FOR neighbors of candidates
 
 	    // If we did not find a good reason to stop, then we add the candidate	    
 	    if (cond == true){ 		
-	      info("All neighbors of candidate look good, let's insert it!");
+	      // dbgconnect("All neighbors of candidate look good, let's insert it!");
 
 	      cand->insertNewNode(gr, Ingrid, candNode,cand->m_memberList->end());
 	      visited[candId] = 1;
@@ -342,17 +342,19 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	      curNode     = candNode;
 	      curDir 	  = SAME;
 	      nextDir 	  = 0;
+	      sameLayer.clear();
+
 	      cond        = sortNeighbors(gr, curNode, *cand, prevLayer, sameLayer, nextLayer,
 					  nextVirt, visited, &nextDir);
 
 	      n_neighbors = sameLayer.size()+prevLayer.size()+nextLayer.size();
-	      info("%d nodes connected,  %d found for next step (cond %d) \n", n_connected, n_neighbors, cond);
+	      // dbgconnect("%d nodes connected,  %d found for next step (cond %d) \n", n_connected, n_neighbors, cond);
 	      n_connected = 0;		
 	    } 
 
 	    // If we had to stop
 	    else {
-	      info("Neighbors not connected... \n", n_connected, n_neighbors);
+	      // dbgconnect("Neighbors not connected... \n", n_connected, n_neighbors);
 	    } 
 	  } // ELSE the same layer not was visited already
 	} // END of IF SAME LAYER == 1
@@ -362,14 +364,15 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	// IF we have less than 5 neighbors on the next/prev layer (5 is empirical limit set by me...)
 	
 	else if (n_neighbors < 5) {  	  
-	  info("We have %d neighbors in the direction %d", n_neighbors, nextDir);
+	  // dbgconnect("We have %d neighbors in the direction %d", n_neighbors, nextDir);
 
 	   // The idea here is not check if all the nodes in the next direction are neighbors to each other
 	  // We first test whether there are not, because then we can check whether one of this node is
 	  // an obvious choice or not
-	  
+
+	       
 	  if(!areAdjacent(gr, Ingrid, v)){
-	    info("Nodes are not adjacent but we can check wheter one of this node only has a single neighbor");
+	    // dbgconnect("Nodes are not adjacent but we can check wheter one of this node only has a single neighbor");
 	    std::vector <char> nother;
 
 	    // I need to comment properly this otherwise nobody will understand what is happening
@@ -382,8 +385,8 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 		  continue;
 		if(thenode.m_Layer == curLayer && !(cand->isInCandidate(thenode.m_detID))){
 		  n = 1;
-		  info("This node %d has a neighbord %d that does not belong to the track",
-		       v->at(i), thenode.m_detID);
+		  //	  dbgconnect("This node %d has a neighbord %d that does not belong to the track",
+		  //    v->at(i), thenode.m_detID);
 		}
 	      }
 	      nother.push_back(n);
@@ -391,14 +394,12 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	    
 	    char sum = std::accumulate(nother.begin(), nother.end(), decltype(nother)::value_type(0));
 	    if(sum && sum != (char) v->size()){
-	      info("We found at least one node with only previous nodes as neighbors");
+	      //dbgconnect("We found at least one node with only previous nodes as neighbors");
 	      std::vector <int> toAdd;
 	      for(size_t i =0; i < nother.size(); ){
 		if(nother[i] == 0){
-		  info("We could add this node probably %d", v->at(i));
 		  i++;
 		} else {
-		  info("Removing node %d from vector", v->at(i));
 		  v->erase(v->begin()+i);
 		  nother.erase(nother.begin()+i);
 		}
@@ -418,15 +419,21 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	      }
 	    }
 	    else {
-	      info("Too many neighbors and too complicated");
+	      //  dbgconnect("Too many neighbors and too complicated");
 	      cond = false;
 	    }
 	  } else {
-	    info("All Adjacent, adding %lu nodes to the CM (and %lu virtuals)", v->size(), nextVirt.size());
+	    //dbgconnect("All Adjacent, adding %lu nodes to the CM (and %lu virtuals)", v->size(), nextVirt.size());
 	  }
 	    // if(areAdjacent(gr, Ingrid, v)){ // All neighbors are adjacent ??
-	      
+	  for(size_t i = 0; i < v->size(); i++){
+	    if(visited[v->at(i)])
+	      cond = false;
+	  }     
 	  if(cond){
+
+
+	    
 	    if(nextVirt.size() > 0){ // taking care of the virtual nodes
 	      addNodesToCand(gr, Ingrid, *cand, visited, nextVirt); 
 	      n_connected += nextVirt.size();	    	  		
@@ -464,14 +471,14 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	    }
 
 	    n_neighbors = sameLayer.size()+prevLayer.size()+nextLayer.size();
-	    info("%d nodes connected, %d found for next step (cond %d)\n", n_connected, n_neighbors, cond);
+	    //dbgconnect("%d nodes connected, %d found for next step (cond %d)\n", n_connected, n_neighbors, cond);
 	    n_connected = 0;
 	     
 	  } 	      
 	} // END IF neighbors size > 0
 
 	// We have no more neighbors or too many
-	else if (n_neighbors == 0 || n_neighbors >= 5){	    
+	if (n_neighbors == 0 || n_neighbors >= 5 || !cond){	    
 	  if(n_neighbors == 0) {
 	    int firstId         = cand->m_tailNode;
 	    GridNode &firstNode = Ingrid[ gr.Find(firstId)];
@@ -498,9 +505,9 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	}
 
 	if(nextDir == 5){
-	  info("We could go either up or down in next round, let's check the previous direction");
+	  //dbgconnect("We could go either up or down in next round, let's check the previous direction");
 	  if(curDir&UP){
-	    info("Let's go UP");
+	    //info("Let's go UP");
 	    nextDir = 4;
 	    n_neighbors = nextLayer.size();
 	    for(size_t i = 0; i < nextVirt.size();){
@@ -517,7 +524,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 
 	    // CLEAN VIRTUALs
 	  } else if(curDir&DOWN){
-	    info("Let's go DOWN");
+	    //info("Let's go DOWN");
 	    nextDir = 1;
 	    n_neighbors = prevLayer.size();
 	    for(size_t i = 0; i < nextVirt.size();){
@@ -531,13 +538,14 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 		nextVirt.erase(nextVirt.begin()+i);
 	    }
 	  } else {
-	    info("Can't decide, stop");
+	    //info("Can't decide, stop");
 	    cond = false;
 	  }
 	}
 	  	  
 	if(cond == false && n_neighbors != 0){ // This track is finished, but let's push neighbors as we need to fit in the next step
 
+	  info("ADDING lot of nodes");
 	  for (size_t i = 0; i < sameLayer.size(); i++)
 	    cand->m_headNeigh.push_back(sameLayer[i]);
 	      
@@ -549,6 +557,9 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 
 	  cand->m_headNeigh.insert((cand->m_headNeigh).begin(),  (nextVirt).begin(),  (nextVirt).end());	
 	  // resetLists(visited, prevLayer, sameLayer, nextLayer);
+	  for(size_t i = 0; i < cand->m_headNeigh.size(); i++)
+	    info("Node %d",cand->m_headNeigh[i]);
+
 	  cand->m_finished = ONGOING;		 
 	  break;
 	}

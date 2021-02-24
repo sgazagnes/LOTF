@@ -935,3 +935,293 @@ int determineSkewed_XYPlane_new( CoordGrid &hitMap, GridNode const &VNode,
   /* Skewed nodes are pre-processed. RETURN*/
   return(lastVirtualID);
 }
+
+
+
+
+
+
+
+
+
+
+// OLD detemrination of skewed nodes:
+GridNode &anchorPrev = Ingrid[gr.Find(m_prevVirtuals[0])];
+ int layer = node->m_Layer;
+
+ if(m_prevVirtuals.size() > 1){
+   for(size_t p =1; p < m_prevVirtuals.size();p++){
+     anchorPrev.m_x += Ingrid[gr.Find(m_prevVirtuals[p])].m_x;
+     anchorPrev.m_y += Ingrid[gr.Find(m_prevVirtuals[p])].m_y;
+     anchorPrev.m_z += Ingrid[gr.Find(m_prevVirtuals[p])].m_z;
+   }
+   anchorPrev.m_x /= (float) m_prevVirtuals.size();
+   anchorPrev.m_y /= (float) m_prevVirtuals.size();
+   anchorPrev.m_z /= (float) m_prevVirtuals.size();
+ }
+
+ if(anchorPrev.m_Layer == layer){
+   //	printf("Both virtuals are on same layers, better find something else\n");
+ } else{
+   //	printf("Find nodes per layer\n");
+   std::vector<GridNode *>    layerN1;     
+   std::vector<GridNode *>    layerN2;
+   int curLayer;
+   for(size_t p =0; p < m_listSkewed.size();p++){
+     if(p == 0)
+       curLayer = Ingrid[gr.Find(m_listSkewed[p])].m_Layer;
+     if(Ingrid[gr.Find(m_listSkewed[p])].m_Layer == curLayer){
+       //   printf("Push %d on firt layer nodes\n", m_listSkewed[p]);
+       layerN1.push_back(&Ingrid[gr.Find(m_listSkewed[p])]);
+     } else if (labs(Ingrid[gr.Find(m_listSkewed[p])].m_Layer - curLayer) <2){
+       //    printf("Push %d on second layer nodes\n", m_listSkewed[p]);
+       layerN2.push_back(&Ingrid[gr.Find(m_listSkewed[p])]);
+     } else {
+       //  printf("We have a too large layer ???? \n");
+     }
+   }
+
+   GridNode anchorInter;
+   if(layerN1.size() > 0){
+     //	  printf("Correcting first layer\n");
+     anchorInter =  *layerN1[0];
+     for (size_t p = 1; p < MIN(layerN1.size(),3); p++){
+       anchorInter.m_x += layerN1[p]->m_x;
+       anchorInter.m_y += layerN1[p]->m_y;
+       anchorInter.m_z += layerN1[p]->m_z;
+     }
+     anchorInter.m_x /= (float) MIN(layerN1.size(),3);//interNodesL1.size();
+     anchorInter.m_y /= (float) MIN(layerN1.size(),3);// interNodesL1.size();
+     anchorInter.m_z /= (float) MIN(layerN1.size(),3);//;interNodesL1.size();
+      
+     //  printf("Finding intersection with %f, %f, %f\n", anchorInter.m_x, anchorInter.m_y, anchorInter.m_z);
+
+     PointsLineIntersect( anchorInter, anchorPrev.m_x, node->m_xDet,
+			  anchorPrev.m_y, node->m_yDet);
+	
+     //  printf("Intersect point is %f, %f, %f\n",anchorInter.m_xDet, anchorInter.m_yDet, anchorInter.m_z_Det);
+     for (size_t p = 0; p <layerN1.size(); p++){
+       auto it = find(m_memberList->begin(), m_memberList->end(), layerN1[p]->m_detID); 
+       int index = distance(m_memberList->begin(), it); 
+	    
+       layerN1[p]->m_xDet = m_x[index] = anchorInter.m_xDet;
+       layerN1[p]->m_yDet = m_y[index] = anchorInter.m_yDet;
+       layerN1[p]->m_z_Det = m_z[index] = anchorInter.m_z_Det;
+     }
+ 
+   }
+
+   if(layerN2.size() > 0){
+     //  printf("Correcting second layer\n");
+     anchorInter =  *layerN2[0];
+     for (size_t p = 1; p < MIN(layerN2.size(),3); p++){
+       anchorInter.m_x += layerN2[p]->m_x;
+       anchorInter.m_y += layerN2[p]->m_y;
+       anchorInter.m_z += layerN2[p]->m_z;
+     }
+     anchorInter.m_x /= (float) MIN(layerN2.size(),3);//interNodesL1.size();
+     anchorInter.m_y /= (float) MIN(layerN2.size(),3);// interNodesL1.size();
+     anchorInter.m_z /= (float) MIN(layerN2.size(),3);//;interNodesL1.size();
+      
+     //  printf("Finding intersection with %f, %f, %f\n", anchorInter.m_x, anchorInter.m_y, anchorInter.m_z);
+
+     PointsLineIntersect( anchorInter, anchorPrev.m_x, node->m_xDet,
+			  anchorPrev.m_y, node->m_yDet);
+	
+     // printf("Intersect point is %f, %f, %f\n",anchorInter.m_xDet, anchorInter.m_yDet, anchorInter.m_z_Det);
+     for (size_t p = 0; p <layerN2.size(); p++){
+       auto it = find(m_memberList->begin(), m_memberList->end(), layerN2[p]->m_detID); 
+       int index = distance(m_memberList->begin(), it); 
+	    
+       layerN2[p]->m_xDet = m_x[index] = anchorInter.m_xDet;
+       layerN2[p]->m_yDet = m_y[index] = anchorInter.m_yDet;
+       layerN2[p]->m_z_Det = m_z[index] = anchorInter.m_z_Det;
+     }
+ 
+     }*/
+
+
+     /*OLD FITNEXTID
+     int fitNextId(CoordGrid &gr, std::vector< GridNode > &Ingrid, PathCandidate &cand, std::vector<int> &next, int k){
+  
+  // std::vector< GridNode > &Ingrid = gr.m_grid;
+  int goodId     = -1;
+  int method, degree, nElts;
+  std::vector<double> x     =  std::vector<double>( cand.m_x );
+  std::vector<double> y     =  std::vector<double>( cand.m_y ); 
+  std::vector<GridNode> anchors = std::vector<GridNode>( cand.m_anchors );
+  std::vector<int> layers = std::vector<int>( cand.m_layers );
+  
+  if(k == 0){
+    std::reverse(x.begin(),x.end());
+    std::reverse(y.begin(),y.end());
+    std::reverse(anchors.begin(),anchors.end());
+    std::reverse(layers.begin(),layers.end());
+  }
+
+   std::vector<int> plausible;
+   std::vector<int> uncertain;
+   std::vector<int> *tocheck;
+
+
+   //To faster the search, if it's clear that we are going straight
+   bool testLayer = false;
+   int cum  = layers[layers.size()-1] - layers[layers.size()-3];
+   int dirLayer = 0;
+   if(cum == 2){
+     testLayer = true;
+     dirLayer =1;
+   } else if(cum == -2){
+     testLayer = true;
+     dirLayer = -1;
+   }
+  
+  for (int i = 0; i <next.size(); i++){
+    int curId = next[i];
+    GridNode *node = &Ingrid[gr.Find(curId)];
+       // Replacing the node by the correct Intersection point based on its virtual node if it exists
+    if(node->m_type == GridNode::VIRTUAL_NODE){
+      GridNode *neigh = &Ingrid[gr.Find(node->m_neighbors[0])];
+      if(neigh->m_cm.size()>0 && std::find(neigh->m_cm.begin(), neigh->m_cm.end(), cand.m_id) != neigh->m_cm.end()){
+	neigh = &Ingrid[gr.Find(node->m_neighbors[1])];
+      }
+      if(neigh->m_cm.size() > 0 && neigh->m_cm[0] == cand.m_id){
+	continue;	
+      }
+
+      if(anchors[anchors.size()-1].m_type != GridNode::STT_TYPE_PARA){
+	dbgfit("Replacing node %d with %d, and recorrecting the impact coordinates", node->m_detID, neigh->m_detID);
+	PointsLineIntersectLive( *neigh, anchors[anchors.size()-1].m_xDet, node->m_xDet,
+				 anchors[anchors.size()-1].m_yDet, node->m_yDet); //Output
+      }
+      node = neigh;
+      if(cand.isInCandidate(node->m_detID))
+	continue;
+    }
+
+
+    if(testLayer){
+      if(node->m_Layer - layers[layers.size()-1] == dirLayer){
+	plausible.push_back(node->m_detID);
+      } else {
+	uncertain.push_back(node->m_detID);
+      }
+    } else
+      plausible.push_back(node->m_detID);
+
+
+    sort( plausible.begin(), plausible.end() );
+    plausible.erase( unique( plausible.begin(), plausible.end() ), plausible.end() );
+    sort( uncertain.begin(), uncertain.end() );
+    uncertain.erase( unique( uncertain.begin(), uncertain.end() ), uncertain.end() );
+  }
+  if(plausible.size() >= 1){
+    tocheck = &plausible;
+  } else {
+    tocheck = &uncertain;
+  }
+
+  // Checking Track angle in polar coord 
+
+  // debug("Points %lf, %lf \t %lf, %lf \t %lf, %lf",r[0], theta[0], r[r.size()/2], theta[theta.size()/2],r[r.size()-1], theta[theta.size()-1]);
+  
+  // double curv = returnCurvature(x[0], x[x.size()/2], x[x.size()-1], y[0], y[y.size()/2], y[y.size()-1]);
+
+  // float angle = returnAngle(r[0], r[r.size()/2], r[r.size()-1],  theta[0], theta[theta.size()/2], theta[theta.size()-1]);
+  //debug("Angle of track is %f", angle);
+  
+  //
+  //if(fabs(angle) < 170){
+  //   dbgfit("Quadratic Fit");
+  //  method = 1;
+    // degree = 2;
+    // nElts  = x.size() -1;
+    // } else {
+  // dbgfit("Linear Fit");
+  
+  method = 0;
+  degree = 1;
+  nElts = 3;
+  int firstElt = MAX(0, (int) anchors.size()-nElts);//x.size()-1;
+  //}
+ 
+  std::vector<double> p;
+  std::vector<double> xfit;
+  std::vector<double> yfit;
+
+  double minDist = std::numeric_limits<double>::max();
+    
+  p.push_back(0.);
+  // xfit.push_back(x[ x.size()-MIN(x.size(),4)]);
+  // yfit.push_back(y[ y.size()-MIN(y.size(),4)]);
+  xfit.push_back(anchors[ firstElt].m_xDet);
+  yfit.push_back(anchors[ firstElt].m_yDet);
+
+  for (int i = firstElt, inc=0; i <  anchors.size()-1; i++, inc++){ 
+    //double newval = p[i] + sqrt(pow(r[i+1]-r[i],2.) + pow(theta[i+1]-theta[i],2.));
+    //  double newval = p[inc] + sqrt(pow(x[i+1]-x[i],2.) + pow(y[i+1]-y[i],2.));
+    double newval = p[inc] + sqrt(pow(anchors[i+1].m_xDet-anchors[i].m_xDet,2.)
+				  + pow(anchors[i+1].m_yDet-anchors[i].m_yDet,2.));
+
+    //   dbgfit("new val %f, x %f, y %f", newval,anchors[i+1].m_xDet, anchors[i+1].m_yDet);
+    p.push_back(newval);
+    xfit.push_back(anchors[i+1].m_xDet);//x[i+1]);
+    yfit.push_back(anchors[i+1].m_yDet);//y[i+1]);
+  }
+  // dbgfit("r %f", r[r.size()-1]);
+  // dbgfit("%lf, %lf, %lf", p[0],p[p.size()/2], p[p.size()-1]);
+  // dbgfit("%lf, %lf, %lf", p[0], xfit[0], yfit[0]);
+  // dbgfit("%lf, %lf, %lf", p[p.size()-1], x[x.size()-1], y[y.size()-1]);
+
+  double *x_coef = polyFit(p, xfit, degree);
+  double *y_coef = polyFit(p, yfit, degree);
+
+  // dbgfit("%lf, %lf", x_coef[0], x_coef[1]);
+  //dbgfit("%lf, %lf", y_coef[0], y_coef[1]);
+
+  //  if(method == 0){ // linear
+
+    
+  
+  for (size_t i = 0; i < tocheck->size(); i++){
+    int curId = tocheck->at(i);
+    int curIdx = gr.Find(curId);
+    GridNode *node = &Ingrid[curIdx];
+    double xdet = (double) node->m_xDet;//node->m_r/  sqrt( 2*pow(40,2));//node->m_xDet;
+    double ydet = (double) node->m_yDet;// (node->m_thetaDeg+180.) /360.;     
+    /*  if(ydet > 0.85 && prevtheta < 0.15)
+      ydet -= 1;
+    else if(ydet < 0.15 && prevtheta > 0.85)
+    ydet += 1.;*/
+    // double newp = p[p.size()-1] + sqrt(pow(xdet-r[r.size()-1],2.) + pow(ydet-theta[theta.size()-1],2.));
+    // double newp = p[p.size()-1] + sqrt(pow(xdet-x[x.size()-1],2.) + pow(ydet-y[y.size()-1],2.));
+    double newp = p[p.size()-1] + sqrt(pow(xdet-anchors[anchors.size()-1].m_xDet,2.)
+				       + pow(ydet-anchors[anchors.size()-1].m_yDet,2.));
+    double xest =  method == 0? x_coef[0]+x_coef[1]*newp: x_coef[0]+x_coef[1]*newp+x_coef[2]*newp*newp;
+    double yest = method == 0? y_coef[0]+y_coef[1]*newp: (y_coef[0]+y_coef[1]*newp+y_coef[2]*newp*newp);
+    //dbgfit("%lf", newp);
+
+    // dbgfit("Estimated new coord %lf, %lf", xest*sqrt( 2*pow(40,2)),yest*360-180);
+    //  dbgfit("Node coord %lf, %lf",xdet*  sqrt( 2*pow(40,2)), ydet*360-180);
+    dbgfit("Estimated new coord %lf, %lf", xest,yest);
+    dbgfit("Node coord %lf, %lf",xdet, ydet);  
+    //dbgfit("Distance to estimated coord is %lf", sqrt(pow(xest -xdet, 2) + pow(yest -ydet,2)));
+    // double currDist = method == 0? nodeDistanceToLinearFit(xdet, ydet, x_coef, y_coef): nodeDistanceToQuadFit(xdet, ydet, x_coef, y_coef);
+    double currDist =sqrt(pow(xest -xdet, 2) + pow(yest -ydet,2));// method == 0? nodeDistanceToLinearFit(xdet, ydet, x_coef, y_coef): nodeDistanceToQuadFit(xdet, ydet, x_coef, y_coef);  
+     dbgfit("Node %d is at %lf", curId, currDist);
+		
+    if(minDist > currDist && currDist < 6){
+      minDist = currDist;		  
+      goodId = curId;	
+    }        
+  }
+
+
+  
+  if(goodId != -1) dbgfit("The good id is %d, and is at distance %lf", goodId,minDist);
+  else dbgfit("No good ID found");
+  
+  return goodId;
+
+
+}

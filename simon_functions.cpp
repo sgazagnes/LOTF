@@ -132,314 +132,6 @@ double returnCurvature(double x1, double x2, double x3, double y1, double y2, do
 
 
 
-double nodeDistanceToLinearFit(double xdet, double ydet, double *x_coef, double *y_coef){
-  
-  //double xdet = (double) node->m_r/  sqrt( 2*pow(40,2));//node->m_xDet;
-  //double ydet = (double)  (node->m_thetaDeg+180.) /360.;
-
-  double newx_coef[2] = {x_coef[0] - xdet, x_coef[1]};
-  double newy_coef[2] = {y_coef[0] - ydet, y_coef[1]};
-
-  double vectortanx[2] = {x_coef[1], 0.};
-  double vectortany[2] = {y_coef[1], 0.};
-	      
-  double d[3] = {newx_coef[0]*vectortanx[0] + newy_coef[0]*vectortany[0],
-		 newx_coef[0]*vectortanx[1] + newx_coef[1]*vectortanx[0] +
-		 newy_coef[0]*vectortany[1] + newy_coef[1]*vectortany[0],
-		 newx_coef[1]*vectortanx[1] + newy_coef[1]*vectortany[1]  };
-
-  double x0[2];
-  int nroot = gsl_poly_solve_quadratic(d[2], d[1], d[0], x0, x0+1);
-
-  double xIntersect, yIntersect, currDist;
-      
-  if(nroot ==1){
-    xIntersect = gsl_poly_eval(x_coef, 2, x0[0]);
-    yIntersect = gsl_poly_eval(y_coef, 2, x0[0]);
-    currDist = sqrt(pow(xIntersect - xdet,2) + pow(yIntersect - ydet,2));
-  }
-
-		
-  for (int j = 0; j < nroot; j++){
-    double newx = gsl_poly_eval(x_coef, 2, x0[j]);
-    double newy = gsl_poly_eval(y_coef, 2, x0[j]);
-    double newdist = sqrt(pow(newx - xdet,2) + pow(newy - ydet,2));
-    if(j == 0){
-      xIntersect = newx;
-      yIntersect = newy;
-      currDist = newdist;
-    } else if( currDist > newdist) {
-      xIntersect = newx;
-      yIntersect = newy;
-      currDist = newdist;
-    }
-  }
-
-  return currDist;
-}
-
-
-double nodeDistanceToQuadFit(double xdet, double ydet, double *x_coef, double *y_coef){
-
-  double newx_coef[3] = {x_coef[0] - xdet, x_coef[1], x_coef[2]};
-  double newy_coef[3] = {y_coef[0] - ydet, y_coef[1], y_coef[2]};
-
-  double vectortanx[3] = {x_coef[1], 2*x_coef[2], 0.};
-  double vectortany[3] = {y_coef[1], 2*y_coef[2], 0.};
-	      
-  double d[4] = {newx_coef[0]*vectortanx[0] + newy_coef[0]*vectortany[0],
-		 newx_coef[0]*vectortanx[1] + newx_coef[1]*vectortanx[0] +
-		 newy_coef[0]*vectortany[1] + newy_coef[1]*vectortany[0],
-		 newx_coef[0]*vectortanx[2] + newx_coef[1]*vectortanx[1] + newx_coef[2]*vectortanx[0] +
-		 newy_coef[0]*vectortany[2] + newy_coef[1]*vectortany[1] + newy_coef[2]*vectortany[0],
-		 newx_coef[2]*vectortanx[1] + newy_coef[2]*vectortany[1]};
-
-  double x0[3];
-  int nroot = gsl_poly_solve_cubic(d[2]/d[3], d[1]/d[3], d[0]/d[3], x0, x0+1, x0+2);
-
-  //debug("Polynomial coeff : %lf + %lf x + %lf x^2 + %lf x^3", d[0], d[1], d[2], d[3]);
-  //	debug("Real roots %d : x1 = %lf x2 =  %lf x3 =  %lf \n\n", nroot, x0[0], x0[1], x0[2]);
-
-  double xIntersect, yIntersect, currDist = -1;
-  if(nroot ==1){
-    xIntersect = gsl_poly_eval(x_coef, 3, x0[0]);
-    yIntersect = gsl_poly_eval(y_coef, 3, x0[0]);
-    currDist = sqrt(pow(xIntersect - xdet,2) + pow(yIntersect - ydet,2));
-  }
-
-		
-  for (int j = 0; j < nroot; j++){
-    double newx = gsl_poly_eval(x_coef, 3, x0[j]);
-    double newy = gsl_poly_eval(y_coef, 3, x0[j]);
-    double newdist = sqrt(pow(newx - xdet,2) + pow(newy - ydet,2));
-    if(j == 0){
-      xIntersect = newx;
-      yIntersect = newy;
-      currDist = newdist;
-    } else if( currDist > newdist) {
-      xIntersect = newx;
-      yIntersect = newy;
-      currDist = newdist;
-    }
-  }
-  return currDist;
-}
-
-
-/* fitNextId */
-
-int fitNextId(CoordGrid &gr, std::vector< GridNode > &Ingrid, PathCandidate &cand, std::vector<int> &next, int k){
-  
-  // std::vector< GridNode > &Ingrid = gr.m_grid;
-  int goodId     = -1;
-  int method;
-  int degree, nElts;
-  std::vector<double> x =  std::vector<double>( cand.m_x );
-  std::vector<double> y =  std::vector<double>( cand.m_y ); 
-  std::vector<double> r =  std::vector<double>( cand.m_r );
-  std::vector<double> theta =  std::vector<double>( cand.m_theta ); 
-
-  for (int i = 0; i <x.size(); i++){
-    r[i] /= sqrt( 2*pow(40,2));
-    theta[i] = (theta[i]+180.) /360.;    
-  }
-  double prevtheta = theta.back();
-
-  //x.erase(std::remove(x.begin(), x.end(), -1), x.end());
-  // y.erase(std::remove(y.begin(), y.end(), -1), y.end());
-  // r.erase(std::remove(r.begin(), r.end(), -1), r.end());
-  // theta.erase(std::remove(theta.begin(), theta.end(), -1), theta.end());
-  
-  if(k == 0){
-    std::reverse(x.begin(),x.end());
-    std::reverse(y.begin(),y.end());
-    std::reverse(r.begin(),r.end());
-    std::reverse(theta.begin(),theta.end());
-  }
-
-  //debug("Fast-checking unphysical neighbors");
-
-  std::vector<int> plausible;
-  std::vector<int> uncertain;
-  std::vector<int> unlikely;
-  std::vector<int> *tocheck;
-
-  float tol = 90.;
-  for (int i = 0; i <next.size(); i++){
-    int curId = next[i];
-    int curIdx = gr.Find(curId);
-    GridNode *node = &Ingrid[curIdx];
-    double xdet = node->m_x;
-    double ydet = node->m_y;
-    //   dbgfit("%d", curId);
-    if(node->m_type == GridNode::VIRTUAL_NODE){
-
-      GridNode *neigh = &Ingrid[gr.Find(node->m_neighbors[0])];
-      //    info("here %d, %d", neigh->m_detID,neigh->m_cm.size());
-
-      if(neigh->m_cm.size()>0 && std::find(neigh->m_cm.begin(), neigh->m_cm.end(), cand.m_id) != neigh->m_cm.end()){
-	neigh = &Ingrid[gr.Find(node->m_neighbors[1])];
-      }
-      if(neigh->m_cm.size() > 0 && neigh->m_cm[0] == cand.m_id){
-	//error("All belong to track ?");
-	continue;	
-      }
-      
-      dbgfit("Replacing node %d with %d, and recorrecting the impact coordinates", node->m_detID, neigh->m_detID);
-      PointsLineIntersect( *neigh, x[x.size()-1], node->m_xDet,
-			   y[y.size()-1], node->m_yDet); //Output 
-      node = neigh;
-      xdet = node->m_x;
-      ydet = node->m_y;
-      if(cand.isInCandidate(node->m_detID))
-	 continue;
-    }
-	
-    // dbgfit("%d", curId);
- 
-
-    double rdet = (double) node->m_r /  sqrt( 2*pow(40,2));
-    double thetadet = (double) (node->m_thetaDeg+180.) /360.;
-    if(node->m_type == GridNode::STT_TYPE_SKEW)
-      tol = 50;
-    if(thetadet > 0.85 && prevtheta < 0.15)
-      thetadet -= 1;
-    else if(thetadet < 0.15 && prevtheta > 0.85)
-      thetadet += 1.;
-    // dbgfit("Points %lf, %lf \t %lf, %lf \t %lf, %lf",r[r.size()-2], r[r.size()-1], rdet, theta[theta.size()-2], theta[theta.size()-1], thetadet);
-    float angle_r = returnAngle(r[r.size()-2], r[r.size()-1], rdet, theta[theta.size()-2], theta[theta.size()-1], thetadet);
-    
-    float angle_xy = returnAngle(x[x.size()-2], x[x.size()-1], xdet, y[y.size()-2], y[y.size()-1], ydet);
-    // dbgfit("Points %lf, %lf %lf, \t %lf %lf, %lf",x[x.size()-2], x[x.size()-1], xdet, y[y.size()-2], y[y.size()-1], ydet);
-    // dbgfit("Angle with %d is %f, %f", node->m_detID, angle_r, angle_xy);
-    //    fabs(angle_r) > 85 && fabs(angle_xy) > tol &&
-     if( std::find(plausible.begin(), plausible.end(), node->m_detID) == plausible.end()) 
-	plausible.push_back(node->m_detID);
-	// else if((fabs(angle_r) > 85 || fabs(angle_xy) > tol) && fabs(angle_r) > 50 && fabs(angle_xy) > 50 && std::find(uncertain.begin(), uncertain.end(), node->m_detID) == uncertain.end())
-     //	uncertain.push_back(node->m_detID);
-	// else if(  std::find(unlikely.begin(), unlikely.end(), node->m_detID) == unlikely.end())
-	// unlikely.push_back(node->m_detID);
-  }
-
-  /* if(plausible.size() == 1){
-    goodId = plausible[0];
-    dbgfit("Only one good choice %d", goodId);
-    return goodId;
-    }else */
-  if(plausible.size() > 0){
-    dbgfit("We found %d promising candidates", plausible.size());
-    tocheck = &plausible;
-  }  else if (uncertain.size() > 0) {
-    if(uncertain.size() == 1){
-      
-      goodId = uncertain[0];
-      dbgfit("Only one good choice %d", goodId);
-      return goodId;
-    }
-    dbgfit("No promising, but still possible with %d cand", uncertain.size());
-    //return -1;
-    tocheck = &uncertain;
-  } else {
-    dbgfit("Unless we want to go backwards, we should stop");
-    return -1;
-    }
-
-  // Checking Track angle in polar coord 
-
-  // debug("Points %lf, %lf \t %lf, %lf \t %lf, %lf",r[0], theta[0], r[r.size()/2], theta[theta.size()/2],r[r.size()-1], theta[theta.size()-1]);
-  
-  // double curv = returnCurvature(x[0], x[x.size()/2], x[x.size()-1], y[0], y[y.size()/2], y[y.size()-1]);
-
-  // float angle = returnAngle(r[0], r[r.size()/2], r[r.size()-1],  theta[0], theta[theta.size()/2], theta[theta.size()-1]);
-  //debug("Angle of track is %f", angle);
-  
-  //
-  //if(fabs(angle) < 170){
-  //   dbgfit("Quadratic Fit");
-  //  method = 1;
-    // degree = 2;
-    // nElts  = x.size() -1;
-    // } else {
-  // dbgfit("Linear Fit");
-  method = 0;
-    degree = 1;
-    nElts = x.size()-1;
-    //}
- 
-  std::vector<double> p;
-  std::vector<double> xfit;
-  std::vector<double> yfit;
-
-  double minDist = std::numeric_limits<double>::max();
-    
-  p.push_back(0.);
-  xfit.push_back(x[ x.size()-MIN(x.size(),4)]);
-  yfit.push_back(y[ y.size()-MIN(y.size(),4)]);
-
-  for (int i = x.size()-MIN(x.size(),4), inc=0; i <  nElts; i++, inc++){ 
-    //double newval = p[i] + sqrt(pow(r[i+1]-r[i],2.) + pow(theta[i+1]-theta[i],2.));
-    double newval = p[inc] + sqrt(pow(x[i+1]-x[i],2.) + pow(y[i+1]-y[i],2.));
-
-    //  dbgfit("x %f", x[i]);
-    p.push_back(newval);
-    xfit.push_back(x[i+1]);
-    yfit.push_back(y[i+1]);
-  }
-  // dbgfit("r %f", r[r.size()-1]);
-  // dbgfit("%lf, %lf, %lf", p[0],p[p.size()/2], p[p.size()-1]);
-  dbgfit("%lf, %lf, %lf", p[0], xfit[0], yfit[0]);
-  dbgfit("%lf, %lf, %lf", p[p.size()-1], x[x.size()-1], y[y.size()-1]);
-
-  double *x_coef = polyFit(p, xfit, degree);
-  double *y_coef = polyFit(p, yfit, degree);
-
-  dbgfit("%lf, %lf", x_coef[0], x_coef[1]);
-  dbgfit("%lf, %lf", y_coef[0], y_coef[1]);
-
-  //  if(method == 0){ // linear
-
-    
-  
-  for (size_t i = 0; i < tocheck->size(); i++){
-    int curId = tocheck->at(i);
-    int curIdx = gr.Find(curId);
-    GridNode *node = &Ingrid[curIdx];
-    double xdet = (double) node->m_xDet;//node->m_r/  sqrt( 2*pow(40,2));//node->m_xDet;
-    double ydet = (double) node->m_yDet;// (node->m_thetaDeg+180.) /360.;     
-    /*  if(ydet > 0.85 && prevtheta < 0.15)
-      ydet -= 1;
-    else if(ydet < 0.15 && prevtheta > 0.85)
-    ydet += 1.;*/
-    // double newp = p[p.size()-1] + sqrt(pow(xdet-r[r.size()-1],2.) + pow(ydet-theta[theta.size()-1],2.));
-    double newp = p[p.size()-1] + sqrt(pow(xdet-x[x.size()-1],2.) + pow(ydet-y[y.size()-1],2.));
-    double xest =  method == 0? x_coef[0]+x_coef[1]*newp: x_coef[0]+x_coef[1]*newp+x_coef[2]*newp*newp;
-    double yest = method == 0? y_coef[0]+y_coef[1]*newp: (y_coef[0]+y_coef[1]*newp+y_coef[2]*newp*newp);
-    dbgfit("%lf", newp);
-
-    // dbgfit("Estimated new coord %lf, %lf", xest*sqrt( 2*pow(40,2)),yest*360-180);
-    //  dbgfit("Node coord %lf, %lf",xdet*  sqrt( 2*pow(40,2)), ydet*360-180);
-    dbgfit("Estimated new coord %lf, %lf", xest,yest);
-    dbgfit("Node coord %lf, %lf",xdet, ydet);  
-    //dbgfit("Distance to estimated coord is %lf", sqrt(pow(xest -xdet, 2) + pow(yest -ydet,2)));
-    // double currDist = method == 0? nodeDistanceToLinearFit(xdet, ydet, x_coef, y_coef): nodeDistanceToQuadFit(xdet, ydet, x_coef, y_coef);
-    double currDist =sqrt(pow(xest -xdet, 2) + pow(yest -ydet,2));// method == 0? nodeDistanceToLinearFit(xdet, ydet, x_coef, y_coef): nodeDistanceToQuadFit(xdet, ydet, x_coef, y_coef);  
-     dbgfit("Node %d is at %lf", curId, currDist);
-		
-    if(minDist > currDist && currDist < 6){
-      minDist = currDist;		  
-      goodId = curId;	
-    }        
-  }
-
-
-  
-  if(goodId != -1) dbgfit("The good id is %d, and is at distance %lf", goodId,minDist);
-  else dbgfit("No good ID found");
-  
-  return goodId;
-
-
-}
 
 
 /*distanceBetweenTuves */
@@ -931,7 +623,7 @@ bool LineLineIntersect( GridNode &tubeA, GridNode &tubeB, GridNode &tubeC, float
   return true; //All OK
 }
 
-bool PointsLineIntersect( GridNode &tubeC, float x1, float x2, float y1, float y2) //Output 
+bool PointsLineIntersectLive( GridNode &tubeC, float x1, float x2, float y1, float y2) //Output 
 {
     //http://mathworld.wolfram.com/Line-LineIntersection.html
 
@@ -961,15 +653,23 @@ bool PointsLineIntersect( GridNode &tubeC, float x1, float x2, float y1, float y
   float xnom = Det(detL1, x1mx2, detL2, x3mx4);
   float ynom = Det(detL1, y1my2, detL2, y3my4);
   float denom = Det(x1mx2, y1my2, x3mx4, y3my4);
-  
+
+  float distx3, distx4, disx3x4;
   if(denom == 0.0)//Lines don't seem to cross
     {
       //  ixOut = NAN;
       //  iyOut = NAN;
+      // error("Lines do not cross,xdet  %f, x3 %f, x4 %f, yDet %f, y3 %f, y4 %f", xnom / denom, x3, x4, ynom / denom, y3, y4);
       return false;
-      error("Lines do not cross");
+    } else {
+    distx3 = sqrt(pow(xnom/denom-x3,2) + pow(ynom/denom -y3,2));
+    distx4 = sqrt(pow(xnom/denom-x4,2) + pow(ynom/denom -y4,2));
+    disx3x4 = sqrt(pow(x4-x3,2) + pow(y4 -y3,2));
+    if(distx3 +distx4 > disx3x4+1){
+      // error("Point is not on the line", xnom / denom, x3, x4, ynom / denom, y3, y4);
+      return false;
     }
-
+  }
   tubeC.m_xDet = xnom / denom;   
   tubeC.m_yDet = ynom / denom;
   tubeC.m_z_Det = z3 + 2*tubeC.m_halfLength*dir[2]*(tubeC.m_yDet  - y3)/(2*tubeC.m_halfLength * dir[1]);
@@ -978,6 +678,72 @@ bool PointsLineIntersect( GridNode &tubeC, float x1, float x2, float y1, float y
 
   return true; //All OK
 }
+
+bool PointsLineIntersectFinal( GridNode &tubeC, float x1, float x2, float y1, float y2) //Output 
+{
+    //http://mathworld.wolfram.com/Line-LineIntersection.html
+
+  TVector3 dir = tubeC.m_WireDirection;
+
+  /*float x1 =  tubeA.m_x; 
+  float y1 =  tubeA.m_y; 
+
+  float x2 =  tubeB.m_x;
+  float y2 =  tubeB.m_y;*/
+
+  float x3 =  tubeC.m_x - tubeC.m_halfLength * dir[0];
+  float y3 =  tubeC.m_y - tubeC.m_halfLength * dir[1];
+  float z3 =  tubeC.m_z - tubeC.m_halfLength * dir[2];
+  
+  float x4 =  tubeC.m_x + tubeC.m_halfLength * dir[0];
+  float y4 =  tubeC.m_y + tubeC.m_halfLength * dir[1];
+  float z4 =  tubeC.m_z + tubeC.m_halfLength * dir[2];
+
+  float detL1 = Det(x1, y1, x2, y2);
+  float detL2 = Det(x3, y3, x4, y4);
+  float x1mx2 = x1 - x2;
+  float x3mx4 = x3 - x4;
+  float y1my2 = y1 - y2;
+  float y3my4 = y3 - y4;
+
+  float xnom = Det(detL1, x1mx2, detL2, x3mx4);
+  float ynom = Det(detL1, y1my2, detL2, y3my4);
+  float denom = Det(x1mx2, y1my2, x3mx4, y3my4);
+
+  float distx3, distx4, disx3x4;
+  if(denom == 0.0)//Lines don't seem to cross
+    {
+      //  ixOut = NAN;
+      //  iyOut = NAN;
+      // error("Lines do not cross,xdet  %f, x3 %f, x4 %f, yDet %f, y3 %f, y4 %f", xnom / denom, x3, x4, ynom / denom, y3, y4);
+      return false;
+    }  else {
+    distx3 = sqrt(pow(xnom/denom-x3,2) + pow(ynom/denom -y3,2));
+    distx4 = sqrt(pow(xnom/denom-x4,2) + pow(ynom/denom -y4,2));
+    disx3x4 = sqrt(pow(x4-x3,2) + pow(y4 -y3,2));
+    if(distx3 +distx4 > disx3x4+1){
+      if(distx3<distx4){
+	tubeC.m_xDet =x3;   
+	tubeC.m_yDet = y3;
+	tubeC.m_z_Det = z3 + 2*tubeC.m_halfLength*dir[2]*(tubeC.m_yDet  - y3)/(2*tubeC.m_halfLength * dir[1]);
+      } else if (distx4<distx3){
+	tubeC.m_xDet =x4;   
+	tubeC.m_yDet = y4;
+	tubeC.m_z_Det = z3 + 2*tubeC.m_halfLength*dir[2]*(tubeC.m_yDet  - y3)/(2*tubeC.m_halfLength * dir[1]);
+      }
+      // error("Point is not on the line", xnom / denom, x3, x4, ynom / denom, y3, y4);
+      return true;
+    }
+  }
+  tubeC.m_xDet = xnom / denom;   
+  tubeC.m_yDet = ynom / denom;
+  tubeC.m_z_Det = z3 + 2*tubeC.m_halfLength*dir[2]*(tubeC.m_yDet  - y3)/(2*tubeC.m_halfLength * dir[1]);
+  //if(!isfinite(ixOut) || !isfinite(iyOut)) //Probably a numerical issue
+  //    return false;
+
+  return true; //All OK
+}
+
 
 double IntersectionPointSkeSke(CoordGrid const &hitMap,
 				   GridNode &tubeA, GridNode &tubeB,
@@ -1297,7 +1063,7 @@ void Add_VirtualNodes(CoordGrid &hitMap, std::vector < GridNode > &VNodesLayer, 
       if(firstNode.m_type == GridNode::STT_TYPE_SKEW && secondNode.m_type == GridNode::STT_TYPE_SKEW)
 	IntersectionPointSkeSke(hitMap, firstNode, secondNode, Dummy_coord);
       else
-	IntersectionPointSkePar(hitMap, firstNode, secondNode, Dummy_coord);
+	IntersectionPointSkeSke(hitMap, firstNode, secondNode, Dummy_coord);
 
 	// Modify node ID
 	//if( firstNode.m_detID == 979 || secondNode.m_detID == 979)
@@ -1376,19 +1142,19 @@ void Add_VirtualNodes(CoordGrid &hitMap, std::vector < GridNode > &VNodesLayer, 
 	  //info("Node %d and %d, dist %f", CurLftNode.m_detID, CurRgtNode.m_detID, currDist); 
 	  if(currDist <3.5){
 	    (CurLftNode.m_neighbors).push_back(CurRgtNode.m_detID);
-	    GridNode Dummy_coord;
+	    /*	    GridNode Dummy_coord;
 	    // Find intersection point.
 	    IntersectionPointSkeSke(hitMap, CurLftNode, CurRgtNode, Dummy_coord);
 
 	    Dummy_coord.m_detID      = StartVirtualID + NumTubesAdded;
-	    Dummy_coord.m_Orig_detID = Dummy_coord.m_detID;
-	    std::pair<float, float> r_Theta;
-	    float theta_deg = Cartesian_To_Polar(Dummy_coord.m_xDet, Dummy_coord.m_yDet, r_Theta);
-	    Dummy_coord.m_r = r_Theta.first;
-	    Dummy_coord.m_thetaDeg = theta_deg;
+	     Dummy_coord.m_Orig_detID = Dummy_coord.m_detID;
+	      std::pair<float, float> r_Theta;
+	      float theta_deg = Cartesian_To_Polar(Dummy_coord.m_xDet, Dummy_coord.m_yDet, r_Theta);
+	      Dummy_coord.m_r = r_Theta.first;
+	      Dummy_coord.m_thetaDeg = theta_deg;
 
-	    VNodesSector.push_back(Dummy_coord);
-	    NumTubesAdded++;
+	     VNodesSector.push_back(Dummy_coord);
+	     NumTubesAdded++;*/
 	  }
 	}
       }

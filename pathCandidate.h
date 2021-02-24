@@ -93,15 +93,15 @@ struct PathCandidate{
   int    m_seenVirtual;//id of node with min layer
   int    m_lastVirtual;
   int    m_numVirtual;
-  std::vector<int> *m_memberList;// List of members in a vector(delete me)
-  std::set<int>    *m_memberIdSet;// The set of member ids
+  
+  std::vector<int>       *m_memberList;// List of members in a vector(delete me)
+  std::set<int>          *m_memberIdSet;// The set of member ids
   std::vector<int> 	 m_prevVirtuals;
-  // std::vector<int> 	 m_prevNodes;
 
   std::vector<unsigned int>	 m_toMergeHead;
   std::vector<unsigned int> 	 m_toMergeTail;
   std::vector<unsigned int> 	 m_sectors;
-  std::vector<int> 	 m_layers;
+  std::vector<int> 	         m_layers;
   
   std::vector<int> m_headNeigh;
   std::vector<int> m_tailNeigh;
