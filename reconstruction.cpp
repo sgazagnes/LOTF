@@ -671,7 +671,7 @@ void CompZCoordinates(CoordGrid &hitMap, PathCandidate *trk)
 	change = 1;
       //  double pval = (y[i] - y_coef[0])/y_coef[1];
       //      if(i != 0)
-      //	Node_distance += sqrt(pow(x[i],2)+pow(y[i],2));
+      //	Node_distance += sqrt(pow(x[i],2)+pow(y[i],2));x
       //   else
       Node_distance = sqrt(pow(x[i]-xPts[start],2)+pow(y[i]-yPts[start],2));//-xPts[start]-yPts[start]
     dbgtrkz("Dist cur %lf", Node_distance);

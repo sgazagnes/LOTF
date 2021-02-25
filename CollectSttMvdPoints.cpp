@@ -799,10 +799,11 @@ MCTrackPoints( std::vector < std::vector<HitCoordinate*>* > const &evtData)
     new std::vector< std::vector < MCTrackObject* >* >();
 
   int numTracks = 0;
-  std::vector< int > idtracks;
 
    for(size_t e = 0; e < evtData.size(); ++e) {
     std::vector<HitCoordinate*> const *Current_Event = evtData[e];
+    std::vector< int > idtracks;
+
     // numTracks = 0;
     // Find out how many MC tracks are available
     for(size_t i = 0; i < Current_Event->size(); ++i) {
@@ -814,7 +815,7 @@ MCTrackPoints( std::vector < std::vector<HitCoordinate*>* > const &evtData)
       }
     }// END current event loop
     numTracks = idtracks.size();
-    dbgcollect("Event %d contains %d tracks", e,(numTracks));
+    info("Event %d contains %d tracks", e,(numTracks));
     
    // Now, we know the number of available tracks for the current
     // event; We can allocate memory.

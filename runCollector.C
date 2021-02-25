@@ -15,8 +15,8 @@ void runCollector( size_t plength = 1,
                    std::string const &OutFileName = "Tracks_output.root",
 		   size_t dim = 2,// Plot dimension
 		   size_t gapSize = 0,// Number of layers to skip
-		   int firstEvt =5, //3, //9, //0,
-		   int lastEvt  =6//10  //6
+		   int firstEvt =0, //3, //9, //0,
+		   int lastEvt  =9//10  //6
 		   )//50->61, 4->5
 {
   // Load basic libs and headers.
@@ -53,6 +53,8 @@ void runCollector( size_t plength = 1,
   gSystem->CompileMacro("reconstruction.cpp","kO");
   gSystem->CompileMacro("phconnect.cpp","kO");
   gSystem->CompileMacro("phfitting.cpp","kO");
+  gSystem->CompileMacro("phmerging.cpp","kO");
+  gSystem->CompileMacro("phzinterp.cpp","kO");
   gSystem->CompileMacro("floodingFilter.cpp","kO");
   gSystem->CompileMacro("error.cpp","kO");
 

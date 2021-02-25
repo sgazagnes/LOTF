@@ -64,8 +64,7 @@ double IntersectionPointSkePar(CoordGrid const &hitMap,
 double IntersectionPointSkeSke(CoordGrid const &hitMap,
 				   GridNode &tubeA, GridNode &tubeB,  GridNode &out);
 void IntersectionPointCoord(GridNode &tubeA, GridNode &tubeB);
-void addTracklets (CoordGrid &gr, PathCandidate *newCand, PathCandidate &mergeCand,  int curdir, int mergedir);
-#endif
 void Add_VirtualNodes(CoordGrid &hitMap, std::vector < GridNode > &VNodesLayer,  std::vector < GridNode > &VNodesSector);
 double IntersectionXY(double startX1, double endX1, double startY1, double endY1, double startX2, double endX2, double startY2, double endY2);
 bool LineLineIntersect( GridNode &tubeA, GridNode &tubeB, GridNode &tubeC, float &ixOut, float &iyOut, float &izOut); //Output 
+#endif

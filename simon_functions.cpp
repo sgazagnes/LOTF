@@ -382,39 +382,6 @@ void Fix_InterSector_Nodes(CoordGrid &hitMap, size_t const numSectors)
 }
 
 
-void addTracklets (CoordGrid &gr, PathCandidate *newCand, PathCandidate &mergeCand,  int curdir, int mergedir){
-
-  std::vector< GridNode > &Ingrid = gr.m_grid;
-
-  
-  if(mergedir == 1){
-    for(int i =  (mergeCand.m_memberList)->size()-1; i >=0; i--){
-      int curid = (mergeCand.m_memberList)->at(i);
-      //   debug("adding id %d", curid);
-      if(newCand->isInCandidate(curid)) continue;
-      int curidx = gr.Find(curid);
-      GridNode* node = &Ingrid[curidx];
-      newCand->insertNewNode(gr, Ingrid, node, curdir == 1? newCand->m_memberList->end(): newCand->m_memberList->begin());
-    }
-    
-  } else {
-
-    for(size_t i =  0; i < mergeCand.m_memberList->size(); i++){
-      int curid = mergeCand.m_memberList->at(i);
-      // debug("adding id %d", curid);
-
-      if(newCand->isInCandidate(curid)) continue;
-      int curidx = gr.Find(curid);
-      GridNode* node = &Ingrid[curidx];
-      newCand->insertNewNode(gr, Ingrid, node, curdir == 1? newCand->m_memberList->end(): newCand->m_memberList->begin());
-    }
-  }
-  
-  mergeCand.m_isMerged = 1;
-  mergeCand.m_isValid = 0;
-
-}
-
 
 
 

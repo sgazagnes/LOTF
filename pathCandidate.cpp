@@ -456,15 +456,15 @@ void PathCandidate::insertNewNode(CoordGrid &gr, std::vector< GridNode > &Ingrid
 
     // Correcting the intersection points on the skewed tubes
     if(m_lastNodeAdded >= START_VIRTUAL_ID){ // We might have an issue when we stop on a skewed layer
-      dbgconnect("We need to correct the previous anchors");
+      //  dbgconnect("We need to correct the previous anchors");
       correctPrevAnchor(gr, Ingrid, node, vecindex);
-      dbgconnect("We need to correct the previous nodes");
+      //dbgconnect("We need to correct the previous nodes");
 
       determineSkewedXY(gr, Ingrid, node, vecindex);
       m_listSkewed.clear();
       m_prevVirtuals.clear();
     }
-      dbgconnect("Adding a new anchor");
+    // dbgconnect("Adding a new anchor");
 
     // Adding a new anchor, temporary for the skewed nodes
     addToAnchor(gr, Ingrid, node, vecindex, prevLayer);

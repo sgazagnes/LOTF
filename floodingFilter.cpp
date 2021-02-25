@@ -33,6 +33,8 @@
 #include "logc.h"
 #include "phconnect.h"
 #include "phfitting.h"
+#include "phmerging.h"
+#include "phzinterp.h"
 
 // DEBUG AND STORE definitions
 #define EVALUATE_ERROR 0
@@ -40,8 +42,8 @@
 #define DO_RECONSTRUCTION 1
 #define DO_CONNECT 1
 #define DO_FITTING 1
-#define DO_MERGING 0
-#define DO_ZRECONS 0
+#define DO_MERGING 1
+#define DO_ZRECONS 1
 #define WRITE_CONNECTED_COMPONENTS 1
 #define INCLUDE_MVD_INOUTPUT_TRACK 0
 #define WRITE_CONNECTED_COMPONENTS_JSON 0
@@ -54,7 +56,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   TStopwatch timer;
 
   //Setting verbosity level
-  bool v[10] = {1,1,1,1,1,1,1,1,1,1};//{0,0,0,0,0,0,0,0,1,1}{1,1,1,0,0,0,0,0,0,0};
+  bool v[10] = {1,1,1,0,0,0,0,0,0,1};//{0,0,0,0,0,0,0,0,1,1}{1,1,1,0,0,0,0,0,0,0};
   set_verbosity(v);
   // Structure to hold the detector data (grid)
   std::vector < GridNode > detNodes;
@@ -186,6 +188,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   for(size_t k = 0; k < Hit_coords->size(); ++k) {
     //   if(k == 28 || k == 90 || k == 42||k == 55||k==97) continue;
 
+    info("MC_Tracks->at(k)->size() is %d", MC_Tracks->at(k)->size());
     if(MC_Tracks->at(k)->size() == 0){
       error("This event did not contain anay tracks");
       continue;
@@ -329,7 +332,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     fittingPhase(gr, Ingrid, tracklets, idToProcess, visited, toMergeWith);
 
 
-    for(unsigned int n = 0; n < idToProcess.size(); ++n) {
+    for(size_t n = 0; n < idToProcess.size(); ++n) {
       if(visited[idToProcess[n].first] == 1){
 	idToProcess.erase(idToProcess.begin() + n);
 	n--;
@@ -339,6 +342,46 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     info("After fitting, we have %lu remaining active nodes\n",  idToProcess.size());
     timing("Fitting phase ended. Time %lf s",  std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count());
 
+
+    // Trying to connect remaining nodes
+    std::vector<GridNode> sameLayer; 
+    for(size_t n = 0; n < idToProcess.size(); ++n) {
+      int nodeId = idToProcess[n].first;
+      GridNode &myNode = Ingrid[gr.Find(nodeId)];
+      info("Checking remaining node %d", nodeId);
+      bool allvisited = true;
+      for(size_t m = 0; m < myNode.m_neighbors.size(); m++){
+	int neighId = myNode.m_neighbors[m];
+	GridNode &myNeigh = Ingrid[gr.Find(neighId)];
+	if(myNeigh.m_type == GridNode::VIRTUAL_NODE)
+	  continue;
+	info("Has neighbor %d, which is connect to %d CC", neighId, myNeigh.m_cm.size());
+	if(!visited[neighId])
+	  allvisited = false;
+	else if(myNeigh.m_Layer == myNode.m_Layer){
+	  info("Same Layer, put in list");
+	  sameLayer.push_back(myNeigh);
+	}	
+      }
+      if(allvisited && sameLayer.size() == 1){
+	info("we can easily connect one of these remaining node to one track");
+	int potCCtoMerge = sameLayer[0].m_cm[0];
+	const auto p = std::find_if(tracklets.begin(), tracklets.end(),
+				    [potCCtoMerge](const PathCandidate *obj){ return obj->m_id == potCCtoMerge; } );
+
+	PathCandidate &neighCand = *(*p); // The CC that the node belongs to	   	   
+
+	//Find where the node is in the list of the other CC
+	std::vector<int>::iterator it = std::find((neighCand.m_memberList)->begin(),
+						  (neighCand.m_memberList)->end(), sameLayer[0].m_detID);
+	neighCand.insertNewNode(gr, Ingrid, &sameLayer[0], it);
+      }
+	//      int index              = std::distance((neighCand.m_memberList)->begin(), it);
+	//     int nodeIdNeighCand    = neighCand.m_memberList->at(index);
+    }
+    
+    
+    
 #endif // IF TRUE
 
     
@@ -348,156 +391,17 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 #if(DO_MERGING)
       // Merging potential candidates
       dbgmerge("Starting Merging phase\n");
-      for(unsigned int l = 0; l < tracklets.size(); l++){
-      
-	PathCandidate &curCand = *(tracklets[l]);
-	dbgmerge("Current tracklet %d", curCand.m_id);
-      
-	if (curCand.m_finished ==  3){
-	  dbgmerge("This CM is either finished or has no further close neighbors");
-	  //check that it has not merging candidates
-	  if (tracklets[l]->m_toMergeHead.size() != 0  || tracklets[l]->m_toMergeTail.size() != 0)
-	    dbgmerge("This looks finished but has to be merged ???? ");
-	  else
-	    dbgmerge("No potential merging candidates, we're done");
-	  curCand.m_isValid = 1;	
-	}/* else if (curCand.m_finished ==  2){
-	  dbgmerge("This CM needs to be checked");
-	  curCand.m_isValid = 1;
-	  }*/ else if (curCand.m_isMerged == 1){
-	  dbgmerge("This CM has already been merged");
-	  curCand.m_isValid = 0;
-	}
-
-	else {
- 
-	  int sizeMergeHead =  curCand.m_toMergeHead.size();
-	  int sizeMergeTail =  curCand.m_toMergeTail.size();
-
-	  if(sizeMergeHead == 0 && sizeMergeTail == 0){
-	    dbgmerge("NEW CAND FOR NOTHIIIING");
-	    continue;
-	  }
-
-	  PathCandidate *newCand 	= new PathCandidate();// Create a new candidate
-	  newCand->m_id 		= candidateId++;// Set id
-	  newCand->m_tailNode           = curCand.m_tailNode;
-	  
-	  for(size_t i = 0; i < (curCand.m_memberList)->size(); i++){
-	    int curid = (curCand.m_memberList)->at(i);
-	    int curidx = gr.Find(curid);
-	    GridNode* node = &Ingrid[curidx];
-	    newCand->insertNewNode(gr,node,newCand->m_memberList->end());
-	  }
-
-	  int curCandId =  curCand.m_id;
-
-	  if(sizeMergeHead != 0){
-
-	    int idToMerge = curCand.m_toMergeHead[0];
-	    bool continu = true;
-	  
-	    while(continu){
-	    
-	      dbgmerge("Tracklets %d needs to be merged in head with %d", curCand.m_id, idToMerge);
-	      const auto p = std::find_if(tracklets.begin(), tracklets.end(),
-					  [idToMerge](const PathCandidate *obj){ return obj->m_id == idToMerge; } );
-	    
-	      PathCandidate &mergeCand = *(*p);
-	  
-	      if(std::find(mergeCand.m_toMergeHead.begin(), mergeCand.m_toMergeHead.end(), curCandId) != mergeCand.m_toMergeHead.end()) {
-	      
-		dbgmerge("Merging head with head");
-		addTracklets(gr, newCand, mergeCand, 1, 1);
-	    
-		if(mergeCand.m_toMergeTail.size() > 0){
-		  curCandId = mergeCand.m_id;
-		  idToMerge = mergeCand.m_toMergeTail[0];
-		  dbgmerge("ONE MORE TO PUSH %d (not implemented yet)", idToMerge);
-		} else
-		  continu = false;
-
-	      
-	      } else {
-	      
-		dbgmerge("Merging head with tail");	    
-		addTracklets(gr, newCand, mergeCand, 1, 0);
-	    
-		if(mergeCand.m_toMergeHead.size()){
-		  curCandId = mergeCand.m_id;
-
-		  idToMerge = mergeCand.m_toMergeHead[0];
-		  dbgmerge("ONE MORE TO PUSH %d (not implemented yet)", idToMerge);
-		} else
-		  continu = false;
-
-	      }
-	    } // while continu
-	  } // HEAD MERGING
-
-	  if(sizeMergeTail != 0){
-
-	    int idToMerge = curCand.m_toMergeTail[0];
-	    bool continu = true;
-	  
-	    while(continu){
-
-	      dbgmerge("Tracklets %d needs to be merged in tail with %d", curCand.m_id, idToMerge);
-
-	      const auto p = std::find_if(tracklets.begin(), tracklets.end(),
-					  [idToMerge](const PathCandidate *obj){ return obj->m_id == idToMerge; } );
-	    
-	      PathCandidate &mergeCand = *(*p);
-	  
-	      if(std::find(mergeCand.m_toMergeHead.begin(), mergeCand.m_toMergeHead.end(), curCandId) != mergeCand.m_toMergeHead.end()) {
-	      
-		dbgmerge("Merging tail with head");	    
-		addTracklets(gr, newCand, mergeCand, 0, 1);
-	    
-
-		if(mergeCand.m_toMergeTail.size() > 0 ){
-		  curCandId = mergeCand.m_id;
-		  idToMerge = mergeCand.m_toMergeTail[0];
-		  dbgmerge("ONE MORE TO PUSH %d (not implemented yet)", idToMerge);
-		} else
-		  continu = false;
-	      
-	      } else {
-	      
-		dbgmerge("Merging head with tail");	    
-		addTracklets(gr, newCand, mergeCand, 0, 0);
-	    
-		if(mergeCand.m_toMergeHead.size() > 0){
-		  curCandId = mergeCand.m_id;
-		  idToMerge = mergeCand.m_toMergeHead[0];
-		  dbgmerge("ONE MORE TO PUSH %d (not implemented yet)", idToMerge);
-		} else
-		  continu = false;
-
-	      }
-	    } // while continu
-	  } // Tail MERGING
-	  
-	  //	else
-	  //	  error("ISSUE, no one to merge with ?");
-	
-	  curCand.m_isValid = 0;
-	  curCand.m_isMerged = 1;
-	  newCand->m_isValid = 1;
-	  newCand->m_finished = 3;
-	
-	  dbgmerge("Pushing new merged cm %d:  length is %d, tail node %d, head node %d, min layer %d, max layer %d,    IsOnSectorLimit %d, finished ? %d. ", newCand->m_id, newCand->m_length, newCand->m_tailNode, newCand->m_headNode,newCand->m_minLayer, newCand->m_maxLayer, newCand->m_isOnSectorLimit, newCand->m_finished);
-
-	  tracklets.push_back(newCand);
-	} // ELSE NOT FINISHED
-
-      } // FOR TRACKLETS
-      // }
+      mergeTracks (gr, Ingrid, tracklets, &candidateId);
       // timing("Merging phase ended. Real time %f s, CPU time %f s.", timer.RealTime(),timer.CpuTime());
       timing("Merging phase ended. Time %lf s",  std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count());
 
 #endif
 
+#if (DO_ZRECONS)  
+      //CompZCoordinates(gr, curCand);
+      ZCoordinates(tracklets);
+#endif
+      
     //fitZCoordinates(gr, tracklets);
 
       //    if(tracklets.size() > 0){
@@ -509,9 +413,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  std::vector<int> const *vect = curCand->m_memberList;
 
 	  if(curCand->m_isValid) {
-	    #if (DO_ZRECONS > 0)  
-	    CompZCoordinates(gr, curCand);
-	    #endif
+
 	    std::set<int> *comp = new std::set<int>((*trk));	    
 	    connectedComp->push_back(comp);	 
 	  }

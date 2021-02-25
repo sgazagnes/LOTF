@@ -1,0 +1,11 @@
+#pragma once
+#ifndef PHCONNECT_H
+#define PHCONNECT_H
+
+
+// Local headers
+#include "pathCandidate.h"
+
+void ZCoordinates(std::vector < PathCandidate* > &tracklets);
+
+#endif
