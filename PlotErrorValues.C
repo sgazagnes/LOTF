@@ -29,22 +29,28 @@ void PlotErrorValues(std::string const& Infile1 = "Tracks_output.root",std::stri
 
   TNtuple *ErrorPT = (TNtuple*) inp.Get("PerTrackError");
 
+  TNtuple *CurvPT = (TNtuple*) inp.Get("PerTrackCurv");
+
   TFile inp2(Infile2.c_str(),"READ");
   TNtuple *ErrorB = (TNtuple*) inp2.Get("ErrorEstimate");
 
   TNtuple *ErrorPTB = (TNtuple*) inp2.Get("PerTrackError");
+  
+  TNtuple *CurvPTB = (TNtuple*) inp2.Get("PerTrackCurv");
   // Create plots
   // Undermerge Error
-  /*
+  
   {
     TCanvas *c1 = new TCanvas("c1", "ErrorUnder", ww, hh );
- 
+
     Error->SetLineColor(4);
     // Error->SetLineWidth(3);
     Error->Draw("Error_underMergeNorm");
-    //  TH2F *hu =  (TH2F*)gPad->GetPrimitive("htemp");
-    // hu->SetTitle("Under-Merge");
 
+    TH2F *hu =  (TH2F*)gPad->GetPrimitive("htemp");
+    // hu->SetTitle("Under-Merge");
+    hu->GetYaxis()->SetLimits(0,5);
+    hu->GetXaxis()->SetLimits(-0.1,1.1);
 
     // TLegend  *legend = new TLegend(0.80,0.3,0.995,0.4); // we need different positions for the legend to not 
 
@@ -97,7 +103,8 @@ void PlotErrorValues(std::string const& Infile1 = "Tracks_output.root",std::stri
     TH2F *ho = (TH2F*)gPad->GetPrimitive("htemp");
 
     ho->SetTitle("Over-Merge");
-
+    ho->GetYaxis()->SetLimits(0,5);
+    ho->GetXaxis()->SetLimits(-0.1,1.1);
     c2->Modified();
 
     c2->Update();
@@ -129,7 +136,8 @@ void PlotErrorValues(std::string const& Infile1 = "Tracks_output.root",std::stri
     Error->Draw("TotalErrorNorm");
     TH2F *ht = (TH2F*)gPad->GetPrimitive("htemp");
     ht->SetTitle("Total Error");
-
+    ht->GetYaxis()->SetLimits(0,5);
+    ht->GetXaxis()->SetLimits(-0.1,1.1);
     c3->Modified();
 
     c3->Update();
@@ -157,19 +165,22 @@ void PlotErrorValues(std::string const& Infile1 = "Tracks_output.root",std::stri
     ErrorPT->SetLineColor(4);
     ErrorPT->SetLineWidth(2);
     ErrorPT->Draw("Jacardsingle");
-    TH2F *hu = (TH2F*)gPad->GetPrimitive("htemp");
+    TH2F *hp = (TH2F*)gPad->GetPrimitive("htemp");
 
+    hp->SetTitle("Jacardsingle");
+    hp->GetYaxis()->SetLimits(0,5);
+    hp->GetXaxis()->SetLimits(-0.1,1.1);
 
-    hu->SetTitle("Jacardsingle");
     c4->Modified();
 
     c4->Update();
+
     TPaveStats *stats =(TPaveStats*)c4->GetPrimitive("stats");
     stats->SetName("h1stats");
     stats->SetY1NDC(.9);
     stats->SetY2NDC(.7);
     stats->SetTextColor(4);
-    ErrorPTB->SetLineColor(2);
+      ErrorPTB->SetLineColor(2);
     ErrorPTB->Draw("Jacardsingle", "","sames");
     c4->Update();
     TPaveStats *stats2 = (TPaveStats*)c4->GetPrimitive("stats");
@@ -177,18 +188,21 @@ void PlotErrorValues(std::string const& Infile1 = "Tracks_output.root",std::stri
     stats2->SetY1NDC(.65);
     stats2->SetY2NDC(.45);
     stats2->SetTextColor(2);
-    c4->Update();
+ 
+    //c4->Update();
     c4->SaveAs("Jacardsin.png");
-   }
+    }
   // Over Merge error
-  {
-    TCanvas *c5 = new TCanvas("c5", "JacardAverage",   ww, hh );
+   {
+    TCanvas *c5 = new TCanvas("c5", "F1 score",   ww, hh );
     ErrorPT->SetLineColor(4);
     // ErrorPT->SetLineWidth(3);
     ErrorPT->Draw("Jacardaverage");
     TH2F *ho = (TH2F*)gPad->GetPrimitive("htemp");
 
-    ho->SetTitle("Jacardaverae");
+    ho->SetTitle("f1score");
+    ho->GetYaxis()->SetLimits(0,5);
+    ho->GetXaxis()->SetLimits(-0.1,1.1);
     c5->Modified();
 
     c5->Update();
@@ -206,10 +220,10 @@ void PlotErrorValues(std::string const& Infile1 = "Tracks_output.root",std::stri
     stats2->SetY2NDC(.45);
     stats2->SetTextColor(2);
     c5->Update();
-    c5->SaveAs("Jacarave.png");
+    c5->SaveAs("f1score.png");
 
-  }
-  {// Total Error
+    }
+  /*{// Total Error
     TCanvas *c6 = new TCanvas("c6", "Found",  ww, hh );
     ErrorPT->SetLineColor(4);
     //ErrorPT->SetLineWidth(3);
@@ -235,25 +249,29 @@ void PlotErrorValues(std::string const& Infile1 = "Tracks_output.root",std::stri
     stats2->SetTextColor(2);
     c6->Update();
     c6->SaveAs("Found.png");
-  }
-  {
-    TCanvas *c7 = new TCanvas("c7", "UnderMergeperTrack",  ww, hh);
-    ErrorPT->SetLineColor(4);
+    }*/
+     {
+    TCanvas *c7 = new TCanvas("c7", "deltaRCanvas",   ww, hh );
+    CurvPT->SetLineColor(4);
     // ErrorPT->SetLineWidth(3);
-    ErrorPT->Draw("UnderMergeError");
+    CurvPT->Draw("(((1/MC_r)-(1/tr_r))/(1/MC_r))");
     TH2F *ho = (TH2F*)gPad->GetPrimitive("htemp");
 
-    ho->SetTitle("UnderMergeError");
+    ho->SetTitle("deltaRCanvas");
+    ho->SetXTitle("(R_{MC} - R_{Tr}) [cm]");
+    ho->SetYTitle("counts");
+    //   ho->GetYaxis()->SetLimits(0,5);
+    ho->GetXaxis()->SetLimits(-50,50);
     c7->Modified();
 
-    c7->Update();
-    TPaveStats *stats =(TPaveStats*)c7->GetPrimitive("stats");
+     c7->Update();
+     TPaveStats *stats =(TPaveStats*)c7->GetPrimitive("stats");
     stats->SetName("h1stats");
     stats->SetY1NDC(.9);
     stats->SetY2NDC(.7);
     stats->SetTextColor(4);
-    ErrorPTB->SetLineColor(2);
-    ErrorPTB->Draw("UnderMergeError", "","sames");
+     CurvPTB->SetLineColor(2);
+    CurvPTB->Draw("(((1/MC_r)-(1/tr_r))/(1/MC_r))", "","sames");
     c7->Update();
     TPaveStats *stats2 = (TPaveStats*)c7->GetPrimitive("stats");
     stats2->SetName("h1stats2");
@@ -261,38 +279,11 @@ void PlotErrorValues(std::string const& Infile1 = "Tracks_output.root",std::stri
     stats2->SetY2NDC(.45);
     stats2->SetTextColor(2);
     c7->Update();
-    c7->SaveAs("Undermerge_track.png");
+    //   c7->SaveAs("Jacarave.png");
 
-  }
+
+    }
   {// Total Error
-    TCanvas *c8 = new TCanvas("c8", "Overmegrepertrack",  ww, hh );
-    ErrorPT->SetLineColor(4);
-    // ErrorPT->SetLineWidth(3);
-    ErrorPT->Draw("OverMergeError");
-    TH2F *ht = (TH2F*)gPad->GetPrimitive("htemp");
-
-    ht->SetTitle("OverMergeError");
-    c8->Modified();
-
-    c8->Update();
-    TPaveStats *stats =(TPaveStats*)c8->GetPrimitive("stats");
-    stats->SetName("h1stats");
-    stats->SetY1NDC(.9);
-    stats->SetY2NDC(.7);
-    stats->SetTextColor(4);
-    ErrorPTB->SetLineColor(2);
-    ErrorPTB->Draw("OverMergeError", "","sames");
-    c8->Update();
-    TPaveStats *stats2 = (TPaveStats*)c8->GetPrimitive("stats");
-    stats2->SetName("h1stats2");
-    stats2->SetY1NDC(.65);
-    stats2->SetY2NDC(.45);
-    stats2->SetTextColor(2);
-    c8->Update();
-    c8->SaveAs("Overmerge_track.png");
-
-  }
-    {// Total Error
     TCanvas *c9 = new TCanvas("c9", "Displacement X",ww, hh );
     ErrorPT->SetLineColor(4);
     // ErrorPT->SetLineWidth(3);
@@ -300,6 +291,8 @@ void PlotErrorValues(std::string const& Infile1 = "Tracks_output.root",std::stri
     TH2F *ht = (TH2F*)gPad->GetPrimitive("htemp");
 
     ht->SetTitle("Displacement X");
+    ht->GetYaxis()->SetLimits(0,5);
+    ht->GetXaxis()->SetLimits(-0.1,2);
     c9->Modified();
 
     c9->Update();
@@ -328,6 +321,8 @@ void PlotErrorValues(std::string const& Infile1 = "Tracks_output.root",std::stri
     TH2F *ht = (TH2F*)gPad->GetPrimitive("htemp");
 
     ht->SetTitle("Displacement Y");
+    ht->GetYaxis()->SetLimits(0,5);
+    ht->GetXaxis()->SetLimits(-0.1,2);
     c10->Modified();
 
     c10->Update();
@@ -356,6 +351,8 @@ void PlotErrorValues(std::string const& Infile1 = "Tracks_output.root",std::stri
     TH2F *ht = (TH2F*)gPad->GetPrimitive("htemp");
 
     ht->SetTitle("Displacement Z");
+        ht->GetYaxis()->SetLimits(0,5);
+    ht->GetXaxis()->SetLimits(-0.1,40);
     c11->Modified();
 
     c11->Update();
@@ -375,15 +372,15 @@ void PlotErrorValues(std::string const& Infile1 = "Tracks_output.root",std::stri
     c11->Update();
     c11->SaveAs("Disz.png");
 
-  }
+    }
 
-  */
-
-
+  
 
 
 
-	    /*COMPLEX*/
+
+
+  /*COMPLEX*//*
   {
     TCanvas *c1 = new TCanvas("c1", "ErrorUnder", ww, hh );
  
@@ -528,7 +525,7 @@ void PlotErrorValues(std::string const& Infile1 = "Tracks_output.root",std::stri
     c4->SaveAs("Jacardsin.png");
    }
   // Over Merge error
-  {
+  /* {
     TCanvas *c5 = new TCanvas("c5", "JacardAverage",   ww, hh );
     ErrorPT->SetLineColor(4);
     // ErrorPT->SetLineWidth(3);
@@ -555,7 +552,7 @@ void PlotErrorValues(std::string const& Infile1 = "Tracks_output.root",std::stri
     c5->Update();
     c5->SaveAs("Jacarave.png");
 
-  }
+    }
   {// Total Error
     TCanvas *c6 = new TCanvas("c6", "Found",  ww, hh );
     ErrorPT->SetLineColor(4);
@@ -722,5 +719,5 @@ void PlotErrorValues(std::string const& Infile1 = "Tracks_output.root",std::stri
     c11->Update();
     c11->SaveAs("Disz.png");
 
-  }
+    }*/
 }

@@ -633,6 +633,7 @@ bool PointsLineIntersectLive( GridNode &tubeC, float x1, float x2, float y1, flo
     distx4 = sqrt(pow(xnom/denom-x4,2) + pow(ynom/denom -y4,2));
     disx3x4 = sqrt(pow(x4-x3,2) + pow(y4 -y3,2));
     if(distx3 +distx4 > disx3x4+1){
+      
       // error("Point is not on the line", xnom / denom, x3, x4, ynom / denom, y3, y4);
       return false;
     }

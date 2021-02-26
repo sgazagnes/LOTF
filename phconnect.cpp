@@ -545,7 +545,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	  	  
 	if(cond == false && n_neighbors != 0){ // This track is finished, but let's push neighbors as we need to fit in the next step
 
-	  info("ADDING lot of nodes");
+	  // info("ADDING lot of nodes");
 	  for (size_t i = 0; i < sameLayer.size(); i++)
 	    cand->m_headNeigh.push_back(sameLayer[i]);
 	      
@@ -557,8 +557,8 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 
 	  cand->m_headNeigh.insert((cand->m_headNeigh).begin(),  (nextVirt).begin(),  (nextVirt).end());	
 	  // resetLists(visited, prevLayer, sameLayer, nextLayer);
-	  for(size_t i = 0; i < cand->m_headNeigh.size(); i++)
-	    info("Node %d",cand->m_headNeigh[i]);
+	  //for(size_t i = 0; i < cand->m_headNeigh.size(); i++)
+	  // info("Node %d",cand->m_headNeigh[i]);
 
 	  cand->m_finished = ONGOING;		 
 	  break;

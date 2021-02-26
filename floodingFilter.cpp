@@ -37,7 +37,7 @@
 #include "phzinterp.h"
 
 // DEBUG AND STORE definitions
-#define EVALUATE_ERROR 0
+#define EVALUATE_ERROR 1
 #define READ_GRID_FROM_FILE 0
 #define DO_RECONSTRUCTION 1
 #define DO_CONNECT 1
@@ -56,7 +56,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   TStopwatch timer;
 
   //Setting verbosity level
-  bool v[10] = {1,1,1,0,0,0,0,0,0,1};//{0,0,0,0,0,0,0,0,1,1}{1,1,1,0,0,0,0,0,0,0};
+  bool v[10] = {1,1,1,0,0,0,0,0,1,1};//{0,0,0,0,0,0,0,0,1,1}{1,1,1,0,0,0,0,0,0,0};
   set_verbosity(v);
   // Structure to hold the detector data (grid)
   std::vector < GridNode > detNodes;
