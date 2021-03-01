@@ -684,6 +684,10 @@ bool PointsLineIntersectFinal( GridNode &tubeC, float x1, float x2, float y1, fl
       //  ixOut = NAN;
       //  iyOut = NAN;
       // error("Lines do not cross,xdet  %f, x3 %f, x4 %f, yDet %f, y3 %f, y4 %f", xnom / denom, x3, x4, ynom / denom, y3, y4);
+
+      tubeC.m_xDet =  tubeC.m_x;// xnom / denom;   
+      tubeC.m_yDet = tubeC.m_y;//;ynom / denom;
+      tubeC.m_z_Det = 0.0; //z3 + 2*tubeC.m_halfLength*dir[2]*(tubeC.m_yDet  - y3)/(2*tubeC.m_halfLength * dir[1]);
       return false;
     }  else {
     distx3 = sqrt(pow(xnom/denom-x3,2) + pow(ynom/denom -y3,2));
@@ -691,11 +695,11 @@ bool PointsLineIntersectFinal( GridNode &tubeC, float x1, float x2, float y1, fl
     disx3x4 = sqrt(pow(x4-x3,2) + pow(y4 -y3,2));
     if(distx3 +distx4 > disx3x4+1){
       if(distx3<distx4){
-	tubeC.m_xDet =x3;   
+	tubeC.m_xDet = x3;   
 	tubeC.m_yDet = y3;
 	tubeC.m_z_Det = z3 + 2*tubeC.m_halfLength*dir[2]*(tubeC.m_yDet  - y3)/(2*tubeC.m_halfLength * dir[1]);
       } else if (distx4<distx3){
-	tubeC.m_xDet =x4;   
+	tubeC.m_xDet = x4;   
 	tubeC.m_yDet = y4;
 	tubeC.m_z_Det = z3 + 2*tubeC.m_halfLength*dir[2]*(tubeC.m_yDet  - y3)/(2*tubeC.m_halfLength * dir[1]);
       }

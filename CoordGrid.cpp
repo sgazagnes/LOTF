@@ -146,7 +146,8 @@ void CoordGrid::FillGrid(std::vector < HitCoordinate* > const& hitcoords)
     if( hc->type == HitCoordinate::STT_TYPE ) {
       int detID = hc->m_detID;
       int idx = Find(detID);
-      //m_grid[index]
+      //  info("Active %d, %d", detID,idx);
+      // //m_grid[index]
 	(m_grid[idx]).m_active = true;
       /* for(size_t index = 0; index < m_grid.size(); ++index) {
        	if( ( (m_grid[index]).m_Orig_detID == detID ) &&
@@ -337,7 +338,7 @@ void CoordGrid::FillGrid(std::vector < HitCoordinate* > const& hitcoords)
     if(cnt > 1)
     continue;*/
   free(visited);
-  dbggrid("Stored real STT points = %u,  %u virtual nodes, and %u MVD points", sttCnt,vCnt, mvdCnt);
+  info("Stored real STT points = %u,  %u virtual nodes, and %u MVD points", sttCnt,vCnt, mvdCnt);
 }
 
 bool Is_STT_SplitSkewedNode( GridNode const &node)

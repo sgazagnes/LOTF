@@ -6,6 +6,6 @@
 // Local headers
 #include "pathCandidate.h"
 
-void ZCoordinates(std::vector < PathCandidate* > &tracklets);
+void ZCoordinates(CoordGrid &gr, std::vector< GridNode > &Ingrid,std::vector < PathCandidate* > &tracklets);
 
 #endif

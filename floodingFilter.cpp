@@ -57,7 +57,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
   //Setting verbosity level, put 1 for the debug you want
   //error/time/info/collect/grid/connect/fit/merge/trkz/trkerror
-  bool v[10] = {1,1,1,1,1,1,1,1,1,1};//{0,0,0,0,0,0,0,0,1,1}{1,1,1,0,0,0,0,0,0,0};
+  bool v[10] = {1,0,0,0,0,0,0,0,0,1};//{0,0,0,0,0,0,0,0,1,1}{1,1,1,0,0,0,0,0,0,0};
   set_verbosity(v);
   // Structure to hold the detector data (grid)
   std::vector < GridNode > detNodes;
@@ -69,7 +69,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
   // Ntuple to hold Error values for all events available in the
   // current events set. The value is evaluated per image.
-  std::string errorParameter = "Error_underMerge:Error_overMerge:TotalError";
+  std::string errorParameter = "nMC:nComp:Error_underMerge:Error_overMerge:TotalError";
   errorParameter += ":Error_underMergeNorm:Error_overMergeNorm:TotalErrorNorm";
   // Create Ntuple to hold parameters.
   TNtuple ErrorNtuple("ErrorEstimate","Segmentation error values", errorParameter.c_str());
@@ -90,7 +90,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   // PerTrkErrPars += ":MCMinCurrentLength:CurrentMinMCLength";
   TNtuple CurvNtuplePerTrack("PerTrackCurv","Per track values of circle fit", CurvTrak.c_str());
   // NTuple to hold the coordinates of all connected components.
-  std::string ConnCompPar = "EvtNum:CompNum:tubeId:x:y:z:r:thetaDeg:x_Det:y_Det:z_Det";
+  std::string ConnCompPar = "EvtNum:CompNum:bestIdx:tubeId:x:y:z:r:thetaDeg:x_Det:y_Det:z_Det";
   TNtuple ConnectedCoord ("ConnectedComponents", "Connected component Coordinates", ConnCompPar.c_str());
    std::string AnchorCCPar = "EvtNum:CompNum:x_Det:y_Det:z_Det";
   TNtuple AnchorCCCoord ("ConnectedComponentsAnchors", "Connected component anchors Coordinates", AnchorCCPar.c_str());
@@ -191,43 +191,46 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   /* Fill the grid with the current hit points and process. Handles   each event separately.*/
   // Event loop
   int nEvproc = 0;
+
   for(size_t k = 0; k < Hit_coords->size(); ++k) {
     //   if(k == 28 || k == 90 || k == 42||k == 55||k==97) continue;
 
-    info("MC_Tracks->at(k)->size() is %d", MC_Tracks->at(k)->size());
     if(MC_Tracks->at(k)->size() == 0){
       error("This event did not contain anay tracks");
       continue;
     }
     
-    std::vector< std::set<int>* >* connectedComp = 0;
-    connectedComp = new std::vector< std::set<int>* >();
-    
+    info("MC_Tracks->at(k)->size() is %d", MC_Tracks->at(k)->size());
+  
     // Data for the current event
-    info("Processing event: %d", k);
+    error("Processing event: %d", k);
     std::vector<HitCoordinate*> const *dd = 0;
     dd = Hit_coords->at(k);
     if(dd) 
       gr.FillGrid(*dd);
     
     //   CoordGrid grCopy (gr);
+
+
+ 
+    /* Pushing all active detectors into queue */
+    timing("Fill grid phase ended. Time %lf s",
+	   std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count());
+
     std::vector< GridNode > &Ingridori = gr.m_grid;
     std::vector< GridNode > Ingrid(Ingridori);  
-
+    std::vector< std::set<int>* >* connectedComp = 0;
+    connectedComp = new std::vector< std::set<int>* >();
     std::vector< int > activeId, remaining;
     std::vector<pair<int, unsigned short>> idToProcess;
 
     int nactiveAll = 0, nactiveReal = 0;
 
-    /* Pushing all active detectors into queue */
-    timing("Fill grid phase ended. Time %lf s",
-	   std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count());
-
-    
     for(size_t n = 0; n < Ingrid.size(); ++n) {
       GridNode &curNode = Ingrid[n];
       if(curNode.m_active){
 	int NodeId = Ingrid[n].m_detID;
+	//info("ACTIVE %d", NodeId);
 	if(curNode.m_type != GridNode::VIRTUAL_NODE  ) {
 	  activeId.push_back(NodeId);
 	  nactiveReal++;
@@ -258,20 +261,21 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	nactiveAll++;
       }      
     }
-    if(nactiveAll <= 5){
+
+    if(nactiveReal <= 10){
       error("This event did not contain anay tracks");
+      gr.ResetGrid();
       continue;
     } else {
       nEvproc++;
     }
     
 
-    remaining = activeId;
+    //   remaining = activeId;
     info("Found %d active detectors (%d with virtuals)", nactiveReal, nactiveAll);
 
     sort(idToProcess.begin(), idToProcess.end(), sortbysec);
 
-    
     //Find coomplex sectors (OLD not used)
     // std::vector< int > sectorToCheck;
     //    complexSectors(gr, activeId, &sectorToCheck);
@@ -321,11 +325,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
     info("Reordering current tracklets by size");
     std::sort(tracklets.begin(), tracklets.end(), compareTwoPathsLength);
-    //std::reverse(tracklets.begin(), tracklets.end());
-    /* for(unsigned int l = 0; l < tracklets.size(); l++){
-      PathCandidate &curCand = *(tracklets[l]);
-      //info("Cm %d has length %d", curCand.m_id, curCand.m_length);
-      }*/
+
     
     /* ++++++++++++++++++++++++++++++++++++++++++++++++++++ */
       
@@ -362,15 +362,12 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     for(size_t n = 0; n < idToProcess.size(); ++n) {
       std::vector<int> sameLayer;
       std::vector<int> otherLayer;
-      std::vector<int> connected; 
-      std::vector<GridNode*> inQueue; 
 
       int nodeId = idToProcess[n].first;
       if(visited[nodeId])
 	continue;
       GridNode &myNode = Ingrid[gr.Find(nodeId)];
       //  info("Checking remaining node %d, visited %d", nodeId, visited[nodeId]);
-      connected.push_back(nodeId);
       //visited[nodeId] = 3;
       
       bool allvisited = true;
@@ -382,9 +379,6 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	//	info("Has neighbor %d, which is connect to %d CC, and is layer %d", neighId, myNeigh.m_cm.size(), myNeigh.m_Layer);
 	if(!visited[neighId]){
 	  allvisited = false;
-
-	  connected.push_back(neighId);
-	  inQueue.push_back(&myNeigh);
 	  // visited[neighId] = 3;
 	}else if(visited[neighId] == 1){
 	  if(myNeigh.m_Layer == myNode.m_Layer){
@@ -453,21 +447,52 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  visited[nodeId] = 1;
 	} 
       }
+    }
 
 
-      
-      /* else {
-	info("Finding all connected");
-	while(inQueue.size()>0){
-	  GridNode *cur = inQueue.back();
-	  info("Checking %d", cur->m_detID);
+    for(size_t n = 0; n < idToProcess.size(); ++n) {
+      if(visited[idToProcess[n].first] == 1){
+	idToProcess.erase(idToProcess.begin() + n);
+	n--;
+      }
+    }
+
+
+    for(size_t n = 0; n < idToProcess.size(); ++n) {
+      std::vector<int> sameLayer;
+      std::vector<int> otherLayer;
+      std::vector<int> connected; 
+      std::vector<GridNode*> inQueue; 
+
+      int nodeId = idToProcess[n].first;
+      if(visited[nodeId])
+	continue;
+      GridNode &myNode = Ingrid[gr.Find(nodeId)];
+      //  info("Checking remaining node %d, visited %d", nodeId, visited[nodeId]);
+      connected.push_back(nodeId);
+      visited[nodeId] = 3;
+      for(size_t m = 0; m < myNode.m_neighbors.size(); m++){
+	int neighId = myNode.m_neighbors[m];
+	GridNode &myNeigh = Ingrid[gr.Find(neighId)];
+	if(myNeigh.m_type == GridNode::VIRTUAL_NODE)
+	  continue;
+	//	info("Has neighbor %d, which is connect to %d CC, and is layer %d", neighId, myNeigh.m_cm.size(), myNeigh.m_Layer);
+	if(!visited[neighId]){
+	  connected.push_back(neighId);
+	  inQueue.push_back(&myNeigh);
+	  visited[neighId] = 3;
+	}
+      }
+      while(inQueue.size()>0){
+	GridNode *cur = inQueue.back();
+	//	info("Checking %d", cur->m_detID);
 		
-	  inQueue.pop_back();
-	  for(size_t m = 0; m < cur->m_neighbors.size(); m++){
-	    int neighId = cur->m_neighbors[m];
-	    // info("Neigh %d", neighId);
+	inQueue.pop_back();
+	for(size_t m = 0; m < cur->m_neighbors.size(); m++){
+	  int neighId = cur->m_neighbors[m];
+	  // info("Neigh %d", neighId);
 
-	    GridNode &myNeigh = Ingrid[gr.Find(neighId)];
+	  GridNode &myNeigh = Ingrid[gr.Find(neighId)];
 	    if(myNeigh.m_type == GridNode::VIRTUAL_NODE)
 	      continue;
 
@@ -508,13 +533,17 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	    }
 	    prevLayer = addNode->m_Layer;
 	  }
-	  if((cand->m_minLayer == 0 && cand->m_maxLayer > 21) || ((labs(cand->m_layers[0] -cand->m_layers[cand->m_layers.size()-1]) < 2) && cand->m_length>2)){		 
+	  int firstId         = cand->m_tailNode;
+	  GridNode &firstNode = Ingrid[ gr.Find(firstId)];
+	  int lastId          = cand->m_headNode;
+	  GridNode &lastNode  = Ingrid[gr.Find(lastId)];
+	      
+	  if((firstNode.m_LayerLimit == 1 && lastNode.m_LayerLimit == 1)){		 
 	    dbgconnect("track goes through all layers or makes a loop, likily finished");		 
 	    cand->m_finished = FINISHED;		 
 	  }  else {		 
 	    dbgconnect("Candidate has no more neighbors, but doesn't seem finished");
-	    cand->m_finished = ONGOING;
-	   
+	    cand->m_finished = ONGOING;	   
 	  }
 	  dbgconnect("Pushing cm %d with length %d, tail node %d, head node %d, first layer %d, last layer %d, IsOnSectorLimit %d, status  %d. ", cand->m_id, cand->m_length, cand->m_tailNode, cand->m_headNode,cand->m_layers[0], cand->m_layers[cand->m_layers.size()-1], cand->m_isOnSectorLimit, cand->m_finished);
 	  tracklets.push_back(cand);
@@ -789,7 +818,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 #if (DO_ZRECONS)  
       //CompZCoordinates(gr, curCand);
-      ZCoordinates(tracklets);
+      ZCoordinates(gr, Ingrid,tracklets);
 #endif
       
     //fitZCoordinates(gr, tracklets);
@@ -806,6 +835,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
       info("Number of tracklets: %d", tracklets.size());    
 
+      std::vector<int> matchedId = BestCompIdToMCTracks( MC_Tracks->at(k), &tracklets);
+      
       for(unsigned int l = 0; l < tracklets.size(); l++){
 	PathCandidate *curCand = tracklets[l];
 	std::set<int> const *trk = curCand->m_memberIdSet;
@@ -814,7 +845,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  if(curCand->m_isValid) {
 
 	    std::set<int> *comp = new std::set<int>((*trk));	    
-	    connectedComp->push_back(comp);	 
+	    connectedComp->push_back(comp);
+	    info("Best match id for track %d is %d",l, matchedId[l]);
 	  }
 	}
     
@@ -852,8 +884,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      // .. ConnectedCoord.Fill(k, cm, detID, node.m_x, node.m_y, node.m_z , node.m_r,node.m_thetaDeg,
 	      //			x[i], y[i], 0);
 	      //else
-	      ConnectedCoord.Fill(k, cm, node.m_detID, node.m_x, node.m_y, node.m_z, node.m_r,node.m_thetaDeg,
-				  x[i],y[i],z[i]);
+	      ConnectedCoord.Fill(k, cm, matchedId[l], node.m_detID, node.m_x, node.m_y, node.m_z,
+				  node.m_r,node.m_thetaDeg,  x[i],y[i],z[i]);
 	      /*	for( int i = 0;  i < vect->size(); ++i) {
 			int detID = vect->at(i);// Id of the current detector
 			//	printf("CM %d, id %d \n", cm, detID);
@@ -947,7 +979,10 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	if(connectedComp->size() > 0){
 	  MCMatchingError *MC_match_error =  MatchMCTracksWithConnectedComponents(MC_Tracks->at(k), connectedComp);
 	  
-	  ErrorNtuple.Fill(MC_match_error->Error_underMerge,
+	  
+	  ErrorNtuple.Fill(MC_match_error->NumberOfMCTracks,
+			   MC_match_error->NumberOfTracklets,
+			   MC_match_error->Error_underMerge,
 			   MC_match_error->Error_overMerge,
 			   MC_match_error->TotalError,
 			   MC_match_error->Error_underMergeNorm,

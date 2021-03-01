@@ -22,32 +22,32 @@ int selectCompColour(size_t compNum, size_t numColours) {
   int color = 1;
   switch (setColor) {
   case 0:
-    color = 1;
+    color = 632;
     break;
   case 1:
-    color =  632;
+    color =  8;
     break;
   case 2:
-    color = 418;
-    break;
-  case 3:
     color = 600;
     break;
+  case 3:
+    color = 805;
+    break;
   case 4:
-    color = 923;
+    color = 616;
     break;
   case 5:
-    color = 863;
+    color = 432;
     break;
   case 6:
-    color = 800;
+    color = 400;
     break;
   case 7:
-    color = 800;
+    color = 880;
     break;
     //case 6:
   default:
-    color = 801;
+    color = 860;
   }
   return color;
 }
@@ -91,7 +91,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
 
   // Fetch data and make plots
   TNtuple* grid = (TNtuple*) inp.Get("ExtendedGrid");
-  int numColours = 7;
+  int numColours = 8;
   int color = 1;
   grid->SetMarkerSize(0.3);
   // Change to directory with input events
@@ -107,7 +107,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
   float_t id;
   std::vector< int > idtracks;
  
- TTree* tracknum = (TTree*) inp.Get(tupName.c_str());
+  TTree* tracknum = (TTree*) inp.Get(tupName.c_str());
   TBranch *bpx = tracknum->GetBranch("trackID");
   bpx->SetAddress(&id);
   
@@ -122,23 +122,39 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
 
   }
 
-  /* float_t idMatch;
+  float_t idt;
+  float_t comp;
+
   std::vector< int > idMatch;
 
-  TTree* tracknum = (TTree*) inp.Get(tupName.c_str());
-  TBranch *bpx = tracknum->GetBranch("trackID");
-  bpx->SetAddress(&id);
-  
-  Int_t nevent = (Int_t)tracknum->GetEntries();
-  for (Int_t i=0;i<nevent;i++) {    
-    bpx->GetEntry(i); //read branch fTracks.fPx
- 
-    // printf("ntracks=%f \n",id);
-    int intid =  static_cast<unsigned int>(id);
-    if(!(std::find(idtracks.begin(), idtracks.end(), intid) != idtracks.end()))
-      	idtracks.push_back(intid);
+  //TTree* tracknum = (TTree*) inp.Get(tupName.c_str());
+  TBranch *bpxx = ConComps->GetBranch("bestIdx");
+  TBranch *bpxxx = ConComps->GetBranch("CompNum");
 
-	}/*/
+  bpxx->SetAddress(&idt);
+  bpxxx->SetAddress(&comp);
+
+  int lastcc = -1;
+  nevent = (Int_t)ConComps->GetEntries();
+  for (Int_t i=0;i<nevent;i++) {    
+    bpxx->GetEntry(i); //read branch fTracks.fPx
+    bpxxx->GetEntry(i); //read branch fTracks.fPx
+
+    // printf("ntracks=%f \n",id);
+    int curcomp = static_cast<unsigned int>(comp);
+    // printf("Comp %d\n",curcomp);
+
+    if(curcomp != lastcc){
+      int intidm =  static_cast<unsigned int>(idt);
+      // printf("%d\n",intidm);
+      idMatch.push_back(intidm);
+
+      lastcc = curcomp;
+    }
+
+     //  if(!(std::find(idtracks.begin(), idtracks.end(), intid) != idtracks.end()))
+      //	idtracks.push_back(intid);
+  }
 
   //printf("%d\n", idtracks.size());
 
@@ -153,7 +169,8 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
   TCanvas *c1 = new TCanvas(canvasName.c_str(), descr.c_str(), ww, hh );
 
   int marker = 0;
-  
+    int badmarker = 24;
+
   //_____________ BEGIN TEMPORARY PLOTS May be DELETED
 #if(CREATE_SEPARATE_PLOTS > 0)
   {
@@ -173,11 +190,18 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       std::stringstream ecomponentNumber;
       ecomponentNumber << j;
       // Set marker and colours per component.
-      color = selectCompColour(j, numColours);
+      int idmctr = idMatch[j];
+      marker = 20;//(j % 34);
+
+      if(idmctr != -1)
+	color = selectCompColour(idmctr, numColours);
+      else{
+	color = 1;
+	marker = badmarker++;
+      }
       ConComps->SetMarkerColor(color);
-      marker = (j % 34);
-      if( marker < 20) { marker += 20; }
-      if( marker > 34) { marker = 34; }
+      //if( marker < 20) { marker += 20; }
+      //if( marker > 34) { marker = 34; }
       ConComps->SetMarkerStyle(marker);
       ConComps->SetMarkerSize(0.8);
       // Conditions
@@ -204,11 +228,19 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       std::stringstream ecomponentNumber;
       ecomponentNumber << j;
       // Set marker and colours per component.
-      color = selectCompColour(j, numColours);
+      marker = 20;//(j % 34);
+      int idmctr = idMatch[j];
+
+      if(idmctr != -1)
+	color = selectCompColour(idmctr, numColours);
+      else{
+	color = 1;
+	marker = badmarker++;
+      }
       ConComps->SetMarkerColor(color);
-      marker = (j % 34);
-      if( marker < 20) { marker += 20; }
-      if( marker > 34) { marker = 34; }
+      //  marker = 20;//(j % 34);
+	//  if( marker < 20) { marker += 20; }
+	// if( marker > 34) { marker = 34; }
       ConComps->SetMarkerStyle(marker);
       ConComps->SetMarkerSize(0.8);
       // Conditions
@@ -236,10 +268,12 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       std::stringstream ecomponentNumber;
       ecomponentNumber << idtracks[j];
       color = selectCompColour(j, numColours);
+      // printf("%d, %d\n", j, color);
+
       pos->SetMarkerColor(color);
-      marker = (j % 34);
-      if( marker < 20) { marker += 20; }
-      if( marker > 34) { marker = 34; }
+      marker = 20;//(j % 34);
+      // if( marker < 20) { marker += 20; }
+      //if( marker > 34) { marker = 34; }
       pos->SetMarkerStyle(marker);
       pos->SetMarkerSize(0.8);
       ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
@@ -266,9 +300,9 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       ecomponentNumber << idtracks[j];
       color = selectCompColour(j, numColours);
       pos->SetMarkerColor(color);
-      marker = (j % 34);
-      if( marker < 20) { marker += 20; }
-      if( marker > 34) { marker = 34; }
+      marker = 20;//(j % 34);
+      // if( marker < 20) { marker += 20; }
+      //if( marker > 34) { marker = 34; }
       pos->SetMarkerStyle(marker);
       pos->SetMarkerSize(0.8);
       ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
@@ -295,9 +329,9 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       ecomponentNumber << idtracks[j];
       color = selectCompColour(j, numColours);
       pos->SetMarkerColor(color);
-      marker = (j % 34);
-      if( marker < 20) { marker += 20; }
-      if( marker > 34) { marker = 34; }
+      marker = 20;//(j % 34);
+      // if( marker < 20) { marker += 20; }
+      //if( marker > 34) { marker = 34; }
       pos->SetMarkerStyle(marker);
       pos->SetMarkerSize(0.8);
       ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
@@ -325,9 +359,9 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       ecomponentNumber << idtracks[j];
       color = selectCompColour(j, numColours);
       pos->SetMarkerColor(color);
-      marker = (j % 34);
-      if( marker < 20) { marker += 20; }
-      if( marker > 34) { marker = 34; }
+      marker = 20;//(j % 34);
+      // if( marker < 20) { marker += 20; }
+      //if( marker > 34) { marker = 34; }
       pos->SetMarkerStyle(marker);
       pos->SetMarkerSize(0.8);
       ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
@@ -351,9 +385,9 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
 	ecomponentNumber << idtracks[j];
 	color = selectCompColour(j, numColours);
 	pos->SetMarkerColor(color);
-	marker = (j % 34);
-	if( marker < 20) { marker += 20; }
-	if( marker > 34) { marker = 34; }
+	marker = 20;//(j % 34);
+      // if( marker < 20) { marker += 20; }
+      //if( marker > 34) { marker = 34; }
 	pos->SetMarkerStyle(marker);
 	pos->SetMarkerSize(0.8);
 	ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
@@ -378,11 +412,20 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
 	std::stringstream ecomponentNumber;
 	ecomponentNumber << j;
 	// Set marker and colours per component.
-	color = selectCompColour(j, numColours);
+	marker = 20;//(j % 34);
+
+	int idmctr = idMatch[j];
+	if(idmctr != -1)
+	  color = selectCompColour(idmctr, numColours);
+	else{
+	  color = 1;
+	  marker = badmarker++;;
+	}
+      //	color = selectCompColour(j, numColours);
 	ConComps->SetMarkerColor(color);
-	marker = (j % 34);
-	if( marker < 20) { marker += 20; }
-	if( marker > 34) { marker = 34; }
+	//marker = 20;//(j % 34);
+      // if( marker < 20) { marker += 20; }
+      //if( marker > 34) { marker = 34; }
 	ConComps->SetMarkerStyle(marker);
 	ConComps->SetMarkerSize(0.8);
 	// Conditions
@@ -511,9 +554,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       ecomponentNumber << idtracks[j];
       color = selectCompColour(j, numColours);
       pos->SetMarkerColor(color);
-      marker = (j % 34);
-      if( marker < 20) { marker += 20; }
-      if( marker > 34) { marker = 34; }
+      marker = 20;
       pos->SetMarkerStyle(marker);
       pos->SetMarkerSize(0.8);
       ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
@@ -537,9 +578,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       ecomponentNumber << idtracks[j];
       color = selectCompColour(j, numColours);
       pos->SetMarkerColor(color);
-      marker = (j % 34);
-      if( marker < 20) { marker += 20; }
-      if( marker > 34) { marker = 34; }
+      marker = 20;
       pos->SetMarkerStyle(marker);
       pos->SetMarkerSize(0.8);
       ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
@@ -567,9 +606,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       ecomponentNumber << idtracks[j];
       color = selectCompColour(j, numColours);
       pos->SetMarkerColor(color);
-      marker = (j % 34);
-      if( marker < 20) { marker += 20; }
-      if( marker > 34) { marker = 34; }
+      marker = 20;
       pos->SetMarkerStyle(marker);
       pos->SetMarkerSize(0.8);
       ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
@@ -596,9 +633,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       ecomponentNumber << idtracks[j];
       color = selectCompColour(j, numColours);
       pos->SetMarkerColor(color);
-      marker = (j % 34);
-      if( marker < 20) { marker += 20; }
-      if( marker > 34) { marker = 34; }
+      marker =20;
       pos->SetMarkerStyle(marker);
       pos->SetMarkerSize(0.8);
       ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
@@ -622,9 +657,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       ecomponentNumber << idtracks[j];
       color = selectCompColour(j, numColours);
       pos->SetMarkerColor(color);
-      marker = (j % 34);
-      if( marker < 20) { marker += 20; }
-      if( marker > 34) { marker = 34; }
+      marker =20;
       pos->SetMarkerStyle(marker);
       pos->SetMarkerSize(0.8);
       ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
@@ -650,9 +683,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       ecomponentNumber << idtracks[j];
       color = selectCompColour(j, numColours);
       pos->SetMarkerColor(color);
-      marker = (j % 34);
-      if( marker < 20) { marker += 20; }
-      if( marker > 34) { marker = 34; }
+      marker =20;
       pos->SetMarkerStyle(marker);
       pos->SetMarkerSize(0.8);
       ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
@@ -697,11 +728,17 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
     std::stringstream componentNumber;
     componentNumber << j;
     // Set marker and colours per component.
-    color = selectCompColour(j, numColours);
+     marker = 20;//(j % 34);
+    int idmctr = idMatch[j];
+
+    if(idmctr != -1)
+      color = selectCompColour(idmctr, numColours);
+    else{
+      color = 1;
+      marker = badmarker++;;
+    }
     ConComps->SetMarkerColor(color);
-    marker = (j % 34);
-    if( marker < 20) { marker += 20; }
-    if( marker > 34) { marker = 34; }
+    //    marker = 20;
     ConComps->SetMarkerStyle(marker);
     ConComps->SetMarkerSize(0.8);
     // Conditions
@@ -738,11 +775,17 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
     std::stringstream componentNumber;
     componentNumber << k;
     // Select marker and color per component
+    marker = 20;//(j % 34);
+    int idmctr = idMatch[k];
+
+    if(idmctr != -1)
+      color = selectCompColour(idmctr, numColours);
+    else{
+      color = 1;
+      marker = badmarker++;;
+    }
     color = selectCompColour(k, numColours);
     ConComps->SetMarkerColor(color);
-    marker = k % 34;    
-    if( marker < 20) { marker += 20; }
-    if( marker > 34) { marker = 34; }
     ConComps->SetMarkerStyle( marker );
     ConComps->SetMarkerSize(0.8);
     // Conditions
@@ -773,9 +816,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
     // Select marker and color per component
     color = selectCompColour(k, numColours);
     ConComps->SetMarkerColor(color);
-    marker = k % 34;    
-    if( marker < 20) { marker += 20; }
-    if( marker > 34) { marker = 34; }
+    marker = 20;
     ConComps->SetMarkerStyle( marker );
     ConComps->SetMarkerSize(0.8);
     // Conditions

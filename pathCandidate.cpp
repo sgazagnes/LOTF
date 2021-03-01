@@ -283,10 +283,50 @@ void PathCandidate::determineSkewedXY(CoordGrid &gr, std::vector< GridNode > &In
    //dbgconnect("The previous anchor nodes %d is %f, %f, %f", secondAnc.m_detID,  secondAnc.m_xDet, secondAnc.m_yDet, secondAnc.m_z_Det) ;
    if(labs(secondAnc.m_Layer - virt.m_Layer < 2) || nToCorrect > 6){
      //  error("Both these anchors are almost on the same layer, let's be careful and not correct anything");
-     for(size_t i =0; i< m_prevVirtuals.size(); i++){
+     for(size_t i =0; i< 1; i++){
        GridNode &curVirt =  Ingrid[gr.Find(m_prevVirtuals[i])];
        curVirt.m_weight = 1;
+       auto it = find(m_memberList->begin(), m_memberList->end(), curVirt.m_detID);
+       int index = it - m_memberList->begin();
+	  //dbgconnect("i %d, ECorrecting %d, %d, %d", i, inter.m_detID, prev == NULL ? 0:prev->m_Layer, inter.m_Layer);
+       
+       m_x[index] = virt.m_xDet;
+       m_y[index] = virt.m_yDet;
+       m_z[index] = virt.m_z_Det;
      }
+
+     for(size_t i =0; i< 1; i++){
+       GridNode &curVirt =  Ingrid[gr.Find(m_prevVirtuals[i])];
+       error("Virtual %d weights %d", curVirt.m_detID,curVirt.m_weight);
+
+     }
+
+      for(int i = 0, j = 0; j < incAnc; i++){
+	GridNode &inter =  Ingrid[gr.Find(m_memberList->at(off+dir*lastAnc-dir*(i+1)))];
+
+	//  dbgconnect("i %d, j%d, Correcting %d, %d, %d", i,j, inter.m_detID, prev == NULL ? 0:prev->m_Layer, inter.m_Layer);
+	// if(inter.m_type == GridNode::VIRTUAL_NODE)
+	//	continue;
+
+	if(inter.m_type != GridNode::VIRTUAL_NODE){
+	  auto it = find(m_memberList->begin(), m_memberList->end(), inter.m_detID);
+	  int index = it - m_memberList->begin();
+	  //dbgconnect("i %d, ECorrecting %d, %d, %d", i, inter.m_detID, prev == NULL ? 0:prev->m_Layer, inter.m_Layer);
+
+	  m_x[index] = inter.m_x;
+	  m_y[index] = inter.m_y;
+	  m_z[index] = 0.;
+	  //	dbgconnect("i %d, Corrected %d, %f, %f", i, inter.m_detID,m_x[index], m_y[index]);
+
+	  inter.m_weight = 0;
+	  //nNodeperL++;
+
+	}
+	  
+	j++;
+	//prev = &inter;
+      }   
+     
      return;
    }
    //dbgconnect("The previous anchor nodes %d is %f, %f, %f", secondAnc.m_detID,  secondAnc.m_xDet, secondAnc.m_yDet, secondAnc.m_z_Det) ;
@@ -324,6 +364,29 @@ void PathCandidate::determineSkewedXY(CoordGrid &gr, std::vector< GridNode > &In
       j++;
       prev = &inter;
     }     
+ } else {
+
+   GridNode virt =  Ingrid[gr.Find(m_prevVirtuals[0])];
+   size_t nVirt = MIN(m_prevVirtuals.size(), 3);
+   for(size_t i =1; i< nVirt; i++){
+     virt.m_xDet += Ingrid[gr.Find(m_prevVirtuals[i])].m_xDet;
+     virt.m_yDet += Ingrid[gr.Find(m_prevVirtuals[i])].m_yDet;
+     virt.m_z_Det +=Ingrid[gr.Find(m_prevVirtuals[i])].m_z_Det;
+   }
+   virt.m_xDet  /= nVirt;
+   virt.m_yDet  /= nVirt;
+   virt.m_z_Det /= nVirt;
+   for(size_t i =0; i< m_prevVirtuals.size(); i++){
+     GridNode &curVirt =  Ingrid[gr.Find(m_prevVirtuals[i])];
+     curVirt.m_weight = 1;
+     //auto it = find(m_memberList->begin(), m_memberList->end(), curVirt.m_detID);
+     // int index = it - m_memberList->begin();
+     //dbgconnect("i %d, ECorrecting %d, %d, %d", i, inter.m_detID, prev == NULL ? 0:prev->m_Layer, inter.m_Layer);
+     
+     // m_x[index] = virt.m_xDet;
+     // m_y[index] = virt.m_yDet;
+     //m_z[index] = virt.m_z_Det;
+   }
  }
 }
 

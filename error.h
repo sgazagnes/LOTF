@@ -104,5 +104,7 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
                                                            std::vector < MCTrackObject* > const *MCTracks,
                                                            std::vector < PathCandidate* > const *tracklets,
 							   std::vector<int >  &idComplex);
+std::vector< int > BestCompIdToMCTracks( std::vector < MCTrackObject* > const *MCTracks,
+					 std::vector < PathCandidate* > const *tracklets);
 
 #endif

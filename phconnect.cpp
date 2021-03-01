@@ -458,9 +458,57 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 
 	    
 	    if(nextVirt.size() > 0){ // taking care of the virtual nodes
+	      if(nextVirt.size()> 3){
+		//Cleaning virtual nodes
+		//	error("Changing virt lsit");
+		int sizeT = prevNodes.size();
+		prevNodes.insert(prevNodes.end(),  nextVirt.begin(),  nextVirt.end());
+
+		//	for(size_t f = 0; f < nextVirt.size(); f++)
+		  //	  error("Virt %d", nextVirt[f]);
+		nextVirt.clear();
+		int goodV[2] = {-1,-1};
+		for(size_t f = 0; f < sizeT; f++){
+		  float mindist[2] = {1000,1000};
+		  GridNode &prevC = Ingrid[gr.Find(prevNodes[f])];
+		  for(size_t g = 0; g < v->size(); g++){
+		    GridNode &nextC = Ingrid[gr.Find(v->at(g))];
+		    float curdis = sqrt(pow(prevC.m_x-nextC.m_x,2) + pow(prevC.m_y-nextC.m_y,2));
+		    if(curdis < mindist[0]){
+		      goodV[1]= goodV[0];
+		      mindist[1]= mindist[0];
+		      for(size_t h = 0; h< nextC.m_neighbors.size(); h++){
+			GridNode &neighC = Ingrid[gr.Find(nextC.m_neighbors[nextC.m_neighbors.size()- 1 -h])];
+			if(neighC.m_type != GridNode::VIRTUAL_NODE)
+			  continue;
+			if(prevC.IsNeighboring(neighC.m_detID))
+			  goodV[0] = neighC.m_detID;
+		      }
+		      mindist[0]=curdis;
+		    } else if( curdis <mindist[1]){
+		      for(size_t h = 0; h< nextC.m_neighbors.size(); h++){
+			GridNode &neighC = Ingrid[gr.Find(nextC.m_neighbors[nextC.m_neighbors.size()- 1 -h])];
+			if(neighC.m_type !=  GridNode::VIRTUAL_NODE)
+			  continue;
+			if(prevC.IsNeighboring(neighC.m_detID))
+			  goodV[1] = neighC.m_detID;
+		      }
+		      //   goodV[1] = v->at(g);
+		      mindist[1]=curdis;
+		    }
+		  }
+		  if (goodV[0] != -1)
+		    nextVirt.push_back(goodV[0]);
+		  //  if (goodV[1] != -1)
+		  //  nextVirt.push_back(goodV[1]);
+		}
+		//	for(size_t f = 0; f < nextVirt.size(); f++)
+		//	  error("New Virt %d", nextVirt[f]);
+	      }
+		  
+		  
 	      addNodesToCand(gr, Ingrid, *cand, visited, nextVirt); 
 	      n_connected += nextVirt.size();	    	  		
-	      prevNodes.insert(prevNodes.end(),  nextVirt.begin(),  nextVirt.end());
 	      nextVirt.clear();
 	    }
 	      
@@ -494,7 +542,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	    }
 
 	    n_neighbors = sameLayer.size()+prevLayer.size()+nextLayer.size();
-	    //dbgconnect("%d nodes connected, %d found for next step (cond %d)\n", n_connected, n_neighbors, cond);
+	    // info("%d nodes connected, %d found for next step (cond %d)\n", n_connected, n_neighbors, cond);
 	    n_connected = 0;
 	     
 	  } 	      

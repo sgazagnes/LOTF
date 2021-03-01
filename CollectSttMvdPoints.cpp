@@ -808,7 +808,8 @@ MCTrackPoints( std::vector < std::vector<HitCoordinate*>* > const &evtData)
     // Find out how many MC tracks are available
     for(size_t i = 0; i < Current_Event->size(); ++i) {
       HitCoordinate const *currentHit = Current_Event->at(i);
-      if( currentHit->m_trackID != HIT_EXCLUSION && !(std::find(idtracks.begin(), idtracks.end(), currentHit->m_trackID) != idtracks.end())) {
+      if( currentHit->m_trackID != HIT_EXCLUSION
+	  && !(std::find(idtracks.begin(), idtracks.end(), currentHit->m_trackID) != idtracks.end())) {
 	//	printf("%d \n", currentHit->m_trackID);
 	//	numTracks = currentHit->m_trackID;
 	idtracks.push_back(currentHit->m_trackID);
