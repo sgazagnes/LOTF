@@ -160,7 +160,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
       break;
 
     // If node is not visited, and has either 1 neighbor, or 2 neighbors and is in the layer limit.
-    if(!visited[curId] && (curNode->m_neighbors.size() == 1 || (curNode->m_LayerLimit == 1 && curNode->m_neighbors.size() == 2))){ 
+    if(!visited[curId] && (curNode->m_neighbors.size() == 1 || (curNode->m_LayerLimit == 1))){  // && curNode->m_neighbors.size() == 2
 	
       int       n_neighbors = curNode->m_neighbors.size();
       size_t    curLayer    = curNode->m_Layer;
@@ -187,15 +187,38 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
       cand->insertNewNode(gr, Ingrid, curNode, cand->m_memberList->end());
       prevNodes.push_back(curId); // Add to previously processed nodes
 
+      //Force first encounter
+      /*   if (nextDir & UP){           // we are going up 	      
+	v = &nextLayer;
+	n_neighbors -= sameLayer.size();
+	sameLayer.clear();
+      }  else if (nextDir & DOWN){ // we are going down
+	v = &prevLayer;
+	n_neighbors -= sameLayer.size();
+	sameLayer.clear();
+      } else                       // we are going on the same layer
+      v = &sameLayer;*/
+
+      
+      int startIt = -1;
       // Stqrt the loop
       while(cond){
-	//	dbgconnect("With my buddy %d, we have %d neighbors, nextDir is %d", curId, n_neighbors, nextDir);
+	startIt++;
+       	//dbgconnect("With my buddy %d, we have %d neighbors, nextDir is %d", curId, n_neighbors, nextDir);
 
 	//Choosing the next direction based on previous search of neaighbors    
 	if (nextDir & UP){           // we are going up 	      
 	  v = &nextLayer;
+	  /* if(startIt < 2){
+	    n_neighbors -= sameLayer.size();
+	    sameLayer.clear();
+	    }*/
 	}  else if (nextDir & DOWN){ // we are going down
 	  v = &prevLayer;
+	  /* if(startIt < 2){
+	    n_neighbors -= sameLayer.size();
+	    sameLayer.clear();
+	    }*/
 	} else                       // we are going on the same layer
 	  v = &sameLayer;
 
@@ -306,7 +329,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 		    //	    dbgconnect("We are adding the node %d", v->at(j));
 
 		    cand->insertNewNode(gr, Ingrid, &mynode,cand->m_memberList->end());
-		    visited[v->at(j)] = 1;
+		    visited[mynode.m_detID] = 1;
 		    n_connected++;
 		    removeIdFromNeigh(&mynode, &prevNodes, curId);
 		    prevNodes.push_back(mynode.m_detID);
@@ -486,8 +509,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	    GridNode &lastNode  = Ingrid[gr.Find(lastId)];
 	    dbgconnect("No more neighbors in sight, checking if could be finished already ?");
 	      
-	    if((cand->m_minLayer == 0 && cand->m_maxLayer > 21)
-	       || (firstNode.m_LayerLimit == 1 && lastNode.m_LayerLimit == 1)){		 
+	    if((firstNode.m_LayerLimit == 1 && lastNode.m_LayerLimit == 1)){		 
 	      dbgconnect("track goes through all layers or makes a loop, likily finished");		 
 	      cand->m_finished = FINISHED;		 
 	    } else if(labs(curNode->m_SectorLimit) > 0 || cand->m_isOnSectorLimit){
@@ -571,9 +593,12 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	dbgconnect("Pushing cm %d with length %d, tail node %d, head node %d, min layer %d, max layer %d, IsOnSectorLimit %d, status  %d. ", cand->m_id, cand->m_length, cand->m_tailNode, cand->m_headNode,cand->m_minLayer, cand->m_maxLayer, cand->m_isOnSectorLimit, cand->m_finished);
 	tracklets.push_back(cand);
       } else {
-	dbgconnect("Not a good cm %d, has length < 2",cand->m_headNode);
+	error("Not a good cm %d, has length < 2",cand->m_headNode);
 	for(size_t i = 0; i < (cand->m_memberList)->size(); i++){   
 	  visited[(cand->m_memberList)->at(i)] = 0;
+	  GridNode &toDel = Ingrid[gr.Find((cand->m_memberList)->at(i))];
+	  toDel.m_cm.clear();
+
 	}
 	  
 	delete cand;

@@ -288,8 +288,8 @@ void fittingPhase(CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
     PathCandidate &curCand = *(tracklets[l]);
     info("Track %d, status %d, length %d", curCand.m_id, curCand.m_finished,curCand.m_length);
 	
-    if (curCand.m_finished == 3 || curCand.m_length < 5 ) continue;
-
+    if (curCand.m_finished == 3  ) continue;
+    //|| curCand.m_length < 5
     // HEAD and TAIL nodes
     GridNode &firstNode = Ingrid[gr.Find(curCand.m_tailNode)];
     GridNode &lastNode  = Ingrid[gr.Find(curCand.m_headNode)];
@@ -512,7 +512,7 @@ void fittingPhase(CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 		// dbgfit("Angle r with track %f", angle_r);
 		dbgfit("Angle xy with track %f", angle_xy);
 		  
-		if(fabs(angle_xy) > 110){
+		if(fabs(angle_xy) > 105){
 		  dbgfit("The direction looks consistent between two tracklets, let's merge them");
 		  k == 1? curCand.m_toMergeHead.push_back(potCCtoMerge):
 		    curCand.m_toMergeTail.push_back(potCCtoMerge);
@@ -576,7 +576,7 @@ void fittingPhase(CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 
      dbgfit("Finished with current tracklet");
      dbgfit("Current cm %d: length is %d,  tail node %d  head node %d  Min layer %d, Max layer %d. ", curCand.m_id, curCand.m_length, curCand.m_tailNode, curCand.m_headNode, curCand.m_minLayer, curCand.m_maxLayer);
-     if((curCand.m_minLayer == 0 && curCand.m_maxLayer > 21) || (firstNode.m_LayerLimit == 1 && lastNode.m_LayerLimit == 1)){		 
+     if((firstNode.m_LayerLimit == 1 && lastNode.m_LayerLimit == 1)){		 
        dbgfit("track goes through all layers or makes a loop, likily finished");		 
        curCand.m_finished = 3;		 
      } else {

@@ -19,7 +19,7 @@ std::bitset<10> verbosity; // 0000000000, 1111111111
 
 /* verbosity levels */
 enum {
-      ERROR = 0, TIME, INFO, COLLECT, GRID, CONNECT, FIT, MERGE, TRKERROR, TRKZ
+      ERROR = 0, TIME, INFO, COLLECT, GRID, CONNECT, FIT, MERGE, TRKZ, TRKERROR 
 };
 
 void _error(const char* msg);

@@ -143,6 +143,7 @@ MCMatchingError* MatchMCTracksWithConnectedComponents(std::vector< MCTrackObject
     }
     std::sort(Cur_Comp_list.begin(), Cur_Comp_list.end());
     // Find which MC track has the largest overlap (R_k)
+    int idMatchedMC;
     for(size_t j = 0; j < MCTracks->size(); ++j) {
       // Current MC track
       MCTrackObject const *MCtrack = MCTracks->at(j);
@@ -171,10 +172,11 @@ MCMatchingError* MatchMCTracksWithConnectedComponents(std::vector< MCTrackObject
 			     UnionList.begin());
 	UnionList.resize(it - UnionList.begin());
 	unionValue = static_cast<float>(UnionList.size());
+	idMatchedMC  =  j;
       }
     }// MC tracks loop
 
-    dbgtrkerror("MatchValue = %f, mc_length = %f", matchValue, mc_length);
+    dbgtrkerror("Match with MC %d, MatchValue = %f, mc_length = %f",idMatchedMC, matchValue, mc_length);
     
     // We have found ( (T_j intersection R_k) is maximum )
     Error_underMerge +=  ( ( ( mc_length - matchValue ) * matchValue )/ mc_length );
@@ -188,10 +190,9 @@ MCMatchingError* MatchMCTracksWithConnectedComponents(std::vector< MCTrackObject
     // Normalized over segment
     Error_overMergeNorm += (static_cast<float>(Cur_Comp_list.size()) - matchValue) / TotalArea;
 
-    dbgtrkerror("Undermerge track = %f, over_mergetrack = %f", Error_underMergeNorm,  Error_overMergeNorm);
+    //   dbgtrkerror("Undermerge track = %f, over_mergetrack = %f", Error_underMergeNorm,  Error_overMergeNorm);
    
     float Jacard = matchValue / unionValue;
-    dbgtrkerror("JACARD %f", Jacard);
 
   }// Components loop
   // compute total error for the current set and normalize by the
@@ -401,7 +402,8 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
     // Stt component of the current MC track.
     std::set<int> MCSttComp((MCtrack->m_STT_Component).begin(), (MCtrack->m_STT_Component).end());
     std::vector<point3D> MC3DPt((MCtrack->m_pointSTTCoordList).begin(), (MCtrack->m_pointSTTCoordList).end());
-
+    // if(MCSttComp.size() < 6)
+    //   continue;
     // Not empty MC-track (How is this possible??, empty MC-Tracks.)
     if( (MCSttComp.size() > 0) ) {
         if(std::find(idComplex.begin(), idComplex.end(), MCtrack->m_trackID) != idComplex.end())
@@ -537,7 +539,10 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 	float FP =  static_cast<float>(CurCompdiffMC.size());
 	float FN =  static_cast<float>(MCdiffCurComp.size());
 	double disx =0, disy =0, disz = 0,  mindisx,mindisy, mindisz;
-
+	std::vector<float> alldisx;
+	std::vector<float> alldisy;
+	std::vector<float> alldisz;
+	float alldisxx = 0, alldisyy = 0,alldiszz = 0;
 	for(size_t k = 0; k < bestX.size(); k++){
 	  double mindis = std::numeric_limits<double>::max();
 	  //  dbgtrkerror("%f, %f, %f", bestX[k],bestY[k],bestZ[k]);
@@ -549,12 +554,20 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 	      mindisx =fabs(bestX[k]-Mcpt.m_x);
 	      mindisy =fabs(bestY[k]-Mcpt.m_y);
 	      mindisz =fabs(bestZ[k]-Mcpt.m_z);
+	      alldisxx = (float) (bestX[k]-Mcpt.m_x)/Mcpt.m_x;
+	      alldisyy = (float) (bestY[k]-Mcpt.m_y)/Mcpt.m_y;
+	      alldiszz = (float) (bestZ[k]-Mcpt.m_z)/Mcpt.m_z;
+
 	      mindis = curdis;
 	    }
 	  }
 	  disx += mindisx;
 	  disy += mindisy;
-	  disz += mindisz;	
+	  disz += mindisz;
+	  alldisx.push_back(alldisxx);
+	  alldisy.push_back(alldisyy);
+	  alldisz.push_back(alldiszz);
+
 	}
 	disx/= (double)bestX.size();
 	disy/= (double)bestX.size();
@@ -586,9 +599,14 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 
         // Create error object for current sub-path
         MCMatchingError *erroObject = new MCMatchingError();
+	erroObject->matchIndex = matchTrackIndex;
+
 	erroObject->disX = disx;
 	erroObject->disY = disy;
 	erroObject->disZ = disz;
+	erroObject->alldisx = alldisx;
+	erroObject->alldisy = alldisy;
+	erroObject->alldisz = alldisz;
 	erroObject->Complex = complex;
         erroObject->BestMatchMCLength  = MCSttComp.size();
         erroObject->CurrentTrackLength = bestMatchlist.size();

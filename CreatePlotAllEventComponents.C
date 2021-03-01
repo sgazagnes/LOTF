@@ -39,6 +39,12 @@ int selectCompColour(size_t compNum, size_t numColours) {
   case 5:
     color = 863;
     break;
+  case 6:
+    color = 800;
+    break;
+  case 7:
+    color = 800;
+    break;
     //case 6:
   default:
     color = 801;
@@ -68,6 +74,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
   // Polar coordinates.
   TNtuple* MCposPolar = (TNtuple*) inp.Get("MCposPolar");
   TNtuple* PosPolar   = (TNtuple*) inp.Get("PosPolar");
+  TNtuple *ErrorPT = (TNtuple*) inp.Get("PerTrackError");
 
   Poss->AddFriend("MCpos");
 
@@ -99,6 +106,24 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
   // float *trackID;
   float_t id;
   std::vector< int > idtracks;
+ 
+ TTree* tracknum = (TTree*) inp.Get(tupName.c_str());
+  TBranch *bpx = tracknum->GetBranch("trackID");
+  bpx->SetAddress(&id);
+  
+  Int_t nevent = (Int_t)tracknum->GetEntries();
+  for (Int_t i=0;i<nevent;i++) {    
+    bpx->GetEntry(i); //read branch fTracks.fPx
+ 
+    // printf("ntracks=%f \n",id);
+    int intid =  static_cast<unsigned int>(id);
+    if(!(std::find(idtracks.begin(), idtracks.end(), intid) != idtracks.end()))
+      	idtracks.push_back(intid);
+
+  }
+
+  /* float_t idMatch;
+  std::vector< int > idMatch;
 
   TTree* tracknum = (TTree*) inp.Get(tupName.c_str());
   TBranch *bpx = tracknum->GetBranch("trackID");
@@ -113,7 +138,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
     if(!(std::find(idtracks.begin(), idtracks.end(), intid) != idtracks.end()))
       	idtracks.push_back(intid);
 
-  }
+	}/*/
 
   //printf("%d\n", idtracks.size());
 

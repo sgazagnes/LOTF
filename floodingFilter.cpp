@@ -55,8 +55,9 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   
   TStopwatch timer;
 
-  //Setting verbosity level
-  bool v[10] = {1,1,1,0,0,0,0,0,1,1};//{0,0,0,0,0,0,0,0,1,1}{1,1,1,0,0,0,0,0,0,0};
+  //Setting verbosity level, put 1 for the debug you want
+  //error/time/info/collect/grid/connect/fit/merge/trkz/trkerror
+  bool v[10] = {1,1,1,1,1,1,1,1,1,1};//{0,0,0,0,0,0,0,0,1,1}{1,1,1,0,0,0,0,0,0,0};
   set_verbosity(v);
   // Structure to hold the detector data (grid)
   std::vector < GridNode > detNodes;
@@ -74,13 +75,18 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   TNtuple ErrorNtuple("ErrorEstimate","Segmentation error values", errorParameter.c_str());
 
   // Second error type. Per track error value. Based on curvature data.
-  std::string PerTrkErrPars = "complex:misMatched";
+  std::string PerTrkErrPars = "complex:misMatched:bestIdx";
   // PerTrkErrPars += ":MCMinCurrentLength:CurrentMinMCLength";
   PerTrkErrPars += ":Jacardsingle:Jacardaverage";
   PerTrkErrPars += ":UnderMergeError:OverMergeError:disX:disY:disZ";
   TNtuple ErrorNtuplePerTrack("PerTrackError","Per track values of error", PerTrkErrPars.c_str());
 
   std::string CurvTrak = "MC_a:MC_b:MC_r:MC_E:tr_a:tr_b:tr_r:tr_E";
+
+  std::string DisTrak = "disx:disy:disz";
+
+  TNtuple ErrorNtupleDisPerTrack("DisPerTrackError","Per track values of displacement",DisTrak.c_str());
+
   // PerTrkErrPars += ":MCMinCurrentLength:CurrentMinMCLength";
   TNtuple CurvNtuplePerTrack("PerTrackCurv","Per track values of circle fit", CurvTrak.c_str());
   // NTuple to hold the coordinates of all connected components.
@@ -184,7 +190,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
   /* Fill the grid with the current hit points and process. Handles   each event separately.*/
   // Event loop
-
+  int nEvproc = 0;
   for(size_t k = 0; k < Hit_coords->size(); ++k) {
     //   if(k == 28 || k == 90 || k == 42||k == 55||k==97) continue;
 
@@ -252,7 +258,12 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	nactiveAll++;
       }      
     }
-
+    if(nactiveAll <= 5){
+      error("This event did not contain anay tracks");
+      continue;
+    } else {
+      nEvproc++;
+    }
     
 
     remaining = activeId;
@@ -290,10 +301,10 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
     if(tracklets.size() > 0)
       info("We found %d tracklets\n", candidateId);
-    else{
-      error("FIRST PHASE DID NOT WORK, NEED TO ABORT");
-      continue;
-    }
+    // else{
+    //   error("FIRST PHASE DID NOT WORK, NEED TO ABORT");
+    //   break;
+    //  }
 
     size_t sizeBef = idToProcess.size();
     for(unsigned int n = 0; n < idToProcess.size();) {
@@ -343,46 +354,425 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     timing("Fitting phase ended. Time %lf s",  std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count());
 
 
-    // Trying to connect remaining nodes
-    std::vector<GridNode> sameLayer; 
+    // Trying to connect easy remaining nodes
+
+    
+    sort( idToProcess.begin(), idToProcess.end() );
+	
     for(size_t n = 0; n < idToProcess.size(); ++n) {
+      std::vector<int> sameLayer;
+      std::vector<int> otherLayer;
+      std::vector<int> connected; 
+      std::vector<GridNode*> inQueue; 
+
       int nodeId = idToProcess[n].first;
+      if(visited[nodeId])
+	continue;
       GridNode &myNode = Ingrid[gr.Find(nodeId)];
-      info("Checking remaining node %d", nodeId);
+      //  info("Checking remaining node %d, visited %d", nodeId, visited[nodeId]);
+      connected.push_back(nodeId);
+      //visited[nodeId] = 3;
+      
       bool allvisited = true;
       for(size_t m = 0; m < myNode.m_neighbors.size(); m++){
 	int neighId = myNode.m_neighbors[m];
 	GridNode &myNeigh = Ingrid[gr.Find(neighId)];
 	if(myNeigh.m_type == GridNode::VIRTUAL_NODE)
 	  continue;
-	info("Has neighbor %d, which is connect to %d CC", neighId, myNeigh.m_cm.size());
-	if(!visited[neighId])
+	//	info("Has neighbor %d, which is connect to %d CC, and is layer %d", neighId, myNeigh.m_cm.size(), myNeigh.m_Layer);
+	if(!visited[neighId]){
 	  allvisited = false;
-	else if(myNeigh.m_Layer == myNode.m_Layer){
-	  info("Same Layer, put in list");
-	  sameLayer.push_back(myNeigh);
-	}	
+
+	  connected.push_back(neighId);
+	  inQueue.push_back(&myNeigh);
+	  // visited[neighId] = 3;
+	}else if(visited[neighId] == 1){
+	  if(myNeigh.m_Layer == myNode.m_Layer){
+	    //	    info("Same Layer, put in list (connect with CC %d)", myNeigh.m_cm[0] );
+	    if(std::find(sameLayer.begin(), sameLayer.end(), neighId) == sameLayer.end())
+	      sameLayer.push_back(neighId);
+	  } else{
+	    //	    info("Other Layer, put in list (connect with CC %d)", myNeigh.m_cm[0]);
+	    if(std::find(otherLayer.begin(), otherLayer.end(), neighId) == otherLayer.end())
+	      otherLayer.push_back(neighId);
+	  }
+	}
       }
-      if(allvisited && sameLayer.size() == 1){
-	info("we can easily connect one of these remaining node to one track");
-	int potCCtoMerge = sameLayer[0].m_cm[0];
+
+
+      
+      if(sameLayer.size() > 0){
+
+	//	info("We have %d nodes on same layer, and all visited, we connect to %d", sameLayer.size(),sameLayer[0] );
+	
+	GridNode &myNeigh = Ingrid[gr.Find(sameLayer[0])];
+	//	info("We have %d nodes on same layer, and all visited, we connect to %d, cm is %d", sameLayer.size(),myNeigh.m_detID, myNeigh.m_cm[0] );
+
+	int potCCtoMerge = myNeigh.m_cm[0];
+
+	//	info("We connect %d to CC %d",nodeId,potCCtoMerge   );
+
 	const auto p = std::find_if(tracklets.begin(), tracklets.end(),
 				    [potCCtoMerge](const PathCandidate *obj){ return obj->m_id == potCCtoMerge; } );
 
 	PathCandidate &neighCand = *(*p); // The CC that the node belongs to	   	   
 
 	//Find where the node is in the list of the other CC
+
 	std::vector<int>::iterator it = std::find((neighCand.m_memberList)->begin(),
-						  (neighCand.m_memberList)->end(), sameLayer[0].m_detID);
-	neighCand.insertNewNode(gr, Ingrid, &sameLayer[0], it);
+						  (neighCand.m_memberList)->end(), myNeigh.m_detID);
+	//	info("We connect %d to CC %d",nodeId,potCCtoMerge   );
+
+	neighCand.insertNewNode(gr, Ingrid, &myNode, it);
+	visited[nodeId] = 1;
+	//	info("Connected");
+      } else if(allvisited && otherLayer.size() >  0){
+	//	info("We have %d nodes on other layers, and all visited", otherLayer.size());
+	std::vector<int> CC;
+
+	for(size_t m = 0; m < otherLayer.size(); m++){
+	  GridNode &myNeigh = Ingrid[gr.Find(otherLayer[m])];
+	  if(std::find(CC.begin(), CC.end(), myNeigh.m_cm[0]) == CC.end()){
+	    CC.push_back(myNeigh.m_cm[0]);
+	  }
+	}
+	if(CC.size() == 0){
+	  // info("All neighbors are connected to single CC %d", CC[0]);
+	  int potCCtoMerge = CC[0];
+	  //	  dbgconnect("We connect %d to CC %d",nodeId,potCCtoMerge   );
+
+	  const auto p = std::find_if(tracklets.begin(), tracklets.end(),
+				      [potCCtoMerge](const PathCandidate *obj){ return obj->m_id == potCCtoMerge;});
+
+	  PathCandidate &neighCand = *(*p); // The CC that the node belongs to	   	   
+
+	  //Find where the node is in the list of the other CC
+	  std::vector<int>::iterator it = std::find((neighCand.m_memberList)->begin(),
+						    (neighCand.m_memberList)->end(), otherLayer[0]);
+	  neighCand.insertNewNode(gr, Ingrid, &myNode, it);
+	  visited[nodeId] = 1;
+	} 
       }
-	//      int index              = std::distance((neighCand.m_memberList)->begin(), it);
-	//     int nodeIdNeighCand    = neighCand.m_memberList->at(index);
+
+
+      
+      /* else {
+	info("Finding all connected");
+	while(inQueue.size()>0){
+	  GridNode *cur = inQueue.back();
+	  info("Checking %d", cur->m_detID);
+		
+	  inQueue.pop_back();
+	  for(size_t m = 0; m < cur->m_neighbors.size(); m++){
+	    int neighId = cur->m_neighbors[m];
+	    // info("Neigh %d", neighId);
+
+	    GridNode &myNeigh = Ingrid[gr.Find(neighId)];
+	    if(myNeigh.m_type == GridNode::VIRTUAL_NODE)
+	      continue;
+
+	    if(!visited[neighId]){
+	      connected.push_back(neighId);
+	      inQueue.push_back(&myNeigh);
+	      visited[neighId] = 3;
+	      info("Adding neighbor %d", neighId, myNeigh.m_cm.size());
+	    } else if(visited[neighId] == 1){
+	      info("Neigh %d is connected to CC  %d",neighId, myNeigh.m_cm[0]);
+	    }
+	  }
+	}
+	if(connected.size() > 5){
+	  info("we found %d nodes connected, set a new cand", connected.size());
+	  sort( connected.begin(),  connected.end() );
+	  PathCandidate *cand 	= new PathCandidate();// Create a new tracklet candidate
+	  cand->m_id 		= (candidateId)++;// tracklet id
+	  int prevLayer = -1;
+	  std::vector<int> virt; 
+
+	  for(size_t m = 0; m < connected.size(); m++){
+	    info("Contain node %d", connected[m]);
+	    int curId = connected[m];
+	    GridNode *addNode = &Ingrid[gr.Find(curId)];
+	    if(virt.size() > 0 && addNode->m_Layer != prevLayer){
+	      addNodesToCand (gr, Ingrid, *cand, visited, virt);
+	    }
+	    
+	    visited[curId] = 1;
+	    cand->insertNewNode(gr, Ingrid, addNode, cand->m_memberList->end());
+	    for(size_t p = 0; p < addNode->m_neighbors.size(); p++){
+	      int neighId =  addNode->m_neighbors[p];
+	      GridNode &myNeigh = Ingrid[gr.Find(neighId)];
+	      if(myNeigh.m_type == GridNode::VIRTUAL_NODE)
+		virt.push_back(neighId);
+	      
+	    }
+	    prevLayer = addNode->m_Layer;
+	  }
+	  if((cand->m_minLayer == 0 && cand->m_maxLayer > 21) || ((labs(cand->m_layers[0] -cand->m_layers[cand->m_layers.size()-1]) < 2) && cand->m_length>2)){		 
+	    dbgconnect("track goes through all layers or makes a loop, likily finished");		 
+	    cand->m_finished = FINISHED;		 
+	  }  else {		 
+	    dbgconnect("Candidate has no more neighbors, but doesn't seem finished");
+	    cand->m_finished = ONGOING;
+	   
+	  }
+	  dbgconnect("Pushing cm %d with length %d, tail node %d, head node %d, first layer %d, last layer %d, IsOnSectorLimit %d, status  %d. ", cand->m_id, cand->m_length, cand->m_tailNode, cand->m_headNode,cand->m_layers[0], cand->m_layers[cand->m_layers.size()-1], cand->m_isOnSectorLimit, cand->m_finished);
+	  tracklets.push_back(cand);
+	} /*else {
+	  info("we found %d nodes connected, not enough for a new cand, let's just connect to closest CC", connected.size());
+
+	  for(size_t m = 0; m < connected.size(); m++){
+	    info("node %d", connected[m]);
+	    float mindist = 10000;
+	    int goodcc = -1;
+	    int goodNeigh = -1;
+	    int curId = connected[m];
+	    GridNode &addNode = Ingrid[gr.Find(curId)];
+	    for(size_t p = 0; p < addNode.m_neighbors.size(); p++){
+	      int neighId =  addNode.m_neighbors[p];
+	      GridNode &myNeigh = Ingrid[gr.Find(neighId)];
+	      if(myNeigh.m_type == GridNode::VIRTUAL_NODE || visited[neighId] != 1)
+		continue;
+	      double currDist = distanceBetweenTube(addNode, myNeigh);
+	      if(currDist < mindist){
+		goodcc = myNeigh.m_cm[0];
+		goodNeigh = neighId;
+		mindist=currDist;
+	      }
+	    }
+
+	    info("Best match is %d with CC %d", goodNeigh, goodcc);
+	    const auto p = std::find_if(tracklets.begin(), tracklets.end(),
+					[goodcc](const PathCandidate *obj){ return obj->m_id==goodcc;});
+
+	    PathCandidate &neighCand = *(*p); // The CC that the node belongs to	   	   
+
+	    //Find where the node is in the list of the other CC
+	    std::vector<int>::iterator it = std::find((neighCand.m_memberList)->begin(),
+						      (neighCand.m_memberList)->end(), goodNeigh);
+	    neighCand.insertNewNode(gr, Ingrid, &addNode, it);
+	    visited[nodeId] = 1;
+	  }
+	}
+	}*/
+    }
+
+
+    info("Ended the connecttion of remaining nodes");
+
+    std::sort(tracklets.begin(), tracklets.end(), compareTwoPathsLength);
+
+    using nodeDist = std::pair<int, float>;
+
+
+
+    
+    for(unsigned int l = 0; l < tracklets.size(); l++){
+     
+      PathCandidate &curCand = *(tracklets[l]);
+      if(!curCand.m_isValid || curCand.m_finished > 2)
+	continue;
+
+      GridNode &firstNode = Ingrid[gr.Find(curCand.m_tailNode)];
+      GridNode &lastNode  = Ingrid[gr.Find(curCand.m_headNode)];
+      dbgmerge("NEW Tracklet %d is unfinished, firstNode %d, lastNode %d", curCand.m_id, firstNode.m_detID, lastNode.m_detID);
+
+      if(firstNode.m_LayerLimit == 1 || curCand.m_toMergeTail.size()> 0){
+	  dbgmerge("No need to look in direction of first node %d", firstNode.m_detID);
+      } else { 
+	dbgmerge("Let's look into tail direction, with the %lu tracklets we found previously", tracklets.size());
+	std::vector<nodeDist> toCheck;
+	for(unsigned int n = 0; n < tracklets.size(); ++n) {
+	  PathCandidate &testCand = *(tracklets[n]);
+	  if (testCand.m_finished == 3 || n == l) continue;
+
+	  GridNode checkNode;
+	  if(labs(firstNode.m_detID - testCand.m_tailNode) < labs(firstNode.m_detID - testCand.m_headNode)){
+	    checkNode = Ingrid[gr.Find(testCand.m_tailNode)];
+	  }else{
+	    checkNode = Ingrid[gr.Find(testCand.m_headNode)];
+	  }
+	  
+	  dbgmerge("Testing with node %d from tracklet %d",checkNode.m_detID, testCand.m_id);
+
+	  double currDist = sqrt(pow(firstNode.m_x- checkNode.m_x,2) +pow(firstNode.m_y- checkNode.m_y,2)) ;
+	  dbgmerge("Distance %lf", currDist);
+	  if(currDist < 5.){
+	    toCheck.push_back(make_pair(checkNode.m_detID,currDist));
+	  } else
+	    dbgmerge("Too far, no possible merging");
+	  
+	}
+
+	if(toCheck.size() > 0){
+	  info("Found nodes to Cgeck");
+
+	  std::sort(toCheck.begin(), toCheck.end(), [](nodeDist const &a, nodeDist const &b) { 
+						      return a.second < b.second;	  });
+	  
+	  for(size_t i = 0; i < toCheck.size(); i++){
+	    GridNode &check = Ingrid[gr.Find(toCheck[i].first)];
+	    int potCCtoMerge = check.m_cm[0];
+	      
+	    const auto p = std::find_if(tracklets.begin(), tracklets.end(),
+					[potCCtoMerge](const PathCandidate *obj){ return obj->m_id == potCCtoMerge; } );
+
+	    PathCandidate &testCand = *(*p); // The CC that the node belongs to
+	    int caseMerge      = 0;
+	    int offAnc         = 0;
+	    if(check.m_detID == testCand.m_tailNode && testCand.m_toMergeTail.size() == 0){
+	      dbgmerge("Possibility in tail, testing angle");
+	      offAnc      = 0;
+	      caseMerge   = 0;
+	      GridNode &prevAnc = curCand.m_anchors[1];
+	      dbgmerge("PrevAncho %d, %f, %f", prevAnc.m_detID,prevAnc.m_xDet, prevAnc.m_yDet);
+	      dbgmerge("Next neigh Anc %d, %f, %f", testCand.m_anchors[offAnc].m_detID,testCand.m_anchors[offAnc].m_xDet, testCand.m_anchors[offAnc].m_yDet);
+
+	      float angle_xy = returnAngle(prevAnc.m_xDet, firstNode.m_xDet, testCand.m_anchors[offAnc].m_xDet,
+	      		   prevAnc.m_yDet, firstNode.m_yDet, testCand.m_anchors[offAnc].m_yDet);
+	      dbgmerge("Angle xy with track %f", angle_xy);
+	      if(fabs(angle_xy) > 110){
+	      	dbgmerge("We should merge %d and %d \n", curCand.m_id, testCand.m_id);
+		curCand.m_toMergeTail.push_back(potCCtoMerge);
+		testCand.m_toMergeTail.push_back(curCand.m_id);		  		    
+		//	toMergeWith[curCand.m_id][potCCtoMerge] = caseMerge;
+		curCand.m_finished = 2;
+		testCand.m_finished = 2;
+
+	      	break;
+	      }
+	    } else if(check.m_detID == testCand.m_headNode && testCand.m_toMergeHead.size() == 0){
+	      dbgmerge("Possibility in head, testing angle");
+	      offAnc      = testCand.m_anchors.size()-1;
+	      caseMerge   = 1;
+	      GridNode &prevAnc = curCand.m_anchors[1];
+	      dbgmerge("PrevAncho %d, %f, %f", prevAnc.m_detID,prevAnc.m_xDet, prevAnc.m_yDet);
+	      dbgmerge("Next neigh Anc %d, %f, %f", testCand.m_anchors[offAnc].m_detID,testCand.m_anchors[offAnc].m_xDet, testCand.m_anchors[offAnc].m_yDet);
+
+	      float angle_xy = returnAngle(prevAnc.m_xDet, firstNode.m_xDet, testCand.m_anchors[offAnc].m_xDet,
+					   prevAnc.m_yDet, firstNode.m_yDet, testCand.m_anchors[offAnc].m_yDet);
+	      dbgmerge("Angle xy with track %f", angle_xy);
+	      if(fabs(angle_xy) > 110){
+		dbgmerge("We should merge %d and %d \n", curCand.m_id, testCand.m_id);
+		curCand.m_toMergeTail.push_back(potCCtoMerge);
+		testCand.m_toMergeHead.push_back(curCand.m_id);		  		    
+		//	toMergeWith[curCand.m_id][potCCtoMerge] = caseMerge;
+		curCand.m_finished = 2;
+		testCand.m_finished = 2;
+
+		break;
+	      }
+	    }
+	  }
+	} else {
+	  dbgmerge("No good candidate found");
+	}
+      }
+
+      
+
+      
+      if(lastNode.m_LayerLimit == 1 || curCand.m_toMergeHead.size()> 0){
+	dbgmerge("No need to look in direction of last node %d", lastNode.m_detID);
+      } else {
+	dbgmerge("Let's look into head direction, with the %lu tracklets we found previously", tracklets.size());
+	std::vector<nodeDist> toCheck;
+
+	for(unsigned int n = 0; n < tracklets.size(); ++n) {
+	  PathCandidate &testCand = *(tracklets[n]);
+	  if (testCand.m_finished == 3 || n == l) continue;
+	
+	  GridNode checkNode;
+	  if(labs(lastNode.m_detID - testCand.m_tailNode) < labs(lastNode.m_detID - testCand.m_headNode)){
+	    checkNode = Ingrid[gr.Find(testCand.m_tailNode)];
+	  }else{
+	    checkNode = Ingrid[gr.Find(testCand.m_headNode)];
+	  }
+	  
+	  dbgmerge("Testing with node %d from tracklet %d",checkNode.m_detID, testCand.m_id);
+
+	  double currDist = sqrt(pow(lastNode.m_x- checkNode.m_x,2) +pow(lastNode.m_y- checkNode.m_y,2)) ;
+	  dbgmerge("Distance %lf", currDist);
+	  if(currDist < 5.){
+	    toCheck.push_back(make_pair(checkNode.m_detID,currDist));
+	  } else
+	    dbgmerge("Too far, no possible merging");
+	  
+	}
+	if(toCheck.size() > 0){
+	  info("Found nodes to Cgeck");
+
+	  std::sort(toCheck.begin(), toCheck.end(), [](nodeDist const &a, nodeDist const &b) { 
+						      return a.second < b.second;	  });
+	  
+	  for(size_t i = 0; i < toCheck.size(); i++){
+	    GridNode &check = Ingrid[gr.Find(toCheck[i].first)];
+	    int potCCtoMerge = check.m_cm[0];
+	      
+	    const auto p = std::find_if(tracklets.begin(), tracklets.end(),
+					[potCCtoMerge](const PathCandidate *obj){ return obj->m_id == potCCtoMerge; } );
+
+	    PathCandidate &testCand = *(*p); // The CC that the node belongs to
+	    int caseMerge      = 0;
+	    int offAnc         = 0;
+	    if(check.m_detID == testCand.m_tailNode && testCand.m_toMergeTail.size() == 0){
+	      dbgmerge("Possibility in tail, testing angle");
+	      offAnc      = 0;
+	      caseMerge   = 2;
+	      GridNode &prevAnc = curCand.m_anchors[curCand.m_anchors.size()-2];
+	      dbgmerge("PrevAncho %d, %f, %f", prevAnc.m_detID,prevAnc.m_xDet, prevAnc.m_yDet);
+	      dbgmerge("Next neigh Anc %d, %f, %f", testCand.m_anchors[offAnc].m_detID,testCand.m_anchors[offAnc].m_xDet, testCand.m_anchors[offAnc].m_yDet);
+
+	      float angle_xy = returnAngle(prevAnc.m_xDet, lastNode.m_xDet, testCand.m_anchors[offAnc].m_xDet,
+					   prevAnc.m_yDet, lastNode.m_yDet, testCand.m_anchors[offAnc].m_yDet);
+	      dbgmerge("Angle xy with track %f", angle_xy);
+	      if(fabs(angle_xy) > 110){
+		dbgmerge("We should merge %d and %d \n", curCand.m_id, testCand.m_id);
+		curCand.m_toMergeHead.push_back(potCCtoMerge);
+		testCand.m_toMergeTail.push_back(curCand.m_id);		  		    
+		//toMergeWith[curCand.m_id][potCCtoMerge] = caseMerge;
+		curCand.m_finished = 2;
+		testCand.m_finished = 2;
+		break;
+	      }
+	    } else if(check.m_detID == testCand.m_headNode && testCand.m_toMergeHead.size() == 0){
+	      dbgmerge("Possibility in head, testing angle");
+	      offAnc      = testCand.m_anchors.size()-1;
+	      caseMerge   = 1;
+	      GridNode &prevAnc = curCand.m_anchors[curCand.m_anchors.size()-2];
+	      dbgmerge("PrevAncho %d, %f, %f", prevAnc.m_detID,prevAnc.m_xDet, prevAnc.m_yDet);
+	      dbgmerge("Next neigh Anc %d, %f, %f", testCand.m_anchors[offAnc].m_detID,testCand.m_anchors[offAnc].m_xDet, testCand.m_anchors[offAnc].m_yDet);
+
+	      float angle_xy = returnAngle(prevAnc.m_xDet, lastNode.m_xDet, testCand.m_anchors[offAnc].m_xDet,
+					   prevAnc.m_yDet, lastNode.m_yDet, testCand.m_anchors[offAnc].m_yDet);
+	      dbgmerge("Angle xy with track %f", angle_xy);
+	      if(fabs(angle_xy) > 110){
+		dbgmerge("We should merge %d and %d \n", curCand.m_id, testCand.m_id);
+		curCand.m_toMergeHead.push_back(potCCtoMerge);
+		testCand.m_toMergeHead.push_back(curCand.m_id);		  		    
+		//toMergeWith[curCand.m_id][potCCtoMerge] = caseMerge;
+		curCand.m_finished = 2;
+		testCand.m_finished = 2;
+
+		break;
+	      }
+	    }
+	  }
+	} else {
+	  dbgmerge("No good candidate found");
+	}
+
+      }
+
+      //if(curCand.m_finished < 2){
+      //	dbgmerge("We found no good candidate to merge with");
+      //	curCand.m_finished = 3;
+     // }
+	  
+      dbgmerge("\n\n\n");
     }
     
-    
-    
-#endif // IF TRUE
+ #endif // IF TRUE
 
     
 
@@ -405,11 +795,20 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     //fitZCoordinates(gr, tracklets);
 
       //    if(tracklets.size() > 0){
-    	info("Number of tracklets: %d", tracklets.size());    
+      for(unsigned int l = 0; l < tracklets.size(); l++){
+	PathCandidate &curCand = *(tracklets[l]);
+	if(!curCand.m_isValid){
+	  tracklets.erase(tracklets.begin() + l);
+	  l--;
+	  continue;
+	}
+      }
 
-	for(unsigned int l = 0; l < tracklets.size(); l++){
-	  PathCandidate *curCand = tracklets[l];
-	  std::set<int> const *trk = curCand->m_memberIdSet;
+      info("Number of tracklets: %d", tracklets.size());    
+
+      for(unsigned int l = 0; l < tracklets.size(); l++){
+	PathCandidate *curCand = tracklets[l];
+	std::set<int> const *trk = curCand->m_memberIdSet;
 	  std::vector<int> const *vect = curCand->m_memberList;
 
 	  if(curCand->m_isValid) {
@@ -585,6 +984,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	    MCMatchingErrorStruct const *erObj = match_error2->at(f);
 	    ErrorNtuplePerTrack.Fill(static_cast<float>(erObj->Complex),
 				     static_cast<float>(erObj->isNotmatched),
+				     static_cast<float>(erObj->matchIndex),
 				     // static_cast<float>(erObj->BestMatchMCLength),
 				     // static_cast<float>(erObj->CurrentTrackLength),
 				     //  static_cast<float>(erObj->MCMinCurrentLength),
@@ -599,6 +999,11 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	    CurvNtuplePerTrack.Fill( erObj->MC_a, erObj->MC_b, erObj->MC_r,
 				     erObj->MC_E, erObj->tr_a, erObj->tr_b,
 				     erObj->tr_r, erObj->tr_E);
+	    if(!erObj->isNotmatched){
+	      for(size_t p = 0; p < erObj->alldisx.size(); p++){
+		ErrorNtupleDisPerTrack.Fill(erObj->alldisx[p],erObj->alldisy[p],erObj->alldisz[p]);
+	      }
+	    }
 	  }//
 	  // Clean memory for now. Maybe better to put all lists in a main
 	  // list and fill the ntuple later.(HINT FIXME later)
@@ -640,6 +1045,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   //Write error estimations.
   ErrorNtuple.Write();
   ErrorNtuplePerTrack.Write();
+  ErrorNtupleDisPerTrack.Write();
+
   CurvNtuplePerTrack.Write();
 
   Out_Put_File.Close();
@@ -662,13 +1069,13 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   }
   delete MC_Tracks;
 
-  
+  info("Nuumber of events processed is %d", nEvproc);
   Double_t rtime = timer.RealTime();
   Double_t ctime = timer.CpuTime();
   timing("Macro finished successfully. Time %lf s",  std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count());
   timing("Real time %f (s/Event), CPU time %f (s/Event).", (rtime), (ctime));
 
-  timing("Real time %f (s/Event), CPU time %f (s/Event).", (rtime/totalnumEvt), (ctime/totalnumEvt));
+  timing("Real time %f (s/Event), CPU time %f (s/Event).", (rtime/nEvproc), (ctime/nEvproc));
 }
   // Extract MC track values
   

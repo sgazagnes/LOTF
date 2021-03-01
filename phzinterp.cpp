@@ -53,21 +53,62 @@ void ZCoordinates(std::vector < PathCandidate* > &tracklets)
 	xPts.push_back((double) node.m_xDet);
 	yPts.push_back((double) node.m_yDet);
 	double zadd = (double) node.m_z_Det;
-	if(zadd > 105)
-	  zadd = 100;
-	else if(zadd < -35)
-	  zadd = -30;
+	if(zadd > 105 || zadd < -35)
+	  continue;
+	// zadd = 100;
+	//	else if(zadd < -35)
+	// zadd = -30;
 	zPts.push_back((double) zadd);
 	lastid = node.m_detID;
 	firstid = firstid == -1? node.m_detID: firstid;
       }
     }
-    if(xPts.size()>1){
-    
-      dbgtrkz("Coordinates found for fitting");
 
-      int dir = anchors[0].m_detID < anchors[anchors.size()-1].m_detID || anchors[0].m_Layer == 0 ?
-				     1 : -1;
+    if(xPts.size() <= 1){
+      dbgtrkz("We haven't found any good points, let's go iin the list of x y z to see if we find some");
+
+      xPts.clear();
+      yPts.clear();
+      zPts.clear();
+
+      for(size_t i = 0; i < x.size(); i++){
+	if(z[i] != 0.0 && z[i] != 35.){
+	  double zadd = (double) z[i];
+	  if(zadd > 105 || zadd < -35)
+	    continue;
+	  //if(zadd > 105)
+	  // zadd = 100;
+	  //else if(zadd < -35)
+	  // zadd = -30;
+	  xPts.push_back(x[i]);
+	  yPts.push_back(y[i]);
+	  zPts.push_back(zadd);
+	  lastid = curCand.m_memberList->at(i);
+	  firstid = firstid == -1? curCand.m_memberList->at(i): firstid;
+	}
+      }
+      dbgtrkz("We found %d points", zPts.size());
+
+    }
+    if(xPts.size()>0){
+    
+      dbgtrkz("Coordinates found for fitting, %d, %d",anchors[0].m_detID, anchors[anchors.size()-1].m_detID );
+
+      int dir;
+      if(anchors[0].m_Layer <=  anchors[anchors.size()-1].m_Layer)
+	dir = 1;
+      else if(anchors[0].m_Layer >  anchors[anchors.size()-1].m_Layer)
+	dir = -1;
+      else{
+	if(zPts[0] < zPts[-1])
+	  dir = 1;
+	else
+	  dir= -1;
+
+      }
+      
+      // int dir = anchors[0].m_Layer < anchors[anchors.size()-1].m_Layer?
+      //			     1 : -1;
       if(dir == -1){
 	xPts.push_back(0.);
 	yPts.push_back(0.);
@@ -80,8 +121,8 @@ void ZCoordinates(std::vector < PathCandidate* > &tracklets)
       }
 
       
-      // for(size_t i = 0; i < zPts.size(); i++)
-      //	dbgtrkz("x %lf, y %lf, z %lf", xPts[i],  yPts[i],  zPts[i]);
+      for(size_t i = 0; i < zPts.size(); i++)
+      	dbgtrkz("x %lf, y %lf, z %lf", xPts[i],  yPts[i],  zPts[i]);
 
 
       std::vector<double> p;
@@ -157,8 +198,7 @@ void ZCoordinates(std::vector < PathCandidate* > &tracklets)
   
       
     } else
-      dbgtrkz("No enough good coord found");
-
+      dbgtrkz("We found no z points");
     dbgtrkz("Finished cur track \n");
   }
 }

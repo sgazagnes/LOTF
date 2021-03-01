@@ -53,6 +53,7 @@ MCMatchingErrorStruct()
   float Jacardsingle;
   float Jacardaverage;
   // Variables for per track error evaluations.
+  size_t matchIndex;
   size_t BestMatchMCLength;// Length of best MC match
   size_t CurrentTrackLength;// Length of current tack
   size_t MCMinCurrentLength;//R_j - T_j
@@ -72,6 +73,10 @@ MCMatchingErrorStruct()
   double disX;
   double disY;
   double disZ;
+
+  std::vector<float> alldisx;
+  std::vector<float> alldisy;
+  std::vector<float> alldisz;
   // double tr_E;
 } MCMatchingError;
 ////////////////////////////////

@@ -78,11 +78,11 @@ void CoordGrid::CorrectLayerLimit()
 {
   dbggrid("Correcting the layer Limit  variable");
   int nLayerAdd = 0;
-  bool found =0;
   for(size_t i = 0; i < m_grid.size(); ++i) {
     GridNode &node = m_grid[i];
     if(node.m_LayerLimit) continue;
     int numNeigh =  node.m_neighbors.size();
+    bool found =0;
     for(size_t j =0; j < numNeigh; j++){
       GridNode &neigh = m_grid[Find(node.m_neighbors[j])];
       if(neigh.m_Layer > node.m_Layer)
