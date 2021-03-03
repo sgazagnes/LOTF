@@ -57,7 +57,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
   //Setting verbosity level, put 1 for the debug you want
   //error/time/info/collect/grid/connect/fit/merge/trkz/trkerror
-  bool v[10] = {1,0,0,0,0,0,0,0,0,1};//{0,0,0,0,0,0,0,0,1,1}{1,1,1,0,0,0,0,0,0,0};
+  bool v[10] = {1,1,1,0,0,0,0,0,0,1};//{0,0,0,0,0,0,0,0,1,1}{1,1,1,0,0,0,0,0,0,0};
   set_verbosity(v);
   // Structure to hold the detector data (grid)
   std::vector < GridNode > detNodes;
@@ -196,14 +196,14 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     //   if(k == 28 || k == 90 || k == 42||k == 55||k==97) continue;
 
     if(MC_Tracks->at(k)->size() == 0){
-      error("This event did not contain anay tracks");
+      info("This event did not contain anay tracks");
       continue;
     }
     
-    info("MC_Tracks->at(k)->size() is %d", MC_Tracks->at(k)->size());
+    // info("MC_Tracks->at(k)->size() is %d", MC_Tracks->at(k)->size());
   
     // Data for the current event
-    error("Processing event: %d", k);
+    info("Processing event: %d", k);
     std::vector<HitCoordinate*> const *dd = 0;
     dd = Hit_coords->at(k);
     if(dd) 
@@ -263,7 +263,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     }
 
     if(nactiveReal <= 10){
-      error("This event did not contain anay tracks");
+      info("This event did not contain any tracks, continue");
       gr.ResetGrid();
       continue;
     } else {
@@ -272,7 +272,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     
 
     //   remaining = activeId;
-    info("Found %d active detectors (%d with virtuals)", nactiveReal, nactiveAll);
+    dbgconnect("Found %d active detectors (%d with virtuals)", nactiveReal, nactiveAll);
 
     sort(idToProcess.begin(), idToProcess.end(), sortbysec);
 
@@ -285,7 +285,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     std::vector< int > idComplex;  
 
     #if(EVALUATE_ERROR == 1)
-    dbgtrkerror("Finding complex tracks");
+    //info("Finding complex tracks");
     complexTracks(gr, MC_Tracks->at(k), &idComplex);
     #endif
 
@@ -296,7 +296,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     int candidateId 	= 0;
     char *visited 	= (char *) calloc(Ingrid[Ingrid.size()-1].m_detID+1, sizeof(char));
 
-    info("First step is finding the obvious tracklets");
+    dbgconnect("First step is finding the obvious tracklets");
     
 #if(DO_CONNECT == 1)
     findEasyTracks (gr, Ingrid, tracklets, idToProcess, visited, &candidateId);
@@ -304,7 +304,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 #endif
 
     if(tracklets.size() > 0)
-      info("We found %d tracklets\n", candidateId);
+      dbgconnect("We found %d tracklets", candidateId);
     // else{
     //   error("FIRST PHASE DID NOT WORK, NEED TO ABORT");
     //   break;
@@ -320,10 +320,9 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
       n++;
     }
     
-    info("We matched %lu detectors (Remaining %lu)", sizeBef-idToProcess.size(),idToProcess.size() );
+    dbgconnect("We matched %lu detectors (Remaining %lu)", sizeBef-idToProcess.size(),idToProcess.size() );
 
 
-    info("Reordering current tracklets by size");
     std::sort(tracklets.begin(), tracklets.end(), compareTwoPathsLength);
 
     
@@ -350,7 +349,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
       }
     }
     
-    info("After fitting, we have %lu remaining active nodes\n",  idToProcess.size());
+    dbgfit("After fitting, we have %lu remaining active nodes\n",  idToProcess.size());
     timing("Fitting phase ended. Time %lf s",  std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count());
 
 
@@ -500,14 +499,14 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      connected.push_back(neighId);
 	      inQueue.push_back(&myNeigh);
 	      visited[neighId] = 3;
-	      info("Adding neighbor %d", neighId, myNeigh.m_cm.size());
+	      //   info("Adding neighbor %d", neighId, myNeigh.m_cm.size());
 	    } else if(visited[neighId] == 1){
-	      info("Neigh %d is connected to CC  %d",neighId, myNeigh.m_cm[0]);
+	      //info("Neigh %d is connected to CC  %d",neighId, myNeigh.m_cm[0]);
 	    }
 	  }
 	}
 	if(connected.size() > 5){
-	  info("we found %d nodes connected, set a new cand", connected.size());
+	  //  info("we found %d nodes connected, set a new cand", connected.size());
 	  sort( connected.begin(),  connected.end() );
 	  PathCandidate *cand 	= new PathCandidate();// Create a new tracklet candidate
 	  cand->m_id 		= (candidateId)++;// tracklet id
@@ -515,7 +514,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  std::vector<int> virt; 
 
 	  for(size_t m = 0; m < connected.size(); m++){
-	    info("Contain node %d", connected[m]);
+	    //  info("Contain node %d", connected[m]);
 	    int curId = connected[m];
 	    GridNode *addNode = &Ingrid[gr.Find(curId)];
 	    if(virt.size() > 0 && addNode->m_Layer != prevLayer){
@@ -539,13 +538,13 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  GridNode &lastNode  = Ingrid[gr.Find(lastId)];
 	      
 	  if((firstNode.m_LayerLimit == 1 && lastNode.m_LayerLimit == 1)){		 
-	    dbgconnect("track goes through all layers or makes a loop, likily finished");		 
+	    // dbgconnect("track goes through all layers or makes a loop, likily finished");		 
 	    cand->m_finished = FINISHED;		 
 	  }  else {		 
-	    dbgconnect("Candidate has no more neighbors, but doesn't seem finished");
+	    //  dbgconnect("Candidate has no more neighbors, but doesn't seem finished");
 	    cand->m_finished = ONGOING;	   
 	  }
-	  dbgconnect("Pushing cm %d with length %d, tail node %d, head node %d, first layer %d, last layer %d, IsOnSectorLimit %d, status  %d. ", cand->m_id, cand->m_length, cand->m_tailNode, cand->m_headNode,cand->m_layers[0], cand->m_layers[cand->m_layers.size()-1], cand->m_isOnSectorLimit, cand->m_finished);
+	  //dbgconnect("Pushing cm %d with length %d, tail node %d, head node %d, first layer %d, last layer %d, IsOnSectorLimit %d, status  %d. ", cand->m_id, cand->m_length, cand->m_tailNode, cand->m_headNode,cand->m_layers[0], cand->m_layers[cand->m_layers.size()-1], cand->m_isOnSectorLimit, cand->m_finished);
 	  tracklets.push_back(cand);
 	} /*else {
 	  info("we found %d nodes connected, not enough for a new cand, let's just connect to closest CC", connected.size());
@@ -587,7 +586,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     }
 
 
-    info("Ended the connecttion of remaining nodes");
+    dbgfit("Ended the connecttion of remaining nodes");
 
     std::sort(tracklets.begin(), tracklets.end(), compareTwoPathsLength);
 
@@ -604,12 +603,10 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
       GridNode &firstNode = Ingrid[gr.Find(curCand.m_tailNode)];
       GridNode &lastNode  = Ingrid[gr.Find(curCand.m_headNode)];
-      dbgmerge("NEW Tracklet %d is unfinished, firstNode %d, lastNode %d", curCand.m_id, firstNode.m_detID, lastNode.m_detID);
+      //dbgmerge("NEW Tracklet %d is unfinished, firstNode %d, lastNode %d", curCand.m_id, firstNode.m_detID, lastNode.m_detID);
 
-      if(firstNode.m_LayerLimit == 1 || curCand.m_toMergeTail.size()> 0){
-	  dbgmerge("No need to look in direction of first node %d", firstNode.m_detID);
-      } else { 
-	dbgmerge("Let's look into tail direction, with the %lu tracklets we found previously", tracklets.size());
+      if(!(firstNode.m_LayerLimit == 1 || curCand.m_toMergeTail.size()> 0)) { 
+	//dbgmerge("Let's look into tail direction, with the %lu tracklets we found previously", tracklets.size());
 	std::vector<nodeDist> toCheck;
 	for(unsigned int n = 0; n < tracklets.size(); ++n) {
 	  PathCandidate &testCand = *(tracklets[n]);
@@ -634,7 +631,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	}
 
 	if(toCheck.size() > 0){
-	  info("Found nodes to Cgeck");
+	  // info("Found nodes to Cgeck");
 
 	  std::sort(toCheck.begin(), toCheck.end(), [](nodeDist const &a, nodeDist const &b) { 
 						      return a.second < b.second;	  });
@@ -701,9 +698,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
       
 
       
-      if(lastNode.m_LayerLimit == 1 || curCand.m_toMergeHead.size()> 0){
-	dbgmerge("No need to look in direction of last node %d", lastNode.m_detID);
-      } else {
+      if(!(lastNode.m_LayerLimit == 1 || curCand.m_toMergeHead.size()> 0)) {
 	dbgmerge("Let's look into head direction, with the %lu tracklets we found previously", tracklets.size());
 	std::vector<nodeDist> toCheck;
 
@@ -729,7 +724,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  
 	}
 	if(toCheck.size() > 0){
-	  info("Found nodes to Cgeck");
+	  //  info("Found nodes to Cgeck");
 
 	  std::sort(toCheck.begin(), toCheck.end(), [](nodeDist const &a, nodeDist const &b) { 
 						      return a.second < b.second;	  });
@@ -798,7 +793,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
       //	curCand.m_finished = 3;
      // }
 	  
-      dbgmerge("\n\n\n");
+     // dbgmerge("\n\n\n");
     }
     
  #endif // IF TRUE
@@ -833,9 +828,12 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	}
       }
 
-      info("Number of tracklets: %d", tracklets.size());    
+      info("Number of valid tracklets: %d", tracklets.size());    
 
-      std::vector<int> matchedId = BestCompIdToMCTracks( MC_Tracks->at(k), &tracklets);
+      std::vector < MCTrackObject* > *mcTracksCurrentEvent = MC_Tracks->at(k);
+      // SOrt MC tracks increasing length
+      std::sort(mcTracksCurrentEvent->begin(), mcTracksCurrentEvent->end(), greaterThanLength);
+      std::vector<int> matchedId = BestCompIdToMCTracks( mcTracksCurrentEvent, &tracklets);
       
       for(unsigned int l = 0; l < tracklets.size(); l++){
 	PathCandidate *curCand = tracklets[l];
@@ -846,12 +844,12 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 	    std::set<int> *comp = new std::set<int>((*trk));	    
 	    connectedComp->push_back(comp);
-	    info("Best match id for track %d is %d",l, matchedId[l]);
+	    // info("Best match id for track %d is %d",l, matchedId[l]);
 	  }
 	}
     
 	int NumConnComp = connectedComp->size();
-	info("Number of connected components: %d", NumConnComp);    
+	//info("Number of connected components: %d", NumConnComp);    
 	std::vector<TrackObject*>* MVDMergedTraks = MergeConnectedComponentsWithMVD(gr, connectedComp);
 	// TrackZ_CoordinatesDistNorm(gr, MVDMergedTraks);
 	//	timer.Stop();
@@ -886,18 +884,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      //else
 	      ConnectedCoord.Fill(k, cm, matchedId[l], node.m_detID, node.m_x, node.m_y, node.m_z,
 				  node.m_r,node.m_thetaDeg,  x[i],y[i],z[i]);
-	      /*	for( int i = 0;  i < vect->size(); ++i) {
-			int detID = vect->at(i);// Id of the current detector
-			//	printf("CM %d, id %d \n", cm, detID);
-			int d_Index = gr.Find(detID);// Index in the grid
-			GridNode  &node = Ingrid[d_Index];	
-			if(curCand.m_x[i] == -1)
-			ConnectedCoord.Fill(k, cm, node.m_detID, node.m_x, node.m_y, node.m_z, node.m_r,node.m_thetaDeg,
-			node.m_xDet, node.m_yDet, node.m_z_Det);
-			else
-			ConnectedCoord.Fill(k, cm, node.m_detID, node.m_x, node.m_y, node.m_z, node.m_r,node.m_thetaDeg,
-			curCand.m_x[i], curCand.m_y[i], node.m_z_Det);
-			}*/
+
 	    }
 	    for( size_t i = 0;  i < curCand.m_anchors.size(); ++i) {
 	      //if(curCand.m_anchors[i].m_weight == 1)
@@ -908,31 +895,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  }
 	}
 
-    
 
-    
-	// Store the data for each constructed component
-	/* for(size_t cm = 0 ; cm < connectedComp->size(); ++cm) {
-	   std::set<int> const* idset = connectedComp->at(cm);
-	   if(!idset){
-	   continue;
-	   }
-	   std::set<int>::iterator it;
-	   for( it = idset->begin(); it != idset->end(); ++it) {
-	   int detID = *it;// Id of the current detector
-	   int d_Index = gr.Find(detID);// Index in the grid
-	   GridNode  &node = Ingrid[d_Index];	
-	   // k = event number, cm = component number,....
-	
-	   //	ConnectedCoord.Fill(k, cm, node.m_detID, node.m_x, node.m_y, node.m_z,
-	   //		    node.m_xDet, node.m_yDet, node.m_z_Det);
-	   //printf("%d, %d, %d, %f, %f, %f, %f, %f, %f \n", k, cm, node.m_detID, node.m_x, node.m_y, node.m_z,
-	   //		    node.m_xDet, node.m_yDet, node.m_z_Det);
-
-
-	   }
-	   // Print Info
-	   }*/
     
 	// ------------------------------------------------------------------------
 	#if (WRITE_CM_ASCII_FILE > 0)  
@@ -976,45 +939,30 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	dbgtrkerror("Error for all sectors");
 
 	// Determine the segmentation error. Based on total area.
-	if(connectedComp->size() > 0){
-	  MCMatchingError *MC_match_error =  MatchMCTracksWithConnectedComponents(MC_Tracks->at(k), connectedComp);
+	//	if(connectedComp->size() > 0){
+	MCMatchingError *MC_match_error =  MatchMCTracksWithConnectedComponents(MC_Tracks->at(k), connectedComp);
 	  
 	  
-	  ErrorNtuple.Fill(MC_match_error->NumberOfMCTracks,
-			   MC_match_error->NumberOfTracklets,
-			   MC_match_error->Error_underMerge,
-			   MC_match_error->Error_overMerge,
-			   MC_match_error->TotalError,
-			   MC_match_error->Error_underMergeNorm,
-			   MC_match_error->Error_overMergeNorm,
-			   MC_match_error->TotalErrorNorm);
-	  delete MC_match_error;
-	  //  dbgtrkerror("Error for complex sectors");
-	  // MC_match_error = MatchComplexMCTracks(gr,  MC_Tracks->at(k), connectedComp, idComplex);
-	  //delete MC_match_error;
-	} /*else {
-	  	  ErrorNtuple.Fill(1.,
-			   0.,
-			   1.,
-			   1.,
-			   0.,
-			   1.);
-	
-
-
-	}*/
-	// FIXME This prcedure is not complete yet It returns 0 (intentionaly).
-	/* Evaluate error per track. Start from MC-Tracks and match to
-	   components. */
+	ErrorNtuple.Fill(MC_match_error->NumberOfMCTracks,
+			 MC_match_error->NumberOfTracklets,
+			 MC_match_error->Error_underMerge,
+			 MC_match_error->Error_overMerge,
+			 MC_match_error->TotalError,
+			 MC_match_error->Error_underMergeNorm,
+			 MC_match_error->Error_overMergeNorm,
+			 MC_match_error->TotalErrorNorm);
+	delete MC_match_error;
+	  
+	  //	} 
 
 	dbgtrkerror("Error per track");
 
-	std::vector < MCTrackObject* > *mcTracksCurrentEvent = MC_Tracks->at(k);
+	//std::vector < MCTrackObject* > *mcTracksCurrentEvent = MC_Tracks->at(k);
 	// SOrt MC tracks increasing length
-	std::sort(mcTracksCurrentEvent->begin(), mcTracksCurrentEvent->end(), greaterThanLength);
+	//	std::sort(mcTracksCurrentEvent->begin(), mcTracksCurrentEvent->end(), greaterThanLength);
 	std::vector< MCMatchingErrorStruct* > *match_error2 =
-	  MatchPerTrackWithMCTracks(gr, mcTracksCurrentEvent, &tracklets, idComplex);
-	if(match_error2 != 0&& connectedComp->size() > 0) {
+	  MatchPerTrackWithMCTracks(gr, mcTracksCurrentEvent, &tracklets, idComplex, matchedId);
+	if(match_error2 != 0) {
 	  for(size_t f = 0; f < match_error2->size(); ++f) {
 	    MCMatchingErrorStruct const *erObj = match_error2->at(f);
 	    ErrorNtuplePerTrack.Fill(static_cast<float>(erObj->Complex),
@@ -1104,7 +1052,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   }
   delete MC_Tracks;
 
-  info("Nuumber of events processed is %d", nEvproc);
+  info("Number of events processed is %d", nEvproc);
   Double_t rtime = timer.RealTime();
   Double_t ctime = timer.CpuTime();
   timing("Macro finished successfully. Time %lf s",  std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count());

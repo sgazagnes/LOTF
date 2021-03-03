@@ -83,6 +83,11 @@ MCMatchingErrorStruct()
 /**
  *@param
  */
+bool sortbysec2(const pair<int,int> &a, 
+              const pair<int,int> &b) 
+{ 
+    return (a.second > b.second); 
+} 
 
 void complexSectors(CoordGrid &gr,  std::vector< int > &activeId, std::vector< int >* sectorTC);
 void complexTracks(CoordGrid &gr,  std::vector< MCTrackObject* >  const *MCTracks, std::vector< int > *idComplex);
@@ -103,7 +108,8 @@ MCMatchingError* MatchComplexMCTracks(CoordGrid &gr,
 std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitMap,
                                                            std::vector < MCTrackObject* > const *MCTracks,
                                                            std::vector < PathCandidate* > const *tracklets,
-							   std::vector<int >  &idComplex);
+							   std::vector<int >  &idComplex,
+							   std::vector<int >  &matchedId);
 std::vector< int > BestCompIdToMCTracks( std::vector < MCTrackObject* > const *MCTracks,
 					 std::vector < PathCandidate* > const *tracklets);
 

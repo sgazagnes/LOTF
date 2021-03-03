@@ -16,7 +16,7 @@ void runCollector( size_t plength = 1,
 		   size_t dim = 2,// Plot dimension
 		   size_t gapSize = 0,// Number of layers to skip
 		   int firstEvt =0, //3, //9, //0,
-		   int lastEvt = 150///10  //6
+		   int lastEvt = 200///10  //6
 		   )//50->61, 4->5
 {
   // Load basic libs and headers.

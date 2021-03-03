@@ -49,7 +49,7 @@ bool areAdjacent(CoordGrid &gr,  std::vector< GridNode > &Ingrid, std::vector<in
     if(neighNode.m_cm.size() >0) break;
     for (size_t j = i+1; j < v->size (); j++){
       // info("Are %d and %d connected?", neighId, v->at(j));
-      if(neighId == v->at(j)) dbgconnect("areAdjacent: should not be in vector");
+      if(neighId == v->at(j)) error("areAdjacent: should not be in vector");
       else if(neighNode.IsNeighboring(v->at(j)))
 	adjacent++;
       // else
@@ -78,7 +78,7 @@ bool sortNeighbors(CoordGrid &gr, GridNode *currentNode,  PathCandidate &cand, s
     
     if(cand.isInCandidate(neighId))
       continue;
-    // info("Node %d has one neig %d", curId, neighId);
+    // dbgconnect("Node %d has one neig %d", curId, neighId);
     
     if(neighNode.m_type == GridNode::VIRTUAL_NODE){
       virt.push_back(neighId);
@@ -289,7 +289,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	      
 	      int haveNeigh = 0; // Check variable to know if we found a neighbor		
 	      for (size_t j = 0; j < v->size(); j++){
-		//info("Test adjacency between neigh ID %d and v at j %d", neighId, v->at(j));
+		//dbgconnect("Test adjacency between neigh ID %d and v at j %d", neighId, v->at(j));
 
 		// If the node in the next layer is a neighbor, we can stop
 		if(v->at(j) == neighId || (neighNode->IsNeighboring(v->at(j)))){
@@ -308,7 +308,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 		    int oth = mynode.m_neighbors[k];
 
 		    if(oth!= candId && !cand->isInCandidate(oth) && std::find(v->begin(), v->end(), oth) == v->end() && std::find( candNode->m_neighbors.begin(),  candNode->m_neighbors.end(), oth) ==  candNode->m_neighbors.end()  ){
-		      //info("This node %d has other neighbor %d not visited", v->at(j), oth);
+		      //dbgconnect("This node %d has other neighbor %d not visited", v->at(j), oth);
 		      addthisnode = false;
 		      break; //The node did not fullfilled the condition, this is a hard case, we should break here
 		    }
@@ -542,7 +542,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	    }
 
 	    n_neighbors = sameLayer.size()+prevLayer.size()+nextLayer.size();
-	    // info("%d nodes connected, %d found for next step (cond %d)\n", n_connected, n_neighbors, cond);
+	    // dbgconnect("%d nodes connected, %d found for next step (cond %d)\n", n_connected, n_neighbors, cond);
 	    n_connected = 0;
 	     
 	  } 	      
@@ -577,7 +577,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	if(nextDir == 5){
 	  //dbgconnect("We could go either up or down in next round, let's check the previous direction");
 	  if(curDir&UP){
-	    //info("Let's go UP");
+	    //dbgconnect("Let's go UP");
 	    nextDir = 4;
 	    n_neighbors = nextLayer.size();
 	    for(size_t i = 0; i < nextVirt.size();){
@@ -594,7 +594,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 
 	    // CLEAN VIRTUALs
 	  } else if(curDir&DOWN){
-	    //info("Let's go DOWN");
+	    //dbgconnect("Let's go DOWN");
 	    nextDir = 1;
 	    n_neighbors = prevLayer.size();
 	    for(size_t i = 0; i < nextVirt.size();){
@@ -608,14 +608,14 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 		nextVirt.erase(nextVirt.begin()+i);
 	    }
 	  } else {
-	    //info("Can't decide, stop");
+	    //dbgconnect("Can't decide, stop");
 	    cond = false;
 	  }
 	}
 	  	  
 	if(cond == false && n_neighbors != 0){ // This track is finished, but let's push neighbors as we need to fit in the next step
 
-	  // info("ADDING lot of nodes");
+	  // dbgconnect("ADDING lot of nodes");
 	  for (size_t i = 0; i < sameLayer.size(); i++)
 	    cand->m_headNeigh.push_back(sameLayer[i]);
 	      
@@ -628,7 +628,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	  cand->m_headNeigh.insert((cand->m_headNeigh).begin(),  (nextVirt).begin(),  (nextVirt).end());	
 	  // resetLists(visited, prevLayer, sameLayer, nextLayer);
 	  //for(size_t i = 0; i < cand->m_headNeigh.size(); i++)
-	  // info("Node %d",cand->m_headNeigh[i]);
+	  // dbgconnect("Node %d",cand->m_headNeigh[i]);
 
 	  cand->m_finished = ONGOING;		 
 	  break;

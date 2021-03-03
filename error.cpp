@@ -115,7 +115,6 @@ MCMatchingError* MatchMCTracksWithConnectedComponents(std::vector< MCTrackObject
   float Error_overMergeNorm  = 0;
   float TotalErrorNorm = 0;
   
-  float mc_length = 0;
   int nMC = 0;
   // Determine the total area of the all tracks in the current event.
   for(size_t i = 0; i < MCTracks->size(); ++i) {
@@ -131,8 +130,10 @@ MCMatchingError* MatchMCTracksWithConnectedComponents(std::vector< MCTrackObject
   std::set<int>::iterator compIt;
   // Component loop(T_j)
   for(size_t i = 0; i < connectedComp->size(); ++i) {
-    float matchValue = std::numeric_limits<float>::min();
+    float matchValue = 0;//std::numeric_limits<float>::min();
     float unionValue = 0;
+    float mc_length = 0;
+
     // Current connected component to analyse
     std::set<int> const *Cur_comp = connectedComp->at(i);
     std::vector<int> Cur_Comp_list;
@@ -144,6 +145,8 @@ MCMatchingError* MatchMCTracksWithConnectedComponents(std::vector< MCTrackObject
 	Cur_Comp_list.push_back(id);
       }
     }
+    if(Cur_Comp_list.size() <= 5)
+      continue;
     std::sort(Cur_Comp_list.begin(), Cur_Comp_list.end());
     // Find which MC track has the largest overlap (R_k)
     int idMatchedMC;
@@ -371,7 +374,8 @@ MCMatchingError* MatchComplexMCTracks(CoordGrid &gr,
 std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitMap,
                                                            std::vector < MCTrackObject* > const *MCTracks,
                                                            std::vector < PathCandidate* > const *tracklets,
-							   std::vector<int >  &idComplex)
+							   std::vector<int >  &idComplex,
+							   std::vector<int >  &matchedId)
 {
   std::vector< GridNode > Ingrid = hitMap.m_grid;  
 
@@ -439,9 +443,15 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
       float  matchValue = std::numeric_limits<float>::min();
       float  unionValue = std::numeric_limits<float>::min();
 
+      if(std::find(matchedId.begin(), matchedId.end(), MCtrack->m_trackID) != matchedId.end()){
+	auto it = find(matchedId.begin(),matchedId.end(),  MCtrack->m_trackID);
+	int index = it - matchedId.begin();
+	matchTrackIndex = index;
+      }
+      dbgtrkerror("Index found %d", matchTrackIndex);
       //float FP=0, TP=0, FN=0, ntrack = 0;
       // Tracklets loop (connected components)
-      for(size_t j = 0; j < tracklets->size(); ++j) {
+      /*for(size_t j = 0; j < tracklets->size(); ++j) {
         FindIndexIt = std::find(matchedTrackletIndices.begin(), matchedTrackletIndices.end(), j);
         if( FindIndexIt == matchedTrackletIndices.end() ) {// Was not assigned before
           // Current component (T_j)
@@ -471,7 +481,6 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 
 	  // dbgtrkerror("%f", static_cast<float>(IntersectionList.size()));
 
-          /* FIXME hier veranderd om exacte match te vinden */
            if(static_cast<float>(IntersectionList.size()) > matchValue) {
 	     //if(static_cast<float>(IntersectionList.size()) == MCSttComp.size()) {
             matchValue = static_cast<float>(IntersectionList.size());
@@ -496,7 +505,7 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
           }
 	  
         }// End was not assigned before
-      }// Components loop (T_j)
+      }*/// Components loop (T_j)
       // We found the best matching tracklet for current MC track
       // dbgtrkerror("MCTrack %d has a best match %d", i, matchTrackIndex);
       if(matchTrackIndex >= 0) {
@@ -510,9 +519,7 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 	std::vector<double> const &z = tracklets->at(matchTrackIndex)->m_z;//connectedComp->at(j);
 
         std::vector<int> bestMatchlist;
-	std::vector<double> bestX;
-	std::vector<double> bestY;
-	std::vector<double> bestZ;
+
 	int ii =0;
 	//	dbgtrkerror("Firts id %d, last id %d",*bestMatchComponent->begin(), *bestMatchComponent->end() );
 	/*for(set<int>::iterator p = bestMatchComponent->begin(); p != bestMatchComponent->end(); p++){
@@ -532,7 +539,7 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
             bestMatchlist.push_back(id);
 	    // dbgtrkerror(" id  %d should be in both", id);
 
-	    if(std::find(matchedNodes.begin(), matchedNodes.end(),id)!=matchedNodes.end()){
+	    /*/if(std::find(matchedNodes.begin(), matchedNodes.end(),id)!=matchedNodes.end()){
 	      //  if(matchValue/unionValue > 0.3){
 	      auto it = find((tracklets->at(matchTrackIndex))->m_memberList->begin(),(tracklets->at(matchTrackIndex))->m_memberList->end(),  id);
 	      int index = it - (tracklets->at(matchTrackIndex))->m_memberList->begin();
@@ -550,11 +557,42 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 		//	point3D pt(node.m_x,node.m_y,z[ii]);
 		//allmatch.push_back(pt);
 		//   }
-	    }
+		}*/
 	  }
 	  ii++;
         }
         std::sort(bestMatchlist.begin(), bestMatchlist.end());
+
+
+	std::vector<int> IntersectionList( (bestMatchlist.size() + MCSttComp.size()), 0 );
+	// Determine the sequence intersection. Only real tubes.
+	it = std::set_intersection(bestMatchlist.begin(),bestMatchlist.end(),
+				   MCSttComp.begin(), MCSttComp.end(),
+				   IntersectionList.begin());
+	// Resize. "it" points to the position of the last common element
+	IntersectionList.resize(it - IntersectionList.begin());
+
+	matchValue = static_cast<float>(IntersectionList.size());
+	// Area of matched tracklet (a_j)
+	match_length = static_cast<float>(bestMatchlist.size());
+	// Index of tracklet with largest intersection
+	// matchTrackIndex = j;
+	//	matchedNodes = IntersectionList;
+	if (matchValue > MCSttComp.size()/2)
+	  found50 = 1;
+	    
+	std::vector<int> UnionList( (bestMatchlist.size() + MCSttComp.size()), 0 );
+	// Determine the sequence intersection. Only real tubes.
+	it = std::set_union( bestMatchlist.begin(), bestMatchlist.end(),
+			     MCSttComp.begin(), MCSttComp.end(),
+			     UnionList.begin());
+	// Resize. "it" points to the position of the last common element
+	UnionList.resize(it - UnionList.begin());
+	unionValue = static_cast<float>(UnionList.size());
+	//	    dbgtrkerror("Size %lu, %lu",Cur_Comp_list.size(),MCSttComp.size());
+	//	    dbgtrkerror("%f, %f", matchValue, unionValue);
+          
+	
         // Determine differences
         // All x in MC and not in Tracklet (R_k - T_j)
         std::vector<int> MCdiffCurComp((bestMatchlist.size() + MCSttComp.size()), 0);
@@ -572,6 +610,24 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 	float TP = matchValue;
 	float FP =  static_cast<float>(CurCompdiffMC.size());
 	float FN =  static_cast<float>(MCdiffCurComp.size());
+
+
+	std::vector<double> bestX;
+	std::vector<double> bestY;
+	std::vector<double> bestZ;
+	for(size_t p = 0; p < IntersectionList.size(); p++){
+	  //  if(matchValue/unionValue > 0.3){
+	  int id = IntersectionList[p];
+	  auto it = find((tracklets->at(matchTrackIndex))->m_memberList->begin(),(tracklets->at(matchTrackIndex))->m_memberList->end(),  id);
+	  int index = it - (tracklets->at(matchTrackIndex))->m_memberList->begin();
+	  bestX.push_back(x[index]);
+	  bestY.push_back(y[index]);
+	  bestZ.push_back(z[index]);
+	}
+
+	//	dbgtrkerror("Size pts is %lu", bestX.size());
+
+	
 	double disx =0, disy =0, disz = 0,  mindisx,mindisy, mindisz;
 	std::vector<float> alldisx;
 	std::vector<float> alldisy;
@@ -735,7 +791,7 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 	// printIntList(MCSttComp);
       }
       
-      dbgtrkerror("MC track %d has best match index %d",i,matchTrackIndex);
+      dbgtrkerror("MC track %d has best match index %d",MCtrack->m_trackID,matchTrackIndex);
                
     }//END if(MCSttComp.size() != 0) 
     //Go to next MC-Track
@@ -755,12 +811,22 @@ std::vector< int > BestCompIdToMCTracks( std::vector < MCTrackObject* > const *M
   std::vector<int> matchedId;
   for(size_t i = 0;i< tracklets->size(); i++)
     matchedId.push_back(-1);
+
+  std::vector<int> matchedCCId;
+ 
   if( (MCTracks == 0) || (tracklets->size() == 0) ) {
     error("One of the input parameters for matching is empty.");
     return matchedId;
   }
 
+  using trMatch = std::pair<int, int>;
 
+  //std::vector<std::vector<int>> trMatch(MCTracks->size());
+  //std::vector<std::vector<int>> trID(MCTracks->size());
+
+  std::vector<std::vector<trMatch>> D(MCTracks->size());
+
+  //std::vector<int> FindIndexIt;
 
   std::vector<int>::iterator FindIndexIt;
   // For all MC-tracklets find the best match in connected componets
@@ -772,37 +838,21 @@ std::vector< int > BestCompIdToMCTracks( std::vector < MCTrackObject* > const *M
 
   // MC tracks loop
   for(size_t i = 0; i < MCTracks->size(); ++i) {
-    int complex = 0;
-    int found50 = 0;
     // Current MC track(R_k)
     MCTrackObject const *MCtrack = MCTracks->at(i);
     // Stt component of the current MC track.
     std::set<int> MCSttComp((MCtrack->m_STT_Component).begin(), (MCtrack->m_STT_Component).end());
     std::vector<int> MCSttCompVect(MCtrack->m_STT_Component);
 
-    // if(MCSttComp.size() < 6)
-    //   continue;
-    // Not empty MC-track (How is this possible??, empty MC-Tracks.)
     if( MCSttComp.size() > 5 ) {
-      // dbgtrkerror("Size track %d is %lu", i, MCSttComp.size());
-      //for(size_t p = 0; p < MCSttCompVect.size(); p++)
-	
-      //	dbgtrkerror("Contain id  %d", MCSttCompVect[p]);
-
-      // Local variables for comp....
+ 
       int    matchTrackIndex = -1;
       float  match_length = 0;
       float  mc_length = (float) MCSttComp.size();
 
-      float  matchValue = std::numeric_limits<float>::min();
-      float  unionValue = std::numeric_limits<float>::min();
+      float  matchValue = 0;//std::numeric_limits<float>::min();
 
-      //float FP=0, TP=0, FN=0, ntrack = 0;
-      // Tracklets loop (connected components)
       for(size_t j = 0; j < tracklets->size(); ++j) {
-	//  FindIndexIt = std::find(matchedTrackletIndices.begin(), matchedTrackletIndices.end(), j);
-	//   if( FindIndexIt == matchedTrackletIndices.end() ) {// Was not assigned before
-          // Current component (T_j)
           std::set<int> const *Cur_comp = (tracklets->at(j))->m_memberIdSet;//connectedComp->at(j);
 
           std::set<int> Cur_Comp_list;
@@ -825,6 +875,8 @@ std::vector< int > BestCompIdToMCTracks( std::vector < MCTrackObject* > const *M
           IntersectionList.resize(it - IntersectionList.begin());
 
 	  // dbgtrkerror("%f", static_cast<float>(IntersectionList.size()));
+	  D[i].push_back(make_pair(j, (int) IntersectionList.size()));
+	  // dbgtrkerror("i %d (MC id %d), CC %d, match %lu", i, MCtrack->m_trackID,(tracklets->at(j))->m_id, IntersectionList.size());
 
           /* FIXME hier veranderd om exacte match te vinden */
            if(static_cast<float>(IntersectionList.size()) > matchValue) {
@@ -843,8 +895,18 @@ std::vector< int > BestCompIdToMCTracks( std::vector < MCTrackObject* > const *M
 	   //  }// End was not assigned before
       }// Components loop (T_j)
       // We found the best matching tracklet for current MC track
-      matchedId[matchTrackIndex] = i;
-      dbgtrkerror("MC track %d has best match index %d",i,matchTrackIndex);
+      int matchIdx= -1;
+      sort(D[i].begin(), D[i].end(), sortbysec2);
+      for(size_t p = 0; p < tracklets->size(); p++){
+	if(std::find(matchedCCId.begin(), matchedCCId.end(), D[i][p].first) == matchedCCId.end() && D[i][p].second != 0 ){
+	  matchedId[D[i][p].first] =MCtrack->m_trackID;
+	  matchIdx = D[i][p].first;
+	  matchedCCId.push_back(D[i][p].first);
+	  break;
+	}
+      }
+     
+      dbgtrkerror("MC track %d has best match index %d",MCtrack->m_trackID, matchIdx);
 
       
     }//END if(MCSttComp.size() != 0) 

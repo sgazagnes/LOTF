@@ -286,7 +286,7 @@ void fittingPhase(CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
   for(unsigned int l = 0; l < tracklets.size(); l++){ // Go for each tracklet
 	
     PathCandidate &curCand = *(tracklets[l]);
-    info("Track %d, status %d, length %d", curCand.m_id, curCand.m_finished,curCand.m_length);
+    dbgfit("Track %d, status %d, length %d", curCand.m_id, curCand.m_finished,curCand.m_length);
 	
     if (curCand.m_finished == 3  ) continue;
     //|| curCand.m_length < 5
@@ -372,8 +372,8 @@ void fittingPhase(CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 	  continue;
 	}
 	
-	k == 1? info("HEAD : Starting fitting next neighbors"):
-	  info("TAIL : Starting fitting next neighbors");
+	k == 1? dbgfit("HEAD : Starting fitting next neighbors"):
+	  dbgfit("TAIL : Starting fitting next neighbors");
 
 	
 	next.insert(next.end(),  curNeigh->begin(),  curNeigh->end());
@@ -561,7 +561,7 @@ void fittingPhase(CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 	    prevNode = goodNode;
 	    virt.clear(); // Clearing the list of virtuals that we did not use?
 	    if(goodNode->m_Layer == 0){ // This is to be removed
-	      error("We found neighbors but we reached the end ?, should check this");
+	      dbgfit("We found neighbors but we reached the end ?, should check this");
 	      curCand.m_finished = 1;
 	      cond = false;
 	    }			 

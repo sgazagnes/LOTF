@@ -833,7 +833,7 @@ MCTrackPoints( std::vector < std::vector<HitCoordinate*>* > const &evtData)
       if(currentHit->m_trackID != HIT_EXCLUSION) {
 	std::vector<int>::iterator it = std::find(idtracks.begin(), idtracks.end(), currentHit->m_trackID);
 	int index = std::distance(idtracks.begin(), it);
-	//	printf("%d, %d \n", currentHit->m_trackID,index);
+	//printf("%d, %d \n", currentHit->m_trackID,index);
 	int trackPos = std::distance(idtracks.begin(), it); //currentHit->m_trackID;
 	point3D spacePoint;
 	spacePoint.m_x = currentHit->mx;
@@ -943,9 +943,17 @@ void WriteEventPlotsToFile(std::vector < std::vector<HitCoordinate*>* > const &e
     std::vector<HitCoordinate*> const *currentEvt = evtData[evetNumber];
     //std::cout << tupName << "\n";
     TNtuple collection (tupName.c_str(), "Collected read data from event.", "EvtNum:trackID:x:y:z:r:thetaDeg:mx:my:mz:mr:mthetaDeg");
+    int lasttrack =-1;
+    int ntr = 0;
     for(size_t h = 0; h < currentEvt->size(); ++h) {
       HitCoordinate const *CurrentHit = currentEvt->at(h);
-      collection.Fill(evetNumber,  CurrentHit->m_trackID, CurrentHit->x, CurrentHit->y, CurrentHit->z,CurrentHit->r,CurrentHit->thetaDeg,CurrentHit->mx, CurrentHit->my, CurrentHit->mz,CurrentHit->mr,CurrentHit->mthetaDeg);
+
+      if(h == 0) lasttrack = CurrentHit->m_trackID;
+      else if( CurrentHit->m_trackID != lasttrack){
+	ntr++;
+	lasttrack =  CurrentHit->m_trackID;
+      }
+      collection.Fill(evetNumber,  ntr, CurrentHit->x, CurrentHit->y, CurrentHit->z,CurrentHit->r,CurrentHit->thetaDeg,CurrentHit->mx, CurrentHit->my, CurrentHit->mz,CurrentHit->mr,CurrentHit->mthetaDeg);
     }// END hit list loop
     collection.SetMarkerColor(2);
     collection.SetMarkerStyle(6);
