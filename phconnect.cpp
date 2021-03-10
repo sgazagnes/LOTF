@@ -110,7 +110,13 @@ bool sortNeighbors(CoordGrid &gr, GridNode *currentNode,  PathCandidate &cand, s
   prev.erase( unique( prev.begin(), prev.end() ), prev.end() );
   sort( same.begin(), same.end() );
   same.erase( unique( same.begin(), same.end() ), same.end() );
-  	
+  if(next.size() > 0)
+    curDir |= UP;
+  if(prev.size() > 0)
+    curDir |= DOWN;
+  if(same.size() > 0)
+    curDir |= SAME;
+  
   if( curDir > 6){
     //  dbgconnect("Neighbors of %d, a complex case to be solved later", curId);
     cond = false;
@@ -204,7 +210,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
       // Stqrt the loop
       while(cond){
 	startIt++;
-       	//dbgconnect("With my buddy %d, we have %d neighbors, nextDir is %d", curId, n_neighbors, nextDir);
+	//  	dbgconnect("With my buddy %d, we have %d neighbors, nextDir is %d", curId, n_neighbors, nextDir);
 
 	//Choosing the next direction based on previous search of neaighbors    
 	if (nextDir & UP){           // we are going up 	      
@@ -269,7 +275,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 
 	else if (sameLayer.size() == 1 ){ // Same layer neighbor to handle... (NEED TO CHECK IS CAN BE MORE THAN 1)
 
-	  // dbgconnect("Cur id%d, Check the same layer with the next node %d", curId,sameLayer[0], visited[sameLayer[0]]);
+	  //  dbgconnect("Cur id%d, Check the same layer with the next node %d", curId,sameLayer[0], visited[sameLayer[0]]);
 	  
 	  if(visited[sameLayer[0]])  // If the same layer node has already been visited, we stop
 	    cond = false;	      
@@ -365,6 +371,10 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	      curNode     = candNode;
 	      curDir 	  = SAME;
 	      nextDir 	  = 0;
+	      //    if(nextLayer.size() > 0)
+	      //	nextDir = UP;
+	      //   else
+		//	nextDir = DOWN;
 	      sameLayer.clear();
 
 	      cond        = sortNeighbors(gr, curNode, *cand, prevLayer, sameLayer, nextLayer,

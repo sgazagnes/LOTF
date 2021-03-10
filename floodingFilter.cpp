@@ -97,11 +97,11 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   // Hold number of components per event
   TNtuple ComponentPerEvt ("ComponentPerEvt", "Component per event","evtNum:numComponents");
 
-  //geo 2 1572086365 // geo 1 1583944737 // Muon_z0 1611761510 // Muon_z30 1611844116 // Muon_z120 1611844771 /// 1000 1613554871
+  //geo 2 1572086365 // geo 1 1583944737 // Muon_z0 1611761510 // Muon_z30 1611844116 // Muon_z120 1611844771 /// 1000 1613554871 // 20000: 1614788215
 
   /* Read all data directly from sim, digi and parameter files */
   std::vector < std::vector<HitCoordinate*>* >* Hit_coords = 
-    CollectSttMvdPoints(detNodes, "./rootfiles/evtcomplete1000",Out_Put_File, 1613554871, firstEvt, lastEvt);
+    CollectSttMvdPoints(detNodes, "../rootfiles/evtcomplete20000",Out_Put_File, 1614788215, firstEvt, lastEvt);
   //evtmuonz120
   std::vector< std::vector < MCTrackObject* >* > *MC_Tracks = MCTrackPoints(*Hit_coords);
   
@@ -623,7 +623,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 	  double currDist = sqrt(pow(firstNode.m_x- checkNode.m_x,2) +pow(firstNode.m_y- checkNode.m_y,2)) ;
 	  dbgmerge("Distance %lf", currDist);
-	  if(currDist < 5.){
+	  if(currDist < 8.){
 	    toCheck.push_back(make_pair(checkNode.m_detID,currDist));
 	  } else
 	    dbgmerge("Too far, no possible merging");

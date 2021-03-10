@@ -424,6 +424,11 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
       //for(size_t p = 0; p < MCSttCompVect.size(); p++)
 	
       //	dbgtrkerror("Contain id  %d", MCSttCompVect[p]);
+
+
+    int zdetbool = 0;
+
+    
     if( (MCSttComp.size() > 5) ) {
         if(std::find(idComplex.begin(), idComplex.end(), MCtrack->m_trackID) != idComplex.end())
 	  complex = 1;
@@ -434,7 +439,16 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 	  dbgtrkerror("MC track contains id  %d", element);
 	  }*/
 	//	for(size_t p = 0; p < MCSttComp.size(); p++)
-	  
+	   // for(size_t p = 0; p < MCSttComp.size(); p++){
+	for(compIt = MCSttComp.begin(); compIt != MCSttComp.end(); ++compIt) {
+	  int id = *compIt;
+	  int idx = hitMap.Find(id);
+	  GridNode &node = Ingrid[idx];
+	  if(node.m_type == GridNode::STT_TYPE_PARA)
+	    zdetbool |= 1;
+	  else if(node.m_type == GridNode::STT_TYPE_SKEW)
+	    zdetbool |= 2;
+	}
 	//  dbgtrkerror("Contain id  %d", MCSttComp[p]);
       int    matchTrackIndex = -1;
       float  match_length = 0;
@@ -656,7 +670,7 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 	  }
 	  disx += mindisx;
 	  disy += mindisy;
-	  disz += mindisz;
+	  disz += zdetbool == 3 ? mindisz: 200;
 	  /* if(fabs(alldisyy) >4){
 	    error("WHATTTTT? ?? ? ?? ? ");
 	    //error("Mc pt %f", Mcpt.m_y);
@@ -664,7 +678,10 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 	    }*/
 	  alldisx.push_back(alldisxx);
 	  alldisy.push_back(alldisyy);
-	  alldisz.push_back(alldiszz);
+	  if(zdetbool == 3)
+	    alldisz.push_back(alldiszz);
+	  else
+	    alldisz.push_back(200);
 
 	}
 	disx/= (double)bestX.size();

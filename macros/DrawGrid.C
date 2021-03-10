@@ -31,16 +31,27 @@
   PndGeoSttPar *parameters = (PndGeoSttPar*) f.Get("PndGeoSttPar");
   PndSttMapCreator *mapper = new PndSttMapCreator(parameters);
   TClonesArray *fTubeArray = mapper->FillTubeArray();
-  
-  TCanvas *c = new TCanvas("c", "", 300, 300);
 
-  TH2F *h2 = new TH2F("h2", "", 100, -42, 42, 100, -42, 42);
+
+  TFile inp("../Tracks_output.root","UPDATE");
+  TNtuple* Poss   = (TNtuple*) inp.Get("Pos");
+  TNtuple* MCposs = (TNtuple*) inp.Get("MCpos");
+  TNtuple *Virt = (TNtuple*) inp.Get("VirtualNodesLayer");
+  Virt->SetMarkerSize(0.3);
+  Virt->SetMarkerColor(8);
+  Virt->SetMarkerStyle(2);
+  
+  TCanvas *c = new TCanvas("c", "", 500, 500);
+
+  // TH2F *h2 = new TH2F("h2", "", 100, -50, 120, 100, -45,45);
+  TH2F *h2 = new TH2F("h2", "", -100,-45, 45, 100, -45,45);
+
   h2->SetStats(kFALSE);
   h2->Draw();
   h2->GetXaxis()->SetTitle("x [cm]");
   h2->GetYaxis()->SetTitle("y [cm]");
   
-  TArc *arc = NULL;
+  TMarker *arc = NULL;
   TMarker *mrk = NULL;
   PndSttTube *tube = NULL;
   c->Clear();
@@ -56,9 +67,12 @@
   for(int itube = 1; itube < fTubeArray->GetEntriesFast(); itube++) {
     tube = (PndSttTube*) fTubeArray->At(itube);
     if(tube->IsParallel()) {
-      arc = new TArc(tube->GetPosition().X(), tube->GetPosition().Y(), 0.5);
+      arc = new TMarker(tube->GetPosition().X(), tube->GetPosition().Y(), 2);
+      arc->SetMarkerSize(0.4);
+      arc->SetMarkerColor(1);
+
       //arc->SetFillColor(8);
-      arc->SetLineColor(14);//17, 8
+      //  arc->SetLineColor(14);//17, 8
       arc->Draw("SAME");
     }
     else {
@@ -87,13 +101,15 @@
     }
     
   }// END Tubes loop
+  Virt->Draw("y:x","","SAME");
+
   c->Update();
   c->Modified();
   // Save to pdf file
-  c->SaveAs("STTGrid_XYPlane.pdf");
+  c->SaveAs("STTGridVirt_XYPlane.pdf");
 
   // Print min and max num neighbours
-  std::cout << "Min num neighbours = " << minNumNei << " tubeID = " << minID
-	    << " Max num Neighb = " << maxNumNei << " tubeID = " << maxID
-	    << '\n';
+  // std::cout << "Min num neighbours = " << minNumNei << " tubeID = " << minID/
+  //	    << " Max num Neighb = " << maxNumNei << " tubeID = " << maxID
+  //	    << '\n';
 }

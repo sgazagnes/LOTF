@@ -203,8 +203,14 @@ void ZCoordinates(CoordGrid &gr, std::vector< GridNode > &Ingrid,std::vector < P
       }
   
       
-    } else
+    } else {
       dbgtrkz("We found no z points");
+      for(size_t i = 0; i <vect->size(); i++){
+	int idx = gr.Find(vect->at(i));
+	GridNode &node = Ingrid[idx];
+	z[i] = node.m_z;
+      }
+    }
     dbgtrkz("Finished cur track \n");
   }
 }
