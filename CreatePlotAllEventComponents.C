@@ -57,8 +57,8 @@ int selectCompColour(size_t compNum, size_t numColours) {
  */
 void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.root",
 				  std::string const &dirName   = "PlotsCanvas",
-				  Double_t const ww = 1100.00,
-				  Double_t const hh = 1100.00,
+				  Double_t const ww = 600.00,
+				  Double_t const hh = 600.00,
 				  size_t  const dim = 2,
 				  size_t evtNum = 0)
 {
@@ -146,7 +146,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
 
     if(curcomp != lastcc){
       int intidm =  static_cast<unsigned int>(idt);
-      printf("%d\n",intidm);
+      //  printf("%d\n",intidm);
       idMatch.push_back(intidm);
 
       lastcc = curcomp;
@@ -156,7 +156,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       //	idtracks.push_back(intid);
   }
 
- printf("%d\n", idtracks.size());
+  //printf("%d\n", idtracks.size());
 
   
   TNtuple* pos = (TNtuple*) inp.Get(tupName.c_str());
@@ -175,7 +175,11 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
 #if(CREATE_SEPARATE_PLOTS > 0)
   {
     // Connected components
-    TCanvas *c2 = new TCanvas("c2", "Connected Components", 300, 300 );
+    TCanvas *c2 = new TCanvas("c2", "Connected Components", ww, hh );
+    c2->SetRightMargin(0.05);
+c2->SetLeftMargin(1.);
+c2->SetTopMargin(0.05);
+c2->SetBottomMargin(1.);
     grid->Draw("y:x","","");
     TH2F *htemp = (TH2F*)gPad->GetPrimitive("htemp");
     htemp->GetXaxis()->SetTitle("x [cm]");
@@ -208,12 +212,16 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       ConComps->Draw("y_Det:x_Det", ePlotCondition.c_str(), "same");
     }
     c2->Update();
-    c2->SaveAs("myalgo_cm_xy.png");
+    c2->SaveAs("myalgo_cm_xy.pdf");
 
     }
   // Z-reconstructed Connected components
    {
-    TCanvas *c3 = new TCanvas("c3", "Conn.Comp. With Z", 300, 300 );
+    TCanvas *c3 = new TCanvas("c3", "Conn.Comp. With Z", ww, hh );
+    c3->SetRightMargin(0.05);
+    c3->SetLeftMargin(1.);
+    c3->SetTopMargin(0.05);
+    c3->SetBottomMargin(1.);
     grid->Draw("y:z","","");
     TH2F *htemp = (TH2F*)gPad->GetPrimitive("htemp");
     htemp->GetXaxis()->SetTitle("z [cm]");
@@ -224,7 +232,10 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
     std::string ePlotCondition;
     for(size_t j = 0; j < nComp; j++) {
       std::stringstream ecomponentNumber;
+      
       ecomponentNumber << j;
+      std::stringstream edetID;
+      edetID << 5000; 
       // Set marker and colours per component.
       marker = 20;//(j % 34);
       int idmctr = idMatch[j];
@@ -244,16 +255,30 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       // Conditions
       ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
       ePlotCondition += "(CompNum == " + ecomponentNumber.str() + ")";
+      //  ePlotCondition += "(tubeId < " + edetID.str() + ")";
+
       ConComps->Draw("y_Det:z_Det", ePlotCondition.c_str(), "same");
+      
+      // ConComps->SetMarkerStyle(29);
+      // ConComps->SetMarkerSize(2.);
+
+      //ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
+      // ePlotCondition += "(CompNum == " + ecomponentNumber.str() + ") && ";
+      // ePlotCondition += "(tubeId >= " + edetID.str() + ")";
+      // ConComps->Draw("y_Det:z_Det", ePlotCondition.c_str(), "same");
     }
     c3->Update();
-    c3->SaveAs("myalgo_cm_z.png");
+    c3->SaveAs("myalgo_cm_z.pdf");
 
     }
    
   // MC data plots.
   {
-    TCanvas *c4 = new TCanvas("c4", "MC-Plot", 300, 300 );
+    TCanvas *c4 = new TCanvas("c4", "MC-Plot", ww, hh );
+    c4->SetRightMargin(0.05);
+    c4->SetLeftMargin(1.);
+    c4->SetTopMargin(0.05);
+    c4->SetBottomMargin(1.);
     grid->Draw("y:x","","");
     TH2F *htemp = (TH2F*)gPad->GetPrimitive("htemp");
     htemp->GetXaxis()->SetTitle("x [cm]");
@@ -266,7 +291,7 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       std::stringstream ecomponentNumber;
       ecomponentNumber << idtracks[j];
       int idmctr = idtracks[j];
-      printf("%d\n", idmctr);
+      //printf("%d\n", idmctr);
 
       color = selectCompColour(idmctr, numColours);
       // printf("%d, %d\n", j, color);
@@ -282,12 +307,16 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       pos->Draw("my:mx",ePlotCondition.c_str(),"same");
     }
     c4->Update();
-     c4->SaveAs("MC_xy.png");
+     c4->SaveAs("MC_xy.pdf");
 
   }
   // Read data
    {
-    TCanvas *c5 = new TCanvas("c5", "Read-Plot", 300, 300 );
+    TCanvas *c5 = new TCanvas("c5", "Read-Plot", ww, hh );
+    c5->SetRightMargin(0.05);
+    c5->SetLeftMargin(1.);
+    c5->SetTopMargin(0.05);
+    c5->SetBottomMargin(1.);
     grid->Draw("y:x","","");
     TH2F *htemp = (TH2F*)gPad->GetPrimitive("htemp");
     htemp->GetXaxis()->SetTitle("x [cm]");
@@ -311,12 +340,16 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       pos->Draw("y:x",ePlotCondition.c_str(),"same");
     }
     c5->Update();
-    // c5->SaveAs("Read_xy.pdf");
+     c5->SaveAs("Read_xy.pdf");
 
   }
   // MC in Z-coordinate
   {
-    TCanvas *c6 = new TCanvas("c6", "MC_Z_Plot", 300, 300 );
+    TCanvas *c6 = new TCanvas("c6", "MC_Z_Plot", ww, hh );
+    c6->SetRightMargin(0.05);
+    c6->SetLeftMargin(1.);
+    c6->SetTopMargin(0.05);
+    c6->SetBottomMargin(1.);
     grid->Draw("y:z","","");
     TH2F *htemp = (TH2F*)gPad->GetPrimitive("htemp");
     htemp->GetXaxis()->SetTitle("z [cm]");
@@ -340,12 +373,12 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
       pos->Draw("my:mz",ePlotCondition.c_str(),"same");
     }
     c6->Update();
-    c6->SaveAs("MC_yz.png");
+    c6->SaveAs("MC_yz.pdf");
 
   }
 
   if(dim == 3) {
-    TCanvas *c11 = new TCanvas("c11", "MC_Plot3D", 300, 300 );
+    TCanvas *c11 = new TCanvas("c11", "MC_Plot3D", ww, hh );
     grid->Draw("y:x:z","","");
     TH3F *htemp = (TH3F*)gPad->GetPrimitive("htemp");
     htemp->GetXaxis()->SetTitle("z [cm]");

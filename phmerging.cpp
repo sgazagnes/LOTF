@@ -81,7 +81,18 @@ void mergeTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 	dbgmerge("Cand does not look like it is done, but we don't have merging to do");
 	continue;
       }
+      
+      for(size_t i = 0; i < tracklets[l]->m_toMergeHead.size(); i++){
 
+	dbgmerge("Merge in head with %d", tracklets[l]->m_toMergeHead[i]);
+      }
+
+      for(size_t i = 0; i < tracklets[l]->m_toMergeTail.size(); i++){
+
+	dbgmerge("Merge in tail with %d", tracklets[l]->m_toMergeTail[i]);
+      }
+
+      // continue;
       PathCandidate *newCand 	= new PathCandidate();// Create a new candidate
 	       
       newCand->m_id 		= curCandId++;// Set id

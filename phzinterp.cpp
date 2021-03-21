@@ -188,6 +188,10 @@ void ZCoordinates(CoordGrid &gr, std::vector< GridNode > &Ingrid,std::vector < P
 	  else Node_distance += sqrt(pow(x[i],2)+pow(y[i],2));
 	
 	  z[i] = z0 + (zf-z0)*Node_distance/totxydist;
+	  if(z[i] < -40)
+	    z[i] = -40;
+	  else if(z[i] > 110)
+	    z[i]= 110;
 	  //	  dbgtrkz("Dist cur %lf", Node_distance);
 	  //	  dbgtrkz("New %f, %f, %f", x[i], y[i], z[i]);
 	}
@@ -197,6 +201,10 @@ void ZCoordinates(CoordGrid &gr, std::vector< GridNode > &Ingrid,std::vector < P
 	  else Node_distance += sqrt(pow(x[i],2)+pow(y[i],2));
 	
 	  z[i] = z0 + (zf-z0)*Node_distance/totxydist;
+	  if(z[i] < -40)
+	    z[i] = -40;
+	  else if(z[i] > 110)
+	    z[i]= 110;
 	  //dbgtrkz("Dist cur %lf", Node_distance);
 	 // dbgtrkz("New %f, %f, %f", x[i], y[i], z[i]);
 	}

@@ -210,7 +210,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
       // Stqrt the loop
       while(cond){
 	startIt++;
-	//  	dbgconnect("With my buddy %d, we have %d neighbors, nextDir is %d", curId, n_neighbors, nextDir);
+	dbgconnect("With my buddy %d, we have %d neighbors, nextDir is %d", curId, n_neighbors, nextDir);
 
 	//Choosing the next direction based on previous search of neaighbors    
 	if (nextDir & UP){           // we are going up 	      
@@ -275,7 +275,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 
 	else if (sameLayer.size() == 1 ){ // Same layer neighbor to handle... (NEED TO CHECK IS CAN BE MORE THAN 1)
 
-	  //  dbgconnect("Cur id%d, Check the same layer with the next node %d", curId,sameLayer[0], visited[sameLayer[0]]);
+	  dbgconnect("Cur id%d, Check the same layer with the next node %d", curId,sameLayer[0], visited[sameLayer[0]]);
 	  
 	  if(visited[sameLayer[0]])  // If the same layer node has already been visited, we stop
 	    cond = false;	      
@@ -295,7 +295,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	      
 	      int haveNeigh = 0; // Check variable to know if we found a neighbor		
 	      for (size_t j = 0; j < v->size(); j++){
-		//dbgconnect("Test adjacency between neigh ID %d and v at j %d", neighId, v->at(j));
+		dbgconnect("Test adjacency between neigh ID %d and v at j %d", neighId, v->at(j));
 
 		// If the node in the next layer is a neighbor, we can stop
 		if(v->at(j) == neighId || (neighNode->IsNeighboring(v->at(j)))){
@@ -314,7 +314,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 		    int oth = mynode.m_neighbors[k];
 
 		    if(oth!= candId && !cand->isInCandidate(oth) && std::find(v->begin(), v->end(), oth) == v->end() && std::find( candNode->m_neighbors.begin(),  candNode->m_neighbors.end(), oth) ==  candNode->m_neighbors.end()  ){
-		      //dbgconnect("This node %d has other neighbor %d not visited", v->at(j), oth);
+		      dbgconnect("This node %d has other neighbor %d not visited", v->at(j), oth);
 		      addthisnode = false;
 		      break; //The node did not fullfilled the condition, this is a hard case, we should break here
 		    }
@@ -322,17 +322,18 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 		  if(addthisnode){
 		    // The node fulfilled the condition, let's add it to the list and keep looking for more
 		    if(nextVirt.size() > 0){ // Add the virtual if it exists
-		      for(size_t i = 0; i < nextVirt.size();){
-			GridNode &virt = Ingrid[gr.Find(nextVirt[i])];
+		      for(size_t p = 0; p < nextVirt.size();p++){
+			GridNode &virt = Ingrid[gr.Find(nextVirt[p])];
 			if(virt.IsNeighboring(v->at(j))){
 			  cand->insertNewNode(gr, Ingrid, &virt,cand->m_memberList->end());
 			  visited[virt.m_detID] = 1;
 			  n_connected++;
-			  nextVirt.erase(nextVirt.begin() + j);
+			  nextVirt.erase(nextVirt.begin() + p);
+			  p--;
 			}
 		      }
 		    }
-		    //	    dbgconnect("We are adding the node %d", v->at(j));
+		    dbgconnect("We are adding the node %d", v->at(j));
 
 		    cand->insertNewNode(gr, Ingrid, &mynode,cand->m_memberList->end());
 		    visited[mynode.m_detID] = 1;
@@ -358,7 +359,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 
 	    // If we did not find a good reason to stop, then we add the candidate	    
 	    if (cond == true){ 		
-	      // dbgconnect("All neighbors of candidate look good, let's insert it!");
+	      dbgconnect("All neighbors of candidate look good, let's insert it!");
 
 	      cand->insertNewNode(gr, Ingrid, candNode,cand->m_memberList->end());
 	      visited[candId] = 1;
@@ -387,7 +388,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 
 	    // If we had to stop
 	    else {
-	      // dbgconnect("Neighbors not connected... \n", n_connected, n_neighbors);
+	       dbgconnect("Neighbors not connected... \n", n_connected, n_neighbors);
 	    } 
 	  } // ELSE the same layer not was visited already
 	} // END of IF SAME LAYER == 1

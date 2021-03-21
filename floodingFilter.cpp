@@ -57,7 +57,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
   //Setting verbosity level, put 1 for the debug you want
   //error/time/info/collect/grid/connect/fit/merge/trkz/trkerror
-  bool v[10] = {1,1,1,0,0,0,0,0,0,1};//{0,0,0,0,0,0,0,0,1,1}{1,1,1,0,0,0,0,0,0,0};
+  bool v[10] = {1,1,1,0,0,0,0,0,0,0};//{0,0,0,0,0,0,0,0,1,1}{1,1,1,0,0,0,0,0,0,0};
   set_verbosity(v);
   // Structure to hold the detector data (grid)
   std::vector < GridNode > detNodes;
@@ -76,7 +76,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
   // Second error type. Per track error value. Based on curvature data.
   std::string PerTrkErrPars = "complex:misMatched:bestIdx";
-  // PerTrkErrPars += ":MCMinCurrentLength:CurrentMinMCLength";
+   PerTrkErrPars += ":MCLength";
   PerTrkErrPars += ":Jacardsingle:Jacardaverage";
   PerTrkErrPars += ":UnderMergeError:OverMergeError:disX:disY:disZ";
   TNtuple ErrorNtuplePerTrack("PerTrackError","Per track values of error", PerTrkErrPars.c_str());
@@ -456,7 +456,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
       }
     }
 
-
+    
     for(size_t n = 0; n < idToProcess.size(); ++n) {
       std::vector<int> sameLayer;
       std::vector<int> otherLayer;
@@ -603,10 +603,10 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
       GridNode &firstNode = Ingrid[gr.Find(curCand.m_tailNode)];
       GridNode &lastNode  = Ingrid[gr.Find(curCand.m_headNode)];
-      //dbgmerge("NEW Tracklet %d is unfinished, firstNode %d, lastNode %d", curCand.m_id, firstNode.m_detID, lastNode.m_detID);
+      dbgmerge("NEW Tracklet %d is unfinished, firstNode %d, lastNode %d", curCand.m_id, firstNode.m_detID, lastNode.m_detID);
 
-      if(!(firstNode.m_LayerLimit == 1 || curCand.m_toMergeTail.size()> 0)) { 
-	//dbgmerge("Let's look into tail direction, with the %lu tracklets we found previously", tracklets.size());
+      if(!(firstNode.m_LayerLimit == 1 || curCand.m_toMergeTail.size()> 0 || firstNode.m_neighbors.size() > 0)) { 
+	dbgmerge("Let's look into tail direction, with the %lu tracklets we found previously", tracklets.size());
 	std::vector<nodeDist> toCheck;
 	for(unsigned int n = 0; n < tracklets.size(); ++n) {
 	  PathCandidate &testCand = *(tracklets[n]);
@@ -618,17 +618,21 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  }else{
 	    checkNode = Ingrid[gr.Find(testCand.m_headNode)];
 	  }
-	  
+
+	  if(labs(checkNode.m_Sector - firstNode.m_Sector) > 1)
+	    continue;
 	  dbgmerge("Testing with node %d from tracklet %d",checkNode.m_detID, testCand.m_id);
 
 	  double currDist = sqrt(pow(firstNode.m_x- checkNode.m_x,2) +pow(firstNode.m_y- checkNode.m_y,2)) ;
 	  dbgmerge("Distance %lf", currDist);
-	  if(currDist < 8.){
+	  if(currDist < 10.){
 	    toCheck.push_back(make_pair(checkNode.m_detID,currDist));
-	  } else
+	   } else
 	    dbgmerge("Too far, no possible merging");
 	  
 	}
+
+	dbgmerge("Checking now \n");
 
 	if(toCheck.size() > 0){
 	  // info("Found nodes to Cgeck");
@@ -636,7 +640,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  std::sort(toCheck.begin(), toCheck.end(), [](nodeDist const &a, nodeDist const &b) { 
 						      return a.second < b.second;	  });
 	  
-	  for(size_t i = 0; i < toCheck.size(); i++){
+	  for(size_t i = 0; i < MIN(toCheck.size(),5); i++){
 	    GridNode &check = Ingrid[gr.Find(toCheck[i].first)];
 	    int potCCtoMerge = check.m_cm[0];
 	      
@@ -644,6 +648,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 					[potCCtoMerge](const PathCandidate *obj){ return obj->m_id == potCCtoMerge; } );
 
 	    PathCandidate &testCand = *(*p); // The CC that the node belongs to
+	    dbgmerge("Check CC %d", potCCtoMerge);
+
 	    int caseMerge      = 0;
 	    int offAnc         = 0;
 	    if(check.m_detID == testCand.m_tailNode && testCand.m_toMergeTail.size() == 0){
@@ -657,7 +663,15 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      float angle_xy = returnAngle(prevAnc.m_xDet, firstNode.m_xDet, testCand.m_anchors[offAnc].m_xDet,
 	      		   prevAnc.m_yDet, firstNode.m_yDet, testCand.m_anchors[offAnc].m_yDet);
 	      dbgmerge("Angle xy with track %f", angle_xy);
-	      if(fabs(angle_xy) > 110){
+
+
+	      float dot = (firstNode.m_xDet - prevAnc.m_xDet)*(testCand.m_anchors[offAnc+1].m_xDet - testCand.m_anchors[offAnc].m_xDet) +(firstNode.m_yDet - prevAnc.m_yDet)*(testCand.m_anchors[offAnc+1].m_yDet - testCand.m_anchors[offAnc].m_yDet);    //# dot product between [x1, y1] and [x2, y2]
+	      float det = (firstNode.m_xDet - prevAnc.m_xDet)*(testCand.m_anchors[offAnc+1].m_yDet - testCand.m_anchors[offAnc].m_yDet) -(firstNode.m_yDet - prevAnc.m_yDet)*(testCand.m_anchors[offAnc+1].m_xDet - testCand.m_anchors[offAnc].m_xDet); //x1*y2 - y1*x2    //  # determinant
+	      float angle = atan2(det, dot)* 180 / 3.14;
+	      dbgmerge("Vector Angle xy with track %f", angle);
+
+	      // # atan2(y, x) or atan2(sin, cos)
+	      if(fabs(angle) < 60){
 	      	dbgmerge("We should merge %d and %d \n", curCand.m_id, testCand.m_id);
 		curCand.m_toMergeTail.push_back(potCCtoMerge);
 		testCand.m_toMergeTail.push_back(curCand.m_id);		  		    
@@ -678,7 +692,11 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      float angle_xy = returnAngle(prevAnc.m_xDet, firstNode.m_xDet, testCand.m_anchors[offAnc].m_xDet,
 					   prevAnc.m_yDet, firstNode.m_yDet, testCand.m_anchors[offAnc].m_yDet);
 	      dbgmerge("Angle xy with track %f", angle_xy);
-	      if(fabs(angle_xy) > 110){
+
+	      float dot = (firstNode.m_xDet - prevAnc.m_xDet)*(testCand.m_anchors[offAnc-1].m_xDet - testCand.m_anchors[offAnc].m_xDet) +(firstNode.m_yDet - prevAnc.m_yDet)*(testCand.m_anchors[offAnc-1].m_yDet - testCand.m_anchors[offAnc].m_yDet);    //# dot product between [x1, y1] and [x2, y2]
+	      float det = (firstNode.m_xDet - prevAnc.m_xDet)*(testCand.m_anchors[offAnc-1].m_yDet - testCand.m_anchors[offAnc].m_yDet) -(firstNode.m_yDet - prevAnc.m_yDet)*(testCand.m_anchors[offAnc-1].m_xDet - testCand.m_anchors[offAnc].m_xDet); //x1*y2 - y1*x2    //  # determinant
+	      float angle = atan2(det, dot)* 180 / 3.14;
+	      if(fabs(angle) < 60){
 		dbgmerge("We should merge %d and %d \n", curCand.m_id, testCand.m_id);
 		curCand.m_toMergeTail.push_back(potCCtoMerge);
 		testCand.m_toMergeHead.push_back(curCand.m_id);		  		    
@@ -698,7 +716,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
       
 
       
-      if(!(lastNode.m_LayerLimit == 1 || curCand.m_toMergeHead.size()> 0)) {
+      if(!(lastNode.m_LayerLimit == 1 || curCand.m_toMergeHead.size()> 0 || lastNode.m_neighbors.size() > 0)) {
 	dbgmerge("Let's look into head direction, with the %lu tracklets we found previously", tracklets.size());
 	std::vector<nodeDist> toCheck;
 
@@ -716,8 +734,11 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  dbgmerge("Testing with node %d from tracklet %d",checkNode.m_detID, testCand.m_id);
 
 	  double currDist = sqrt(pow(lastNode.m_x- checkNode.m_x,2) +pow(lastNode.m_y- checkNode.m_y,2)) ;
+	  if(labs(checkNode.m_Sector - lastNode.m_Sector) > 1 && labs(checkNode.m_Sector - lastNode.m_Sector) != 5 )
+	    continue;
 	  dbgmerge("Distance %lf", currDist);
-	  if(currDist < 5.){
+
+	  if(currDist < (double) 10.){
 	    toCheck.push_back(make_pair(checkNode.m_detID,currDist));
 	  } else
 	    dbgmerge("Too far, no possible merging");
@@ -729,12 +750,13 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  std::sort(toCheck.begin(), toCheck.end(), [](nodeDist const &a, nodeDist const &b) { 
 						      return a.second < b.second;	  });
 	  
-	  for(size_t i = 0; i < toCheck.size(); i++){
+	  for(size_t i = 0; i < MIN(toCheck.size(),5); i++){
 	    GridNode &check = Ingrid[gr.Find(toCheck[i].first)];
 	    int potCCtoMerge = check.m_cm[0];
 	      
 	    const auto p = std::find_if(tracklets.begin(), tracklets.end(),
 					[potCCtoMerge](const PathCandidate *obj){ return obj->m_id == potCCtoMerge; } );
+	    dbgmerge("Check CC %d", potCCtoMerge);
 
 	    PathCandidate &testCand = *(*p); // The CC that the node belongs to
 	    int caseMerge      = 0;
@@ -750,7 +772,12 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      float angle_xy = returnAngle(prevAnc.m_xDet, lastNode.m_xDet, testCand.m_anchors[offAnc].m_xDet,
 					   prevAnc.m_yDet, lastNode.m_yDet, testCand.m_anchors[offAnc].m_yDet);
 	      dbgmerge("Angle xy with track %f", angle_xy);
-	      if(fabs(angle_xy) > 110){
+
+	      float dot = (lastNode.m_xDet - prevAnc.m_xDet)*(testCand.m_anchors[offAnc+1].m_xDet - testCand.m_anchors[offAnc].m_xDet) +(lastNode.m_yDet - prevAnc.m_yDet)*(testCand.m_anchors[offAnc+1].m_yDet - testCand.m_anchors[offAnc].m_yDet);    //# dot product between [x1, y1] and [x2, y2]
+	      float det = (lastNode.m_xDet - prevAnc.m_xDet)*(testCand.m_anchors[offAnc+1].m_yDet - testCand.m_anchors[offAnc].m_yDet) -(lastNode.m_yDet - prevAnc.m_yDet)*(testCand.m_anchors[offAnc+1].m_xDet - testCand.m_anchors[offAnc].m_xDet); //x1*y2 - y1*x2    //  # determinant
+	      float angle = atan2(det, dot)* 180 / 3.14;
+	      dbgmerge("Vector Angle xy with track %f", angle);
+	      if(fabs(angle) < 60){
 		dbgmerge("We should merge %d and %d \n", curCand.m_id, testCand.m_id);
 		curCand.m_toMergeHead.push_back(potCCtoMerge);
 		testCand.m_toMergeTail.push_back(curCand.m_id);		  		    
@@ -770,7 +797,12 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	      float angle_xy = returnAngle(prevAnc.m_xDet, lastNode.m_xDet, testCand.m_anchors[offAnc].m_xDet,
 					   prevAnc.m_yDet, lastNode.m_yDet, testCand.m_anchors[offAnc].m_yDet);
 	      dbgmerge("Angle xy with track %f", angle_xy);
-	      if(fabs(angle_xy) > 110){
+
+	      float dot = (lastNode.m_xDet - prevAnc.m_xDet)*(testCand.m_anchors[offAnc-1].m_xDet - testCand.m_anchors[offAnc].m_xDet) +(lastNode.m_yDet - prevAnc.m_yDet)*(testCand.m_anchors[offAnc-1].m_yDet - testCand.m_anchors[offAnc].m_yDet);    //# dot product between [x1, y1] and [x2, y2]
+	      float det = (lastNode.m_xDet - prevAnc.m_xDet)*(testCand.m_anchors[offAnc-1].m_yDet - testCand.m_anchors[offAnc].m_yDet) -(lastNode.m_yDet - prevAnc.m_yDet)*(testCand.m_anchors[offAnc-1].m_xDet - testCand.m_anchors[offAnc].m_xDet); //x1*y2 - y1*x2    //  # determinant
+	      float angle = atan2(det, dot)* 180 / 3.14;
+	      dbgmerge("Vector Angle xy with track %f", angle);
+	      if(fabs(angle) < 60){
 		dbgmerge("We should merge %d and %d \n", curCand.m_id, testCand.m_id);
 		curCand.m_toMergeHead.push_back(potCCtoMerge);
 		testCand.m_toMergeHead.push_back(curCand.m_id);		  		    
@@ -795,7 +827,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	  
      // dbgmerge("\n\n\n");
     }
-    
+   
  #endif // IF TRUE
 
     
@@ -813,7 +845,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 #if (DO_ZRECONS)  
       //CompZCoordinates(gr, curCand);
-      ZCoordinates(gr, Ingrid,tracklets);
+      ZCoordinates(gr, Ingrid, tracklets);
 #endif
       
     //fitZCoordinates(gr, tracklets);
@@ -968,7 +1000,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	    ErrorNtuplePerTrack.Fill(static_cast<float>(erObj->Complex),
 				     static_cast<float>(erObj->isNotmatched),
 				     static_cast<float>(erObj->matchIndex),
-				     // static_cast<float>(erObj->BestMatchMCLength),
+				     static_cast<float>(erObj->BestMatchMCLength),
 				     // static_cast<float>(erObj->CurrentTrackLength),
 				     //  static_cast<float>(erObj->MCMinCurrentLength),
 				     //   static_cast<float>(erObj->CurrentMinMCLength),
