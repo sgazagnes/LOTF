@@ -25,7 +25,6 @@
 // ROOT
 #include "TNtuple.h"
 #include "TVector3.h"
-
 // Local define
 #define UTILITY_DEBUG_PRINT 0
 #define UTILITY_WARNING_PRINT 1
@@ -992,9 +991,9 @@ int CircleFit(CoordGrid const &hitMap, std::vector<int> const &MemberVector, Cur
 //_____________________ CIrcleFit Corrected for MC Data ___________
 int CircleFit( std::vector<point3D> const &points, CurvatureParameters &curvature) {
   /* Local constants */
-  const size_t maxIterations = MAX_NUMBER_OF_FIT_ITERATION;
+  const size_t maxIterations = 5000000;//MAX_NUMBER_OF_FIT_ITERATION;
   //1e-04;//1e-06;
-  const double tolerance = LOCAL_CIRCLE_FIT_TOLERANCE;
+  const double tolerance = 0.00001;//LOCAL_CIRCLE_FIT_TOLERANCE;
   double a, b, r;
 
   /* compute the average of the data points */
@@ -1004,13 +1003,17 @@ int CircleFit( std::vector<point3D> const &points, CurvatureParameters &curvatur
     point3D const &curPoint = points[k];
     xAvr += curPoint.m_x;
     yAvr += curPoint.m_y;
+    // printf("%f, %f\n", curPoint.m_x,curPoint.m_y);
   }
+  // printf("\n\n\n");
+
   xAvr /= static_cast<double> (points.size());
   yAvr /= static_cast<double> (points.size());
 
+  // printf("AVE x %f, ave y %f\n",xAvr, yAvr); 
   // Initial guess
-  a = xAvr;
-  b = yAvr;
+  a = curvature.m_a != -1 ? curvature.m_a : xAvr;
+  b = curvature.m_b != -1?  curvature.m_b: yAvr;
 
   size_t stepCounter = 0;
   
@@ -1039,11 +1042,15 @@ int CircleFit( std::vector<point3D> const &points, CurvatureParameters &curvatur
     LaAvr /= static_cast<double>(points.size());
     LbAvr /= static_cast<double>(points.size());
 
+
+
     a = xAvr + LAvr * LaAvr;
     b = yAvr + LAvr * LbAvr;
     r = LAvr;
+    // if(j % 10000 == 0)
+    //   printf("j %ld, a %f, b %f. r %f\n",j,a, b,r ); 
     // Exit, if (a,b) is not changing a lot
-    if( (fabs(a - a0) <= tolerance) && (fabs(b - b0) <= tolerance) ){
+    if( (fabs(a - a0) <= tolerance) && (fabs(b - b0) <=tolerance) && j > 10 ){
       break;
     }
     stepCounter = j;
@@ -1061,11 +1068,11 @@ int CircleFit( std::vector<point3D> const &points, CurvatureParameters &curvatur
   // Prepare the output
   curvature.m_a = a;
   curvature.m_b = b;
-  curvature.m_ra = r;
-  curvature.m_r = (1.00/ r);
+  curvature.m_ra = stepCounter < maxIterations ? r: -1;
+  curvature.m_r = stepCounter < maxIterations? (1.00/ r): -1;
   curvature.m_E = Eabr;
 
-  return ( (stepCounter < maxIterations) ? stepCounter : -1);
+  return stepCounter;
 }
 //_____________________ END CircleFit Corrected for MC data _______
 

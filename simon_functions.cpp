@@ -19,6 +19,13 @@
 #include "logc.h"
 #include "path_queue.h"
 
+#include <opencv2/opencv.hpp>
+
+#define _USE_MATH_DEFINES
+#include <math.h>
+
+#include <random>
+#include "circle.h"
 
 
 bool sortbysec(const pair<int,unsigned short> &a, 
@@ -1219,3 +1226,83 @@ double IntersectionXY(double startX1, double endX1, double startY1, double endY1
     return sc;
 
 }
+
+
+
+void fit_circle(std::vector<point3D> const &pnts, CurvatureParameters &curvature)
+{
+
+  double *datax = (double*) malloc(pnts.size()*sizeof(double));
+  double *datay = (double*) malloc(pnts.size()*sizeof(double));
+
+  double xv = 0, yv = 0, r = 5;
+  for(int i = 0; i < pnts.size(); i++){
+    datax[i] = pnts[i].m_x;
+    datay[i] = pnts[i].m_y;
+    xv += datax[i];
+    yv += datay[i];
+  }
+  
+  int size = (int) pnts.size();
+  xv /= (double) size;
+  yv /= (double) size;
+  CircleData circleD(size, datax, datay);
+  Circle cirini (xv,yv,r);
+  Circle circle =CircleFitByHyper (circleD);
+  // printf("%f, %f\n", circle.a, circle.b);
+  // Circle circle;
+  // CircleFitByLevenbergMarquardtFull (circleD, cirini, 0.001, circle);
+  curvature.m_a = circle.a;
+  curvature.m_b = circle.b;
+  curvature.m_ra = circle.r;
+  curvature.m_r = (1.00/ circle.r);
+  curvature.m_E = circle.j;
+
+  
+  free(datax);
+  free(datay);
+}
+
+/*int main(int argc, const char *argv[])
+{
+    try
+    {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<> dis(-0.5, 0.5);
+
+        // Generate reandom points
+        double radius_in = 25;
+        double xm_in = 10;
+        double ym_in = 20;
+
+        std::vector<cv::Point2d> pnts;
+        {
+            for (double ang = 0; ang <= 90; ang += 10)
+            {
+                cv::Point2d p(
+                    cos(ang / 180.0 * M_PI) * radius_in + xm_in + dis(gen),
+                    sin(ang / 180.0 * M_PI) * radius_in + ym_in + dis(gen));
+                pnts.push_back(p);
+            }
+        }
+
+        cv::Point2d c_out;
+        double radius_out = 0;
+        fit_circle(pnts, c_out, radius_out);
+
+        double dxm = c_out.x - xm_in;
+        double dym = c_out.y - ym_in;
+        double dradius = radius_out - radius_in;
+
+        std::cout << "Deltas: " << dxm << " " << dym << " " << dradius
+                  << std::endl;
+        return EXIT_SUCCESS;
+    }
+    catch (const std::exception &ex)
+    {
+        std::cerr << ex.what() << std::endl;
+    }
+
+    return EXIT_FAILURE;
+    }*/

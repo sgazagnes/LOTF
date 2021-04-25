@@ -58,15 +58,38 @@ void mergeTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
   for(unsigned int l = 0; l < tracklets.size(); l++){
      
     PathCandidate &curCand = *(tracklets[l]);
-    dbgmerge("Current tracklet %d", curCand.m_id);
+    dbgmerge("Current tracklet %d, isValid %d", curCand.m_id, curCand.m_isValid );
       
-    if (curCand.m_finished ==  3){
+    if (curCand.m_isValid == 0 && (curCand.m_finished ==  3 || (curCand.m_toMergeHead.size() == 0 && curCand.m_toMergeTail.size() ==0     && curCand.m_isMerged == 0))){
       dbgmerge("This CM is either finished or has no further close neighbors");
       //check that it has not merging candidates
       if (tracklets[l]->m_toMergeHead.size() != 0  || tracklets[l]->m_toMergeTail.size() != 0)
 	error("This looks finished but has to be merged ???? ");
-       
-      curCand.m_isValid = 1;	
+
+      PathCandidate *newCand 	= new PathCandidate();// Create a new candidate
+	       
+      newCand->m_id 		= curCandId++;// Set id
+      newCand->m_tailNode       = curCand.m_tailNode;
+	  
+      for(size_t i = 0; i < (curCand.m_memberList)->size(); i++){
+	int curid = (curCand.m_memberList)->at(i);
+	int curidx = gr.Find(curid);
+	GridNode* node = &Ingrid[curidx];
+	newCand->insertNewNodeFinal(gr, Ingrid, node,newCand->m_memberList->end());
+      }
+
+      dbgmerge("Pushing new merged cm %d:  length is %d, tail node %d, head node %d, min layer %d, max layer %d,    IsOnSectorLimit %d, finished ? %d. ", newCand->m_id, newCand->m_length, newCand->m_tailNode, newCand->m_headNode,newCand->m_minLayer, newCand->m_maxLayer, newCand->m_isOnSectorLimit, newCand->m_finished);
+      
+      curCand.m_isValid = 0;
+      curCand.m_isMerged = 1;
+      newCand->m_isValid = 1;
+      newCand->m_finished = 3;
+	
+
+
+      tracklets.push_back(newCand);
+      
+      //   curCand.m_isValid = 1;	
     } else if (curCand.m_isMerged == 1){
       dbgmerge("This CM has already been merged");
       curCand.m_isValid = 0;
@@ -102,7 +125,7 @@ void mergeTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 	int curid = (curCand.m_memberList)->at(i);
 	int curidx = gr.Find(curid);
 	GridNode* node = &Ingrid[curidx];
-	newCand->insertNewNode(gr, Ingrid, node,newCand->m_memberList->end());
+	newCand->insertNewNodeFinal(gr, Ingrid, node,newCand->m_memberList->end());
       }
 
       int curCandId =  curCand.m_id;
@@ -128,6 +151,8 @@ void mergeTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 	      curCandId = mergeCand.m_id;
 	      idToMerge = mergeCand.m_toMergeTail[0];
 	      dbgmerge("ONE MORE TO PUSH %d", idToMerge);
+	      if(idToMerge == curCand.m_id)
+		cond = false;
 	    } else
 	      cond = false;
 	      
@@ -139,6 +164,8 @@ void mergeTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 	    if(mergeCand.m_toMergeHead.size()){
 	      curCandId = mergeCand.m_id;
 	      idToMerge = mergeCand.m_toMergeHead[0];
+	      if(idToMerge == curCand.m_id)
+		cond = false;
 	      dbgmerge("ONE MORE TO PUSH %d", idToMerge);
 	    } else
 	      cond = false;
@@ -171,6 +198,8 @@ void mergeTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 	    if(mergeCand.m_toMergeTail.size() > 0 ){
 	      curCandId = mergeCand.m_id;
 	      idToMerge = mergeCand.m_toMergeTail[0];
+	      if(idToMerge == curCand.m_id)
+		cond = false;
 	      dbgmerge("ONE MORE TO PUSH %d (not implemented yet)", idToMerge);
 	    } else
 	      cond = false;
@@ -183,6 +212,8 @@ void mergeTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 	    if(mergeCand.m_toMergeHead.size() > 0){
 	      curCandId = mergeCand.m_id;
 	      idToMerge = mergeCand.m_toMergeHead[0];
+	      if(idToMerge == curCand.m_id)
+		cond = false;
 	      dbgmerge("ONE MORE TO PUSH %d (not implemented yet)", idToMerge);
 	    } else
 	      cond = false;

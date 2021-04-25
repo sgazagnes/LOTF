@@ -167,7 +167,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 
     // If node is not visited, and has either 1 neighbor, or 2 neighbors and is in the layer limit.
     if(!visited[curId] && (curNode->m_neighbors.size() == 1 || (curNode->m_LayerLimit == 1))){  // && curNode->m_neighbors.size() == 2
-	
+      // error("Curnode %d", curNode->m_detID);
       int       n_neighbors = curNode->m_neighbors.size();
       size_t    curLayer    = curNode->m_Layer;
       int    	n_connected = 0;
@@ -176,7 +176,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
       bool      cond        = true; // To check whether we keep adding node or we stop
 
       PathCandidate *cand 	= new PathCandidate();// Create a new tracklet candidate
-
+      //   cand->m_isValid = 0;
       // Find the next neighbors of this node
       cond = sortNeighbors(gr, curNode, *cand, prevLayer, sameLayer, nextLayer, nextVirt, visited,  &nextDir);
 
@@ -652,7 +652,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	dbgconnect("Pushing cm %d with length %d, tail node %d, head node %d, min layer %d, max layer %d, IsOnSectorLimit %d, status  %d. ", cand->m_id, cand->m_length, cand->m_tailNode, cand->m_headNode,cand->m_minLayer, cand->m_maxLayer, cand->m_isOnSectorLimit, cand->m_finished);
 	tracklets.push_back(cand);
       } else {
-	error("Not a good cm %d, has length < 2",cand->m_headNode);
+	//	error("Not a good cm %d, has length < 2",cand->m_headNode);
 	for(size_t i = 0; i < (cand->m_memberList)->size(); i++){   
 	  visited[(cand->m_memberList)->at(i)] = 0;
 	  GridNode &toDel = Ingrid[gr.Find((cand->m_memberList)->at(i))];

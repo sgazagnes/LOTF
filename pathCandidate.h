@@ -33,8 +33,10 @@ struct PathCandidate{
   // Member fuctions
   void updateHeadAndTailNodes();
   void insertNewNode(CoordGrid &gr, std::vector< GridNode > &Ingrid, GridNode *node,  std::vector<int>::iterator it);
+  void insertNewNodeFinal(CoordGrid &gr, std::vector< GridNode > &Ingrid, GridNode *node,  std::vector<int>::iterator it);
   bool compareTwoPathsLength(PathCandidate *a, PathCandidate *b) ;
   void determineSkewedXY(CoordGrid &gr, std::vector< GridNode > &Ingrid, GridNode *node, size_t vecindex);
+  void fEstimateSkewedXY(CoordGrid &gr, std::vector< GridNode > &Ingrid, GridNode *node, size_t vecindex);
   void addToAnchor(CoordGrid &gr, std::vector< GridNode > &Ingrid,GridNode *node, size_t vecindex, int prevLayer);
   void correctPrevAnchor(CoordGrid &gr, std::vector< GridNode > &Ingrid,GridNode *node, size_t vecindex);
   inline bool isInCandidate(int nodeId) const;

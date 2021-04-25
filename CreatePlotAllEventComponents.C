@@ -251,10 +251,11 @@ c2->SetBottomMargin(1.);
 	//  if( marker < 20) { marker += 20; }
 	// if( marker > 34) { marker = 34; }
       ConComps->SetMarkerStyle(marker);
-      ConComps->SetMarkerSize(0.8);
+      ConComps->SetMarkerSize(1.2);
       // Conditions
       ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
       ePlotCondition += "(CompNum == " + ecomponentNumber.str() + ")";
+      // ePlotCondition += "(z_Det < " + edetID.str() + ")";
       //  ePlotCondition += "(tubeId < " + edetID.str() + ")";
 
       ConComps->Draw("y_Det:z_Det", ePlotCondition.c_str(), "same");
@@ -473,7 +474,7 @@ c2->SetBottomMargin(1.);
 	  
   
 
-  /* {
+  {
 
 
     // Connected components
@@ -505,7 +506,7 @@ c2->SetBottomMargin(1.);
     c20->Update();
     // c2->SaveAs("myalgo_cm_xy.pdf");
 
-  }
+  }/*
   // Z-reconstructed Connected components
   {
     TCanvas *c30 = new TCanvas("c30", "Conn.Comp. With Z2", 300, 300 );

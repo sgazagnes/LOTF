@@ -23,8 +23,8 @@ struct PathCandidate;
 #define LOCAL_ZERO_COMPARE_EPSILON  1.0e-8
 #define LOCAL_PND_TRACKING_EPSILON  0.001
 // When fitting a circle to data points in a path
-#define LOCAL_CIRCLE_FIT_TOLERANCE 1e-04//1e-06
-#define MAX_NUMBER_OF_FIT_ITERATION 5000//1000, 10000;//512;//256;
+#define LOCAL_CIRCLE_FIT_TOLERANCE 1e-06//1e-06
+#define MAX_NUMBER_OF_FIT_ITERATION 20000//1000, 10000;//512;//256;
 
 //------------------------------------------------
 // Used to merge short candidates(max acceptable distance)
