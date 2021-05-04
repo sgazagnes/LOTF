@@ -61,7 +61,7 @@
 
 #define INCLUDE_STT_POINTS  1
 #define INCLUDE_MVD_POINTS  0
-#define WRITE_TO_ASCII_FILE 0
+#define WRITE_TO_ASCII_FILE 1
 #define WRITE_TO_JSON_FILE 0
 #define READ_NEIGHBORS_FROM_FILE 0
 
@@ -398,6 +398,7 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, char *inFile, TFile &Ou
 
 #if ( INCLUDE_STT_POINTS > 0 )
     // Fetch STT data points.
+    int oldTrackID =-1;
     for(int i = 0; i < SttHitArray->GetEntriesFast(); ++i)
     {
       HitCoordinate* currentHit = new HitCoordinate();
@@ -413,8 +414,15 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, char *inFile, TFile &Ou
       PndSttPoint *pSttMCPoint = (PndSttPoint*) SttMCPointAr->At(refindex);
 
       // Set the trackID for the current point
-      currentHit->m_trackID = pSttMCPoint->GetTrackID();
       
+      pSttMCPoint->Print(NULL);
+      currentHit->m_trackID = pSttMCPoint->GetTrackID();
+      /* if(oldTrackID!=pSttMCPoint->GetTrackID()){
+      printf("%f\n\n", sqrt(pow(pSttMCPoint->GetPx(),2)+ pow(pSttMCPoint->GetPy(),2)));
+      }*/
+      //   printf("%f\n\n", sqrt(pow(pSttMCPoint->GetPx(),2)+ pow(pSttMCPoint->GetPy(),2)));
+
+      oldTrackID = pSttMCPoint->GetTrackID();
       // MC point coordinates
       TVector3 mcposition;
       pSttMCPoint->Position(mcposition);
@@ -443,6 +451,9 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, char *inFile, TFile &Ou
       currentHit->mx = mcposition.X();
       currentHit->my = mcposition.Y();
       currentHit->mz = mcposition.Z();
+      currentHit->m_px = pSttMCPoint->GetPx();
+      currentHit->m_py = pSttMCPoint->GetPy();
+      currentHit->m_pz = pSttMCPoint->GetPz();
 
 
       //_______ ********* Not MC Hit coordinates ********
@@ -451,6 +462,7 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, char *inFile, TFile &Ou
       
       // drift radius
       Double_t isochrone   = pSttHit->GetIsochrone();
+      //printf("%lf\n\n", isochrone);
 
       // Coordinates of the center of the tube
       TVector3 tubecenter  = pSttTube->GetPosition();
@@ -842,11 +854,18 @@ MCTrackPoints( std::vector < std::vector<HitCoordinate*>* > const &evtData)
 	if(currentHit->type == HitCoordinate::STT_TYPE) {
 	  ((evtTracks->at(trackPos))->m_pointSTTCoordList).push_back(spacePoint);
 	  ((evtTracks->at(trackPos))->m_STT_Component).push_back(currentHit->m_detID);
+	  point3D momPoint;
+	  momPoint.m_x = currentHit->m_px;
+	  momPoint.m_y = currentHit->m_py;
+	  momPoint.m_z = currentHit->m_pz;
+	  ((evtTracks->at(trackPos))->m_STT_Momentum).push_back(momPoint);
+	  ((evtTracks->at(trackPos))->m_STT_Isochrone).push_back(currentHit->isochrone);
 	}
 	else if(currentHit->type == HitCoordinate::MVD_TYPE) {
 	  ((evtTracks->at(trackPos))->m_pointMVDCoordList).push_back(spacePoint);
 	  ((evtTracks->at(trackPos))->m_MVD_Component).push_back(currentHit->m_detID);
 	}
+	
 	(evtTracks->at(trackPos))->m_trackID = trackPos;
       
       }// END if not HIT_EXCLUSION

@@ -51,6 +51,11 @@ public:
   float  mx;
   float  my;
   float  mz;
+
+  float  m_px;
+  float  m_py;
+  float  m_pz;
+
   // Polar Coordinates
   float r;
   double theta;

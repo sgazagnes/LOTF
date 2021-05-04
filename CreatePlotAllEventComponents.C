@@ -13,6 +13,8 @@
 #include "TCanvas.h"
 #include "TH2.h"
 #include "TH3.h"
+#include "TMarker.h"
+
 // > 0 means create,
 #define CREATE_SEPARATE_PLOTS 1
 
@@ -170,29 +172,38 @@ void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.
 
   int marker = 0;
   int badmarker = 24;
-
+  float sizelabels = 0.05;
+  float padleft = 0.1;
+  float padtop = 0.05;
+  float markersize = 0.8;
   //_____________ BEGIN TEMPORARY PLOTS May be DELETED
 #if(CREATE_SEPARATE_PLOTS > 0)
   {
     // Connected components
     TCanvas *c2 = new TCanvas("c2", "Connected Components", ww, hh );
-    c2->SetRightMargin(0.05);
-c2->SetLeftMargin(1.);
-c2->SetTopMargin(0.05);
-c2->SetBottomMargin(1.);
+    c2->SetRightMargin(padtop);
+    c2->SetLeftMargin(padleft);
+    c2->SetTopMargin(padtop);
+    c2->SetBottomMargin(padleft);
     grid->Draw("y:x","","");
     TH2F *htemp = (TH2F*)gPad->GetPrimitive("htemp");
     htemp->GetXaxis()->SetTitle("x [cm]");
     htemp->GetYaxis()->SetTitle("y [cm]");
+    htemp->GetXaxis()->SetLabelSize(sizelabels);
+    htemp->GetYaxis()->SetLabelSize(sizelabels);
+    htemp->GetXaxis()->SetTitleSize(sizelabels);
+    htemp->GetYaxis()->SetTitleOffset(1);
+    htemp->GetYaxis()->SetTitleSize(sizelabels);
+
     htemp->SetTitle("");
     std::stringstream EeventNumString;
     EeventNumString << evtNum;
     std::string ePlotCondition;
     for(size_t j = 0; j < nComp; j++) {
       std::stringstream ecomponentNumber;
-      ecomponentNumber << j;
+      ecomponentNumber << nComp-1-j;
       // Set marker and colours per component.
-      int idmctr = idMatch[j];
+      int idmctr = idMatch[ nComp-1-j];
       marker = 20;//(j % 34);
 
       if(idmctr != -1)
@@ -205,11 +216,17 @@ c2->SetBottomMargin(1.);
       //if( marker < 20) { marker += 20; }
       //if( marker > 34) { marker = 34; }
       ConComps->SetMarkerStyle(marker);
-      ConComps->SetMarkerSize(0.8);
+      ConComps->SetMarkerSize(markersize);
       // Conditions
       ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
       ePlotCondition += "(CompNum == " + ecomponentNumber.str() + ")";
       ConComps->Draw("y_Det:x_Det", ePlotCondition.c_str(), "same");
+      /*TMarker *m = new TMarker(24, 20, 29);
+      m->SetMarkerSize(2.);
+      m->Draw();
+      TMarker *m1 = new TMarker(-10.5, -21, 29);
+      m1->SetMarkerSize(2.);
+      m1->Draw();*/
     }
     c2->Update();
     c2->SaveAs("myalgo_cm_xy.pdf");
@@ -218,14 +235,20 @@ c2->SetBottomMargin(1.);
   // Z-reconstructed Connected components
    {
     TCanvas *c3 = new TCanvas("c3", "Conn.Comp. With Z", ww, hh );
-    c3->SetRightMargin(0.05);
-    c3->SetLeftMargin(1.);
-    c3->SetTopMargin(0.05);
-    c3->SetBottomMargin(1.);
+    c3->SetRightMargin(padtop);
+    c3->SetLeftMargin(padleft);
+    c3->SetTopMargin(padtop);
+    c3->SetBottomMargin(padleft);
     grid->Draw("y:z","","");
     TH2F *htemp = (TH2F*)gPad->GetPrimitive("htemp");
+    
     htemp->GetXaxis()->SetTitle("z [cm]");
     htemp->GetYaxis()->SetTitle("y [cm]");
+        htemp->GetXaxis()->SetLabelSize(sizelabels);
+    htemp->GetYaxis()->SetLabelSize(sizelabels);
+    htemp->GetXaxis()->SetTitleSize(sizelabels);
+    htemp->GetYaxis()->SetTitleOffset(1);
+    htemp->GetYaxis()->SetTitleSize(sizelabels);
     htemp->SetTitle("");
     std::stringstream EeventNumString;
     EeventNumString << evtNum;
@@ -251,22 +274,22 @@ c2->SetBottomMargin(1.);
 	//  if( marker < 20) { marker += 20; }
 	// if( marker > 34) { marker = 34; }
       ConComps->SetMarkerStyle(marker);
-      ConComps->SetMarkerSize(1.2);
+      ConComps->SetMarkerSize(markersize);
       // Conditions
-      ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
-      ePlotCondition += "(CompNum == " + ecomponentNumber.str() + ")";
-      // ePlotCondition += "(z_Det < " + edetID.str() + ")";
-      //  ePlotCondition += "(tubeId < " + edetID.str() + ")";
+         ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
+      ePlotCondition += "(CompNum == " + ecomponentNumber.str() + ") ";
+      //ePlotCondition += "(z_Det !=  0 ) &&";
+      //ePlotCondition += "(tubeId < " + edetID.str() + ")";
 
       ConComps->Draw("y_Det:z_Det", ePlotCondition.c_str(), "same");
-      
-      // ConComps->SetMarkerStyle(29);
-      // ConComps->SetMarkerSize(2.);
+  
 
-      //ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
-      // ePlotCondition += "(CompNum == " + ecomponentNumber.str() + ") && ";
-      // ePlotCondition += "(tubeId >= " + edetID.str() + ")";
-      // ConComps->Draw("y_Det:z_Det", ePlotCondition.c_str(), "same");
+      /*  ConComps->SetMarkerStyle(29);
+      ConComps->SetMarkerSize(2.);
+      ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
+      ePlotCondition += "(CompNum == " + ecomponentNumber.str() + ") && ";
+      ePlotCondition += "(tubeId >= " + edetID.str() + ")";
+      ConComps->Draw("y_Det:z_Det", ePlotCondition.c_str(), "same");*/
     }
     c3->Update();
     c3->SaveAs("myalgo_cm_z.pdf");
@@ -276,14 +299,19 @@ c2->SetBottomMargin(1.);
   // MC data plots.
   {
     TCanvas *c4 = new TCanvas("c4", "MC-Plot", ww, hh );
-    c4->SetRightMargin(0.05);
-    c4->SetLeftMargin(1.);
-    c4->SetTopMargin(0.05);
-    c4->SetBottomMargin(1.);
+    c4->SetRightMargin(padtop);
+    c4->SetLeftMargin(padleft);
+    c4->SetTopMargin(padtop);
+    c4->SetBottomMargin(padleft);
     grid->Draw("y:x","","");
     TH2F *htemp = (TH2F*)gPad->GetPrimitive("htemp");
     htemp->GetXaxis()->SetTitle("x [cm]");
     htemp->GetYaxis()->SetTitle("y [cm]");
+        htemp->GetXaxis()->SetLabelSize(sizelabels);
+    htemp->GetYaxis()->SetLabelSize(sizelabels);
+    htemp->GetXaxis()->SetTitleSize(sizelabels);
+    htemp->GetYaxis()->SetTitleOffset(1);
+    htemp->GetYaxis()->SetTitleSize(sizelabels);
     htemp->SetTitle("");
     std::stringstream EeventNumString;
     EeventNumString << evtNum;
@@ -302,7 +330,7 @@ c2->SetBottomMargin(1.);
       // if( marker < 20) { marker += 20; }
       //if( marker > 34) { marker = 34; }
       pos->SetMarkerStyle(marker);
-      pos->SetMarkerSize(0.8);
+      pos->SetMarkerSize(markersize);
       ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
       ePlotCondition += "(trackID == " + ecomponentNumber.str() + ") && my > -10000";
       pos->Draw("my:mx",ePlotCondition.c_str(),"same");
@@ -314,14 +342,19 @@ c2->SetBottomMargin(1.);
   // Read data
    {
     TCanvas *c5 = new TCanvas("c5", "Read-Plot", ww, hh );
-    c5->SetRightMargin(0.05);
-    c5->SetLeftMargin(1.);
-    c5->SetTopMargin(0.05);
-    c5->SetBottomMargin(1.);
+    c5->SetRightMargin(padtop);
+    c5->SetLeftMargin(padleft);
+    c5->SetTopMargin(padtop);
+    c5->SetBottomMargin(padleft);
     grid->Draw("y:x","","");
     TH2F *htemp = (TH2F*)gPad->GetPrimitive("htemp");
     htemp->GetXaxis()->SetTitle("x [cm]");
     htemp->GetYaxis()->SetTitle("y [cm]");
+        htemp->GetXaxis()->SetLabelSize(sizelabels);
+    htemp->GetYaxis()->SetLabelSize(sizelabels);
+    htemp->GetXaxis()->SetTitleSize(sizelabels);
+    htemp->GetYaxis()->SetTitleOffset(1);
+    htemp->GetYaxis()->SetTitleSize(sizelabels);
     htemp->SetTitle("");
     std::stringstream EeventNumString;
     EeventNumString << evtNum;
@@ -335,7 +368,7 @@ c2->SetBottomMargin(1.);
       // if( marker < 20) { marker += 20; }
       //if( marker > 34) { marker = 34; }
       pos->SetMarkerStyle(marker);
-      pos->SetMarkerSize(0.8);
+      pos->SetMarkerSize(markersize);
       ePlotCondition  = "(EvtNum == "  + EeventNumString.str() + ") && ";
       ePlotCondition += "(trackID == " + ecomponentNumber.str() + ") && my > -10000";
       pos->Draw("y:x",ePlotCondition.c_str(),"same");
@@ -347,14 +380,19 @@ c2->SetBottomMargin(1.);
   // MC in Z-coordinate
   {
     TCanvas *c6 = new TCanvas("c6", "MC_Z_Plot", ww, hh );
-    c6->SetRightMargin(0.05);
-    c6->SetLeftMargin(1.);
-    c6->SetTopMargin(0.05);
-    c6->SetBottomMargin(1.);
+    c6->SetRightMargin(padtop);
+    c6->SetLeftMargin(padleft);
+    c6->SetTopMargin(padtop);
+    c6->SetBottomMargin(padleft);
     grid->Draw("y:z","","");
     TH2F *htemp = (TH2F*)gPad->GetPrimitive("htemp");
     htemp->GetXaxis()->SetTitle("z [cm]");
     htemp->GetYaxis()->SetTitle("y [cm]");
+        htemp->GetXaxis()->SetLabelSize(sizelabels);
+    htemp->GetYaxis()->SetLabelSize(sizelabels);
+    htemp->GetXaxis()->SetTitleSize(sizelabels);
+    htemp->GetYaxis()->SetTitleOffset(1);
+    htemp->GetYaxis()->SetTitleSize(sizelabels);
     htemp->SetTitle("");
     std::stringstream EeventNumString;
     EeventNumString << evtNum;
@@ -385,6 +423,11 @@ c2->SetBottomMargin(1.);
     htemp->GetXaxis()->SetTitle("z [cm]");
     htemp->GetYaxis()->SetTitle("x [cm]");
     htemp->GetZaxis()->SetTitle("y [cm]");
+    htemp->GetXaxis()->SetLabelSize(0.05);
+    htemp->GetYaxis()->SetLabelSize(0.05);
+    htemp->GetXaxis()->SetTitleSize(.05);
+    htemp->GetYaxis()->SetTitleOffset(1);
+    htemp->GetYaxis()->SetTitleSize(.05);
     htemp->SetTitle("");
     std::stringstream EeventNumString;
     EeventNumString << evtNum;

@@ -48,6 +48,8 @@ struct MCTrackObject {
     m_pointMVDCoordList(std::vector < point3D >()),
     m_STT_Component(std::vector<int>()),
     m_MVD_Component(std::vector<int>()),
+    m_STT_Momentum(std::vector < point3D >()),
+    m_STT_Isochrone(std::vector < float >()),
     m_matched(false)
   {};
   //Dtor
@@ -66,9 +68,11 @@ struct MCTrackObject {
   // member parameters.
   std::vector < point3D > m_pointSTTCoordList;
   std::vector < point3D > m_pointMVDCoordList;
+  std::vector < point3D > m_STT_Momentum;
 
   std::vector<int> m_STT_Component;
   std::vector<int> m_MVD_Component;
+  std::vector<float> m_STT_Isochrone;
 
   bool m_matched;// If have been matched before
   int m_trackID;

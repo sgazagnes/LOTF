@@ -12,6 +12,7 @@ PathCandidate::PathCandidate()
   : m_id(0),
     m_level(0),
     m_weight(0),
+    m_scattAngle(-1),
     m_orientation(0.00),
     m_memberList(new std::vector<int>()),
     m_memberIdSet(new std::set<int>()),
@@ -75,6 +76,8 @@ PathCandidate::PathCandidate(PathCandidate const &ot)
   : m_id(ot.m_id),
     m_level(ot.m_level),
     m_weight(ot.m_weight),
+    m_scattAngle(ot.m_scattAngle),
+
     m_orientation(ot.m_orientation),
     m_memberList (new std::vector<int>( *(ot.m_memberList) ) ),
     m_memberIdSet(new std::set<int>   ( *(ot.m_memberIdSet) ) ),
@@ -137,6 +140,8 @@ PathCandidate& PathCandidate::operator=(PathCandidate const &ot)
     this->m_id  = ot.m_id;
     this->m_level = ot.m_level;
     this->m_weight = ot.m_weight;
+    this->m_scattAngle = ot.m_scattAngle;
+
     this->m_orientation = ot.m_orientation;
     
     // Copy member vector id list (May be deleted)

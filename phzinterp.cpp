@@ -46,6 +46,7 @@ void ZCoordinates(CoordGrid &gr, std::vector< GridNode > &Ingrid,std::vector < P
 
     int lastid = -1;
     int firstid = -1;
+    float thetaScat = -1;
     for(size_t i = 0; i < anchors.size(); i++){
       GridNode  &node = anchors[i];
 
@@ -164,9 +165,12 @@ void ZCoordinates(CoordGrid &gr, std::vector< GridNode > &Ingrid,std::vector < P
       double *z_coef = polyFit(p, zPts, 1);
       double *y_coef = polyFit(p, yPts, 1);
 
+      thetaScat = atan(y_coef[1]/z_coef[1]);
+      curCand.m_scattAngle = thetaScat;
       dbgtrkz("Fitted z track is %f + p%f", z_coef[0], z_coef[1]);
       dbgtrkz("Fitted y track is %f + p%f", y_coef[0], y_coef[1]);
-      //dbgtrkz("p: %lf, %lf", p[start], p[p.size()-1]);
+      // dbgtrkz("p: %lf, %lf", p[start], p[p.size()-1]);
+      dbgtrkz("theta is %f", 180*atan(thetaScat)/3.14);
 
       double pfirst = (y[0] - y_coef[0])/y_coef[1];
       double Node_distance =0;

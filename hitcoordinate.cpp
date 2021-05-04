@@ -12,6 +12,8 @@
 HitCoordinate::HitCoordinate()
   : x(0.0), y(0.0), z(0.0),
     mx(0.0), my(0.0), mz(0.0),
+    m_px(0.0), m_py(0.0), m_pz(0.0),
+
     r(0.0), theta(0.0), thetaDeg(0.0),
     mr(0.0), mtheta(0.0), mthetaDeg(0.0),
     isochrone(0.0),
@@ -28,6 +30,8 @@ HitCoordinate::HitCoordinate()
 HitCoordinate::HitCoordinate(float const val)
   : x(val), y(val), z(val),
     mx(val), my(val), mz(val),
+    m_px(val), m_py(val), m_pz(val),
+
     r(val), theta(val), thetaDeg(val),
     mr(val), mtheta(val), mthetaDeg(val),
     isochrone(val),
@@ -50,6 +54,7 @@ HitCoordinate::~HitCoordinate()
 HitCoordinate::HitCoordinate( HitCoordinate const& ot)
   : x(ot.x), y(ot.y), z(ot.z),
     mx(ot.mx), my(ot.my), mz(ot.mz),
+    m_px(ot.m_px), m_py(ot.m_py), m_pz(ot.m_pz),
     r(ot.r), theta(ot.theta), thetaDeg(ot.thetaDeg),
     mr(ot.mr), mtheta(ot.mtheta), mthetaDeg(ot.mthetaDeg),
     isochrone(ot.isochrone),
@@ -73,6 +78,9 @@ HitCoordinate& HitCoordinate::operator=(HitCoordinate const& ot)
     this->mx        = ot.mx;
     this->my        = ot.my;
     this->mz        = ot.mz;
+    this->m_px        = ot.m_px;
+    this->m_py        = ot.m_py;
+    this->m_pz        = ot.m_pz;
     this->r         = ot.r;
     this->theta     = ot.theta;
     this->thetaDeg  = ot.thetaDeg;

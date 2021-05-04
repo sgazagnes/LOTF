@@ -1256,7 +1256,7 @@ void fit_circle(std::vector<point3D> const &pnts, CurvatureParameters &curvature
   curvature.m_b = circle.b;
   curvature.m_ra = circle.r;
   curvature.m_r = (1.00/ circle.r);
-  curvature.m_E = circle.j;
+  curvature.m_E = circle.s;
 
   
   free(datax);

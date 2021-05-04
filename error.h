@@ -25,6 +25,9 @@ MCMatchingErrorStruct()
     CurrentTrackLength(0),
     MCMinCurrentLength(0),
     CurrentMinMCLength(0),
+    MC_px(0.0),
+    MC_py(0.0),
+    MC_pz(0.0),
     MC_a(0.0),
     MC_b(0.0),
     MC_r(0.0),
@@ -32,7 +35,8 @@ MCMatchingErrorStruct()
     tr_a(0.0),
     tr_b(0.0),
     tr_r(0.0),
-    tr_E(0.0){};
+    tr_E(0.0),
+    tr_theta(-1.){};
   
   // Destructor
   virtual ~MCMatchingErrorStruct(){};
@@ -60,6 +64,11 @@ MCMatchingErrorStruct()
   size_t CurrentMinMCLength;//T_j - R_k
   /*Curvature parameters for members.*/
   // MC tracks
+
+  double MC_px;
+  double MC_py;
+  double MC_pz;
+  
   double MC_a;
   double MC_b;
   double MC_r;
@@ -69,6 +78,7 @@ MCMatchingErrorStruct()
   double tr_b;
   double tr_r;
   double tr_E;
+  double tr_theta;
 
   double disX;
   double disY;

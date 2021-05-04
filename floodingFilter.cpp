@@ -47,7 +47,7 @@
 #define WRITE_CONNECTED_COMPONENTS 1
 #define INCLUDE_MVD_INOUTPUT_TRACK 0
 #define WRITE_CONNECTED_COMPONENTS_JSON 0
-#define WRITE_CM_ASCII_FILE 1
+#define WRITE_CM_ASCII_FILE 0
 
 
 void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
@@ -57,7 +57,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
   //Setting verbosity level, put 1 for the debug you want
   //error/time/info/collect/grid/connect/fit/merge/trkz/trkerror
-  bool v[10] = {1,0,0,0,0,0,0,0,0,0};//{0,0,0,0,0,0,0,0,1,1}{1,1,1,0,0,0,0,0,0,0};
+  bool v[10] = {1,1,0,0,0,0,0,0,0,0};//{0,0,0,0,0,0,0,0,1,1}{1,1,1,0,0,0,0,0,0,0};
   set_verbosity(v);
   // Structure to hold the detector data (grid)
   std::vector < GridNode > detNodes;
@@ -81,7 +81,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   PerTrkErrPars += ":UnderMergeError:OverMergeError:disX:disY:disZ";
   TNtuple ErrorNtuplePerTrack("PerTrackError","Per track values of error", PerTrkErrPars.c_str());
 
-  std::string CurvTrak = "MC_a:MC_b:MC_r:MC_E:tr_a:tr_b:tr_r:tr_E";
+  std::string CurvTrak = "MC_px:MC_py:MC_pz:MC_a:MC_b:MC_r:MC_E:tr_a:tr_b:tr_r:tr_E:tr_theta";
 
   std::string DisTrak = "disx:disy:disz";
 
@@ -97,11 +97,11 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   // Hold number of components per event
   TNtuple ComponentPerEvt ("ComponentPerEvt", "Component per event","evtNum:numComponents");
 
-  //geo 2 1572086365 // geo 1 1583944737 // Muon_z0 1611761510 // Muon_z30 1611844116 // Muon_z120 1611844771 /// 1000 1613554871 // 20000: 1614788215 // 20000B15: 1618615353
+  //geo 2 1572086365 // geo 1 1583944737 // Muon_z0 1611761510 // Muon_z30 1611844116 // Muon_z120 1611844771 /// 1000 1613554871 // 20000: 1614788215 // 20000B15: 1618615353 // Test  Muon B1 1619780508 // Beam 3 1619749644
 
   /* Read all data directly from sim, digi and parameter files */
   std::vector < std::vector<HitCoordinate*>* >* Hit_coords = 
-    CollectSttMvdPoints(detNodes, "../rootfiles/evtcomplete20000", Out_Put_File,1614788215, firstEvt, lastEvt);
+    CollectSttMvdPoints(detNodes, "../rootfiles/evtcomplete20000B15", Out_Put_File,1618615353, firstEvt, lastEvt);
   //evtmuonz120
   std::vector< std::vector < MCTrackObject* >* > *MC_Tracks = MCTrackPoints(*Hit_coords);
   
@@ -201,9 +201,32 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     }
     
     // info("MC_Tracks->at(k)->size() is %d", MC_Tracks->at(k)->size());
-  
+    int totHits = 0;
+    std::set<int> nIndTubes;
+    for(size_t i = 0; i < MC_Tracks->at(k)->size(); ++i) {
+      //        error("1");
+      MCTrackObject const *MCtrack = MC_Tracks->at(k)->at(i);
+      std::set<int> MCSttComp((MCtrack->m_STT_Component).begin(), (MCtrack->m_STT_Component).end());
+      nIndTubes.insert(MCSttComp.begin(), MCSttComp.end());
+      //   totHits += MCSttComp.size(); //ERROROROROROOR CORRECT AFT CHAP      
+    }
+
+    if( nIndTubes.size() <= 10){
+      error("This event did not contain enough hits, continue %d", nIndTubes.size());
+      // gr.ResetGrid();
+       continue;
+    } else {
+      nIndTubes.clear();
+      nEvproc++;
+    }
+    ///}totHits
+    //   error("Tot hits %d", nIndTubes.size());
     // Data for the current event
     error("Processing event: %d", k);
+
+
+  
+    
     std::vector<HitCoordinate*> const *dd = 0;
     dd = Hit_coords->at(k);
     if(dd) 
@@ -214,8 +237,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
  
     /* Pushing all active detectors into queue */
-    timing("Fill grid phase ended. Time %lf s",
-	   std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count());
+    //   timing("Fill grid phase ended. Time %lf s",
+    //	   std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count());
 
     std::vector< GridNode > &Ingridori = gr.m_grid;
     std::vector< GridNode > Ingrid(Ingridori);  
@@ -268,13 +291,13 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
       }      
     }
 
-    if(nactiveReal <= 10){
-      info("This event did not contain any tracks, continue");
+    /*if(nactiveReal <= 10){
+      error("This event did not contain any tracks, continue, %d\n", nactiveReal);
       gr.ResetGrid();
       continue;
     } else {
       nEvproc++;
-    }
+      }*/
     
 
     //   remaining = activeId;
@@ -882,6 +905,43 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	}
       }
 
+      for(unsigned int l = 0; l < tracklets.size(); l++){
+	PathCandidate &curCand = *(tracklets[l]);
+	std::vector<int>  curTrk( *(curCand.m_memberList));
+	std::sort(curTrk.begin(), curTrk.end());
+
+	std::vector<int>::iterator it;
+	it = remove_if(curTrk.begin(), curTrk.end(), bind2nd(greater<int>(), 4999));
+	curTrk.erase(it,curTrk.end());
+
+	for(unsigned int m = l+1; m < tracklets.size(); m++){
+	  PathCandidate &testCand = *(tracklets[m]);
+	  std::vector<int>  testTrk (*(testCand.m_memberList));
+	  std::sort(testTrk.begin(), testTrk.end());
+	  it = remove_if(testTrk.begin(), testTrk.end(), bind2nd(greater<int>(), 4999));
+	  testTrk.erase(it,testTrk.end());
+
+	  std::vector<int> IntersectionList( (curTrk.size() + testTrk.size()), 0 );
+	  std::vector<int>::iterator it2;
+	  //	  std::vector<int> IntersectionList( (Cur_Comp_list.size() + MCSttComp.size()), 0 );
+	  it2 = std::set_intersection(curTrk.begin(), curTrk.end(),
+				      testTrk.begin(), testTrk.end(),
+				      IntersectionList.begin());
+	  IntersectionList.resize(it2 - IntersectionList.begin());
+	  if((float) IntersectionList.size() > 0.66* MIN(curTrk.size(), testTrk.size())){
+	    error("Track %d and track %d, length %ld and %ld, intersection %ld", l,m,curTrk.size(), testTrk.size(),		  IntersectionList.size());
+	    if(curTrk.size() < testTrk.size()){
+	      tracklets.erase(tracklets.begin() + l);
+	      l--;
+	      break;
+	    } else {
+	      tracklets.erase(tracklets.begin() + m);
+	      m--;
+	    }
+	  }
+	}
+      }
+
       info("Number of valid tracklets: %d", tracklets.size());    
 
       std::vector < MCTrackObject* > *mcTracksCurrentEvent = MC_Tracks->at(k);
@@ -1033,9 +1093,10 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 				     static_cast<float>(erObj->disX),
 				     static_cast<float>(erObj->disY),
 				     static_cast<float>(erObj->disZ));
-	    CurvNtuplePerTrack.Fill( erObj->MC_a, erObj->MC_b, erObj->MC_r,
-				     erObj->MC_E, erObj->tr_a, erObj->tr_b,
-				     erObj->tr_r, erObj->tr_E);
+	    CurvNtuplePerTrack.Fill(erObj->MC_px, erObj->MC_py, erObj->MC_pz,
+				    erObj->MC_a, erObj->MC_b, erObj->MC_r,
+				    erObj->MC_E, erObj->tr_a, erObj->tr_b,
+				    erObj->tr_r, erObj->tr_E, erObj->tr_theta);
 	    if(!erObj->isNotmatched){
 	      for(size_t p = 0; p < erObj->alldisx.size(); p++){
 		ErrorNtupleDisPerTrack.Fill(erObj->alldisx[p],erObj->alldisy[p],erObj->alldisz[p]);
@@ -1071,7 +1132,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
       // delete activeId;
       //delete remaining;
       // delete idToProcess;
-
+      if(nEvproc == 15000)
+	break;
   }
   #endif
   

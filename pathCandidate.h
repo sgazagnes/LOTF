@@ -60,6 +60,7 @@ struct PathCandidate{
   unsigned int m_level;
   unsigned int m_weight;// Number of member nodes
   float  m_orientation;// The orientation in radians
+  float  m_scattAngle;// 
 
   bool  m_OuterToInner;// Direction of the path
   unsigned int m_length;// Length of the path (>= 1)
