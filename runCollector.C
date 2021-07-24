@@ -6,8 +6,8 @@
 #include "loadLibs.C"
 
 void runCollector( std::string const &OutFileName = "Tracks_output.root",		   
-		   int firstEvt =33, //9, //0,190
-		   int lastEvt =37
+		   int firstEvt =0, //9, //0,190
+		   int lastEvt =20000
 		   )//50->61, 4->5
 {
   // Load basic libs and headers.
