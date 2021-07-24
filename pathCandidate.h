@@ -10,8 +10,7 @@
 #include <vector>
 #include <set>
 
-#include "auxiliaryfunctions.h"
-#include "utilfunctions.h"
+#include "auxfunctions.h"
 #include "gridNode.h"
 #include "CoordGrid.h"
 

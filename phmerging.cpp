@@ -15,8 +15,8 @@
 
 #include "gridNode.h"
 #include "logc.h"
-#include "simon_functions.h"
-#include "path_queue.h"
+#include "auxfunctions.h"
+//#include "path_queue.h"
 #include "phmerging.h"
 
 

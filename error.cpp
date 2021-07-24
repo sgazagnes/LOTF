@@ -9,7 +9,7 @@
 #include "error.h"
 #include "logc.h"
 #include "gridNode.h"
-#include "simon_functions.h"
+#include "auxfunctions.h"
 
 
 void complexSectors(CoordGrid &gr,  std::vector< int > &activeId, std::vector< int > *sectorTC)
@@ -449,10 +449,7 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
     delete outPutPar;
     return 0;
   }
-  
-  //dbgtrkerror("Input MC has %d members and components has %d",MCTracks->size(), tracklets->size());
-  // dbgtrkerror("first MC has %d elements and last has %d", ((MCTracks->at(0))->m_STT_Component).size(),(MCTracks->at(MCTracks->size()-1)->m_STT_Component).size() );
-
+ 
   std::vector<int> matchedTrackletIndices;
   std::vector<int> matchedNodes;
 
@@ -462,9 +459,12 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
   std::vector<int>::iterator it;
   std::set<int>::iterator compIt;
   // MC tracks loop
+
+  
   for(size_t i = 0; i < MCTracks->size(); ++i) {
-    int complex = 0;
-    int found50 = 0;
+    int complex = 0; // Track complex
+    int zdetbool = 0; // Z info
+
     // Current MC track(R_k)
     MCTrackObject const *MCtrack = MCTracks->at(i);
     // Stt component of the current MC track.
@@ -472,28 +472,15 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
     std::vector<point3D> MC3DPt((MCtrack->m_pointSTTCoordList).begin(), (MCtrack->m_pointSTTCoordList).end());
     std::vector<float> isochrone((MCtrack->m_STT_Isochrone).begin(), (MCtrack->m_STT_Isochrone).end());
     std::vector<point3D> MCmomentum((MCtrack->m_STT_Momentum).begin(), (MCtrack->m_STT_Momentum).end());
-
-    // if(MCSttComp.size() < 6)
-    //   continue;
-    // Not empty MC-track (How is this possible??, empty MC-Tracks.)
     std::vector<int> MCSttCompVect(MCtrack->m_STT_Component);
 
-    // if(MCSttComp.size() < 6)
-    //   continue;
-    // Not empty MC-track (How is this possible??, empty MC-Tracks.)
-      // dbgtrkerror("Size track %d is %lu", i, MCSttComp.size());
-      //for(size_t p = 0; p < MCSttCompVect.size(); p++)
-	
-      //	dbgtrkerror("Contain id  %d", MCSttCompVect[p]);
 
-
-    int zdetbool = 0;
-
-    //error("%ld", MCSttComp.size());
 
     if( (MCSttComp.size() > 5) ) {
       if(std::find(idComplex.begin(), idComplex.end(), MCtrack->m_trackID) != idComplex.end())
 	complex = 1;
+
+      
       std::vector<point3D> allmatch, anchorsPts, CCpoints, MCpoints;
       srand(time(NULL)); // Seed the time
 
@@ -506,24 +493,16 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 	else if(node.m_type == GridNode::STT_TYPE_SKEW)
 	  zdetbool |= 2;
 
-	//	float randomX = ((float) rand()) / (float) RAND_MAX/2.;
-	//float randomY = ((float) rand()) / (float) RAND_MAX/2.;
-
 	point3D pt(node.m_x,node.m_y,node.m_z);
        	MCpoints.push_back(pt);
 	
       }
-      /* for(int ii = 0; ii < MC3DPt.size(); ii++){
-	float randomX = ((float) rand()) / (float) RAND_MAX - 0.5;
-	float randomY = ((float) rand()) / (float) RAND_MAX - 0.5;
-	//	point3D pt(MC3DPt[ii].m_x+randomX,MC3DPt[ii].m_y+randomY,MC3DPt[ii].m_z);
-	//	MCpoints.push_back(pt);
-	}*/
 
-      //  dbgtrkerror("Contain id  %d", MCSttComp[p]);
+      float  mc_length = (float) MCSttComp.size();
+
+      
       int    matchTrackIndex = -1;
       float  match_length = 0;
-      float  mc_length = (float) MCSttComp.size();
       
       float  matchValue = std::numeric_limits<float>::min();
       float  unionValue = std::numeric_limits<float>::min();
@@ -533,18 +512,14 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 	int index = it - matchedId.begin();
 	matchTrackIndex = index;
       }
-      //  dbgtrkerror("Index found %d", matchTrackIndex);
       
       if(matchTrackIndex >= 0) {
-        /* Met of zonder teruglegging */
-        // Mark as assigned(to avoid multiple assignements)
-        ////matchedTrackletIndices.push_back(matchTrackIndex);
-        
+
+	
         std::set<int> const *bestMatchComponent = (tracklets->at(matchTrackIndex))->m_memberIdSet;
 	std::vector<int> const *bestMemberList = (tracklets->at(matchTrackIndex))->m_memberList;
 
 	std::vector<GridNode>  *anchors = &(tracklets->at(matchTrackIndex))->m_anchors;
-	//printf("Size anchors %ld \n", anchors->size());
 	std::vector<double> const &x = tracklets->at(matchTrackIndex)->m_x;//connectedComp->at(j);
 	std::vector<double> const &y = tracklets->at(matchTrackIndex)->m_y;//connectedComp->at(j);
 	std::vector<double> const &z = tracklets->at(matchTrackIndex)->m_z;//connectedComp->at(j);
@@ -553,23 +528,11 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
         std::vector<float> r_iso;
 
 	int ii =0;
-	//	dbgtrkerror("Firts id %d, last id %d",*bestMatchComponent->begin(), *bestMatchComponent->end() );
-	/*for(set<int>::iterator p = bestMatchComponent->begin(); p != bestMatchComponent->end(); p++){
-	  int element = *p;
 
-	  dbgtrkerror("Best track contains id  %d", element);
-	  }*/
+	// Storing  coordinates of all tubes + isochrone radius of parallel ones
 
-	
-
-	
-	
-
-        //for(compIt = bestMatchComponent->begin(); compIt != bestMatchComponent->end(); ++compIt) {
 	for(size_t pp = 0; pp< bestMemberList->size(); pp++){
-          int id = bestMemberList->at(pp);//*compIt;
-          // Only Real stt tubes, MC does not know anything of the
-          // virtuals
+          int id = bestMemberList->at(pp);
 	  point3D pt(x[pp],y[pp],z[pp]);
 	  allmatch.push_back(pt);
 	  int idx = hitMap.Find(id);
@@ -578,22 +541,21 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
           if( (id < START_VIRTUAL_ID ) && (id >= 0) ) {
             bestMatchlist.push_back(id);
 	    auto it = std::find(MCSttCompVect.begin(), MCSttCompVect.end(), node.m_detID);
-	    if (it != MCSttCompVect.end() && node.m_type!=GridNode::STT_TYPE_SKEW)
+	    if (it != MCSttCompVect.end() && node.m_type != GridNode::STT_TYPE_SKEW)
 	      {
 		int index = std::distance(MCSttCompVect.begin(), it);
 		r_iso.push_back(isochrone[index]);
 	      } else
 	      r_iso.push_back(0);
-	    //  point3D pt2(node.m_x,node.m_y,node.m_z);
-	    //  CCpoints.push_back(pt2);
-	    // dbgtrkerror(" id  %d should be in both", id);
-
 	  } else
 	    r_iso.push_back(0);
-	  //	  ii++;
         }
+	
         std::sort(bestMatchlist.begin(), bestMatchlist.end());
 
+
+	// Storing coordinates of anchors
+	
 	for(size_t ll  = 0; ll <  anchors->size(); ll ++){
 	  GridNode &d = anchors->at(ll);
 	  //  float randomX = 0.;//((float) rand()) / (float) RAND_MAX/2.;
@@ -601,15 +563,18 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 	  float randomX = 0;//((float) rand()) / (float) RAND_MAX - 0.5;
 	  float randomY = 0;//((float) rand()) / (float) RAND_MAX - 0.5;
 	  point3D pt(d.m_xDet+randomX,d.m_yDet+randomY,d.m_z_Det);
-	  //  printf("%f, %f, %f\n", d.m_xDet,d.m_yDet,d.m_z_Det);
 	  anchorsPts.push_back(pt);
 	}
 
+
+
+	
 	std::vector<int> IntersectionList( (bestMatchlist.size() + MCSttComp.size()), 0 );
 	// Determine the sequence intersection. Only real tubes.
 	it = std::set_intersection(bestMatchlist.begin(),bestMatchlist.end(),
 				   MCSttComp.begin(), MCSttComp.end(),
 				   IntersectionList.begin());
+	
 	// Resize. "it" points to the position of the last common element
 	IntersectionList.resize(it - IntersectionList.begin());
 
@@ -617,13 +582,7 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 	// Area of matched tracklet (a_j)
 	match_length = static_cast<float>(bestMatchlist.size());
 
-	//	dbgtrkerror(" Match 
-	// Index of tracklet with largest intersection
-	// matchTrackIndex = j;
-	//	matchedNodes = IntersectionList;
-	if (matchValue > MCSttComp.size()/2)
-	  found50 = 1;
-	    
+	   
 	std::vector<int> UnionList( (bestMatchlist.size() + MCSttComp.size()), 0 );
 	// Determine the sequence intersection. Only real tubes.
 	it = std::set_union( bestMatchlist.begin(), bestMatchlist.end(),
@@ -634,7 +593,7 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 	unionValue = static_cast<float>(UnionList.size());
 
 
-	//	dbgtrkerror("Match Inter %f, CC length %f, MC length %f", matchValue, match_length, mc_length);
+	dbgtrkerror("Match Inter %f, CC length %f, MC length %f", matchValue, match_length, mc_length);
           
 	
         // Determine differences
@@ -651,14 +610,17 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
                                   CurCompdiffMC.begin());
         CurCompdiffMC.resize(it - CurCompdiffMC.begin());
 
-	float TP = matchValue;
+	float TP =   matchValue;
 	float FP =  static_cast<float>(CurCompdiffMC.size());
 	float FN =  static_cast<float>(MCdiffCurComp.size());
 
 
+
+	/* Getting coordinates of mathced tubes */
 	std::vector<double> bestX;
 	std::vector<double> bestY;
 	std::vector<double> bestZ;
+	
 	for(size_t p = 0; p < IntersectionList.size(); p++){
 	  //  if(matchValue/unionValue > 0.3){
 	  int id = IntersectionList[p];
@@ -669,35 +631,35 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 	  bestZ.push_back(z[index]);
 	}
 
-	//	dbgtrkerror("Size pts is %lu", bestX.size());
 
 	
-	double disx =0, disy =0, disz = 0,  mindisx,mindisy, mindisz;
+	//	double disx =0, disy =0, disz = 0,  mindisx, mindisy, mindisz;
+	float alldisxx = 0, alldisyy = 0,alldiszz = 0;
+	double disx =0, disy =0, disz = 0;
+	  
 	std::vector<float> alldisx;
 	std::vector<float> alldisy;
 	std::vector<float> alldisz;
-	float alldisxx = 0, alldisyy = 0,alldiszz = 0;
+
+	
 	for(size_t k = 0; k < bestX.size(); k++){
 	  double mindis = std::numeric_limits<double>::max();
-	  //  dbgtrkerror("%f, %f, %f", bestX[k],bestY[k],bestZ[k]);
+	  double mindisx = 0, mindisy = 0, mindisz = 0;
+
 	  for(size_t l =0; l < MC3DPt.size(); l++){
 	    point3D Mcpt = MC3DPt[l];
 	    double curdis = sqrt(pow(bestX[k]-Mcpt.m_x,2)+pow(bestY[k]-Mcpt.m_y,2));
 	    if(curdis < mindis) {
-	      // dbgtrkerror("Best is %f, %f, %f", Mcpt.m_x,Mcpt.m_y,Mcpt.m_z);
-	      mindisx =fabs(bestX[k]-Mcpt.m_x);
-	      mindisy =fabs(bestY[k]-Mcpt.m_y);
-	      mindisz =fabs(bestZ[k]-Mcpt.m_z);
+	      mindisx  = fabs(bestX[k]-Mcpt.m_x);
+	      mindisy  = fabs(bestY[k]-Mcpt.m_y);
+	      mindisz  = fabs(bestZ[k]-Mcpt.m_z);
 	      alldisxx = (float) (bestX[k]-Mcpt.m_x);///Mcpt.m_x;
 	      alldisyy = (float) (bestY[k]-Mcpt.m_y);///Mcpt.m_y;
 	      alldiszz = (float) (bestZ[k]-Mcpt.m_z);///Mcpt.m_z;
-	      /*if(fabs(alldisyy) >4){
-		error("Mc pt %f", Mcpt.m_y);
-		error("Best pt %f, %f, %f", bestY[k]);
-		}*/
 	      mindis = curdis;
 	    }
 	  }
+	  
 	  disx += mindisx;
 	  disy += mindisy;
 	  disz += zdetbool == 3 ? mindisz: 200;
@@ -714,145 +676,55 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 	    alldisz.push_back(200);
 
 	}
+	
 	disx/= (double)bestX.size();
 	disy/= (double)bestX.size();
 	disz/= (double)bestX.size();
 
 	float jacardsingle = matchValue/unionValue;
-	float f1score = 2*TP/(2*TP+FP+FN);
-	//dbgtrkerror("Xdis %lf, Ydis %lf, Zdis %lf", disx, disy, disz);
-	//	dbgtrkerror("%d, %d", MCdiffCurComp.size(), CurCompdiffMC.size());
-        // Determine curvature parameters for tracklet and MC
-        /*______ Curvature for MC points _____*/
-        /* HIER was je mee bezig. Het ziet er OK uit. Andere functie
-           om MC data te fitten is gemaakt. */
-        //MCtrack->print();// FIXME hier Heb je veranderd(FIXME, 24 nov)
-        //std::vector<int> MCSttCompList(MCSttComp.begin(), MCSttComp.end());
-        CurvatureParameters mcCurvPars, mcCurvPars2, mcCurvSTT;
-        /* De functie hieronder niet voor MC gebruiken. Hij gebruikt
-         * de in de grid beschikbare coordinaten en niet de MC punten.*/
-        //ComputeCurvatureForListOfnodes(hitMap, MCSttCompList, mcCurvPars);
+	float f1score      = 2*TP/(2*TP+FP+FN);
 
-        //int CircleFit( std::vector<point3D> const &points, CurvatureParameters &curvature);
+
 	std::vector<point3D>  AllSttpoints = MCtrack->m_pointSTTCoordList;
-	//	printf("NUMBER PTS IN LIST %d\n", AllSttpoints.size());
-	/*	if(MCtrack->m_pointSTTCoordList.size() > mc_length){
-	  AllSttpoints.clear();
-	  for(int kk = 0; kk < mc_length; kk++){
-	    AllSttpoints.insert( AllSttpoints.begin(),MCtrack->m_pointSTTCoordList[kk]);
-	  }
-	  }*/
-	//printf("NUMBER PTS IN LIST %d\n", AllSttpoints.size());
-	 mcCurvPars.m_a = -1;
-	 mcCurvPars.m_b = -1;
+        CurvatureParameters mcCurvPars, mcCurvPars2, mcCurvSTT, componentCurvPars,componentCurvPars2;
+
+	mcCurvPars.m_a = -1;
+	mcCurvPars.m_b = -1;
+	//	componentCurvPars.m_a = mcCurvPars.m_a;
+	//	componentCurvPars.m_b = mcCurvPars.m_b;
         //std::vector<point3D> const &AllSttpoints = MCtrack->m_pointSTTCoordList;
-	 //  int blabla1 = CircleFit(AllSttpoints, mcCurvPars);
-	 fit_circle(AllSttpoints, mcCurvPars);
-	 fit_circle(MCpoints, mcCurvSTT);
+	//  int blabla1 = CircleFit(AllSttpoints, mcCurvPars);
+	fit_circle(AllSttpoints, mcCurvPars);
+	fit_circle(MCpoints, mcCurvSTT);
+	fit_circle(anchorsPts, componentCurvPars);
 
-		//	dbgtrkerror("Number of it MC %d", blabla1);
-
-        /*________ Determine curvature for bet match tracklet _____*/
-        CurvatureParameters componentCurvPars,componentCurvPars2 ;
-        // FIXME: Maybe better to include virtuals. Better gradual ....
-	//	ComputeCurvatureForListOfnodes(hitMap, anchorsPts, componentCurvPars);
-	componentCurvPars.m_a = mcCurvPars.m_a;
-	componentCurvPars.m_b = mcCurvPars.m_b;
-	/*int blabla2 = CircleFit(allmatch, componentCurvPars); //allmatch
-
-	if (blabla2 == 4999999){
-	  componentCurvPars.m_a = -1;//mcCurvPars.m_a;
-	  componentCurvPars.m_b = -1;//mcCurvPars.m_b;
-	  blabla2 = CircleFit(allmatch, componentCurvPars);
-	  }*/
-	//	dbgtrkerror("Number of it CC %d", blabla2);
-	//	if(blabla <= 1000)
-	//	  error("PROBLEM");
-       	fit_circle(anchorsPts, componentCurvPars);
-	//float allp = 0;
+	/* Try with randomizing isochrone radius*/
 	std::vector<float> allp;
 	for(int in = 0; in < 100; in++){
 	  CCpoints.clear();
-	  // ii = 0;
-	  // for(compIt = bestMatchComponent->begin(); compIt != bestMatchComponent->end(); ++compIt) {
-	  for(int kk = 0; kk < r_iso.size();kk++) {
-	    // int id = *compIt;
-	    // Only Real stt tubes, MC does not know anything of the
-	    // virtuals
-	    //int idx = hitMap.Find(id);
-	    // GridNode &node = Ingrid[idx];
-	    // std::vector<int> MCSttCompVect(MCtrack->m_STT_Component);
+	  for(size_t kk = 0; kk < r_iso.size();kk++) {
 	    float rx =0, ry =0;
-	    //   //rx = ((float) rand()) / (float) RAND_MAX - 0.5;
-	    // ry = ((float) rand()) / (float) RAND_MAX - 0.5;
-	    // if(r_iso[kk] != 0){// (id < START_VIRTUAL_ID ) && (id >= 0) ) {
-	      //auto it = std::find(MCSttCompVect.begin(), MCSttCompVect.end(), node.m_detID);
-	      // if (it != MCSttCompVect.end()) && node.m_type!=GridNode::STT_TYPE_SKEW
-	      //	{
-	      //	  int index = std::distance(MCSttCompVect.begin(), it);
-	      //  float r_iso = isochrone[index];
-
 	    if(r_iso[kk] >0){
-	      //float distToNext = kk != r_iso.size()-1? sqrt(pow(x[kk+1]-x[kk],2)+pow(y[kk+1]-y[kk],2)):
-	      //	sqrt(pow(x[kk]-x[kk-1],2)+pow(y[kk]-y[kk-1],2));
-	       float ri = r_iso[kk];
-	      // float distMax = sqrt(pow(distToNext,2)+pow(ri,2));
-	      // error("%f, %f,  DistNext %f, DistMax %f",x[kk],y[kk],distToNext, distMax);
+	      float ri = r_iso[kk];
 	      rx = ((float) rand()) / (float) RAND_MAX * ri * 2 -ri;
 	      ry =sqrt(pow(ri,2) - pow(rx,2));
 	      float randNeg = ((float) rand()) / (float) RAND_MAX - 0.5;
 	      // ry = ((float) rand()) / (float) RAND_MAX * ry * 2 -ry;
-	      ry = randNeg < 0? -1*ry:ry;
-	      //	printf("%f,%f, %f\n", r_iso, rx, ry);
-	      //	}
-	      /* if( kk != 0 && kk != r_iso.size()-1){
-
-		double maxAng = returnAngle(x[kk-1], x[kk],x[kk+1],y[kk-1], y[kk], y[kk+1]);
-		//	float curDist =kk != r_iso.size()-1? sqrt(pow(x[kk+1]-(x[kk]+rx),2)+pow(y[kk+1]-(y[kk]+ry),2)):/
-		//	  sqrt(pow(-x[kk-1]+(x[kk]+rx),2)+pow(-y[kk-1]+(y[kk]+ry),2));
-		double curAng = returnAngle(x[kk-1], x[kk], x[kk]+rx, y[kk-1], y[kk], y[kk]+ry);
-
-		bool cod = curAng <= MAX(maxAng, 0) && curAng >= MIN(maxAng, 0) || fabs(maxAng) < 170 || fabs(maxAng) > 10? true:false;
-		int test = 0;
-		while(!cod && test<100){
-		  rx = ((float) rand()) / (float) RAND_MAX * ri * 2 -ri;
-		  ry =sqrt(pow(ri,2) - pow(rx,2));
-		  float randNeg = ((float) rand()) / (float) RAND_MAX - 0.5;
-		  // ry = ((float) rand()) / (float) RAND_MAX * ry * 2 -ry;
-		  ry = randNeg < 0? -1*ry:ry;
-		  //  curDist =kk != r_iso.size()-1? sqrt(pow(x[kk+1]-(x[kk]+rx),2)+pow(y[kk+1]-(y[kk]+ry),2)):
-		  //   sqrt(pow(-x[kk-1]+(x[kk]+rx),2)+pow(-y[kk-1]+(y[kk]+ry),2));
-		  curAng = returnAngle(x[kk-1], x[kk], x[kk]+rx, y[kk-1], y[kk], y[kk]+ry);
-		  cod = curAng <= MAX(maxAng, 0) && curAng >= MIN(maxAng, 0)? true:false;
-		  test++;
-		}
-		
-		//	error("Ang max %lf, cur %lf", maxAng,curAng);
-
-		}*/
-	      //   error("New pos %f, %f, ",x[kk]+rx,y[kk]+ry);
-	
+	      ry = randNeg < 0? -1*ry:ry;	
 	    }
-
 	    point3D pt(x[kk]+rx,y[kk]+ry,z[kk]);
 	    CCpoints.push_back(pt);
-	    // }
-	    /*  if( (id < START_VIRTUAL_ID ) && (id >= 0) ) {
-		bestMatchlist.push_back(id);
-		point3D pt2(node.m_x,node.m_y,node.m_z);
-		CCpoints.push_back(pt2);
-		}*/
-	      //ii++;
 	  }
 	  fit_circle(CCpoints, componentCurvPars2);
 	  // if(0.3*2.*1./componentCurvPars2.m_r*0.01 < 20){
 	  allp.push_back(componentCurvPars2.m_r);
 	  // error("FLY CC rec pt %f", 0.3*2.*1./componentCurvPars2.m_r*0.01);//0.3*2.*1./componentCurvPars2.m_r*0.01
-
-	    //  } else
-	//    in--;
 	}
 	sort( allp.begin(), allp.end() );
+	
+
+
+	
 	/*	if(f1score == 1 && mc_length >= 20 && 0.3*2.*1./componentCurvPars.m_r*0.01>1){
 	  error(" MCtrack %d, MC pt %f", i,0.3*2.*1./mcCurvPars.m_r*0.01);
 	  error(" CC rec pt %f, %f, %f", allp[allp.size()/2],allp[84]-allp[allp.size()/2], allp[allp.size()/2]-allp[16]);//0.3*2.*1./componentCurvPars2.m_r*0.01
@@ -879,7 +751,7 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 	erroObject->alldisz = alldisz;
 	erroObject->Complex = complex;
         erroObject->BestMatchMCLength  = mc_length ;//MCtrack->m_pointSTTCoordList.size();
-        erroObject->CurrentTrackLength = bestMatchlist.size();
+        erroObject->CurrentTrackLength = matchValue;//bestMatchlist.size();
         // Set diffs
         erroObject->MCMinCurrentLength = MCdiffCurComp.size();
         erroObject->CurrentMinMCLength = CurCompdiffMC.size();
@@ -903,10 +775,8 @@ std::vector< MCMatchingError* >* MatchPerTrackWithMCTracks(CoordGrid const &hitM
 	erroObject->MC_pz = (double) MCmomentum[0].m_z;
         erroObject->MC_a  = mcCurvPars.m_a;
         erroObject->MC_b  = mcCurvPars.m_b;
-	//	error("%f", sqrt(pow(MCmomentum[0].m_x,2) +pow(MCmomentum[0].m_y,2)));
-        erroObject->MC_r = mcCurvPars.m_r;// is 1/r
-        erroObject->MC_E =  mcCurvSTT.m_r;//blabla1;
-	//	dbgtrkerror("MCtrack %d, MC 1/r %f", i, mcCurvPars.m_r);
+        erroObject->MC_r  = mcCurvPars.m_r;// is 1/r
+        erroObject->MC_E  =  mcCurvSTT.m_r;//blabla1;
 
         // Matched tracklet
         erroObject->tr_a = allp[84]-allp[allp.size()/2];//componentCurvPars.m_a;

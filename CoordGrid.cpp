@@ -9,6 +9,7 @@
 #include <set>
 
 // Local includes.
+#include "auxfunctions.h"
 #include "hitcoordinate.h"
 #include "gridNode.h"
 #include "CoordGrid.h"
@@ -94,23 +95,7 @@ void CoordGrid::CorrectLayerLimit()
   }
 }
 
-
 	 
-/*
- * Modify the node id numbering in order to include the virtual tubes
- * in the correct positions between the layes based on their
- * id's. Geometrically their coordinates are correct.
- *
- * "m_Orig_detID": Corresponds with the original ID's as provided by
- * the detector maps.
- *
- * "m_detID": Is the id after modifications.
- */
-void CoordGrid::Rearange_nodeIds()
-{
-  std::cout << "<Warning> Rearange_nodeIds is called but not implemented yet.\n";
-}
-
 /***/
 void CoordGrid::ExtendedGrid(std::vector < GridNode > const &nodes)
 {
@@ -123,6 +108,300 @@ void CoordGrid::AddNodeToGrid(GridNode const &node)
 {
   m_grid.push_back(GridNode(node));
 }
+
+
+void  CoordGrid::FindNodeBetweenLayerNodePairs(std::vector< TubeLayerPairProperty > &NodePairSet)
+{
+  dbggrid("Finding tube pairs to compute virtual nodes.");
+
+  // List of all nodes available in the image (detector map)
+  std::vector< GridNode > const &Ingrid = m_grid;
+  size_t layerDiff = 0;
+  
+  // Grid node loop to find the possible pairs.
+  for(size_t i = 0; i < Ingrid.size(); ++i) {
+    GridNode const &current_Node = Ingrid[i];
+    // List of neighbors
+    std::vector<int> const &neighList = current_Node.GetNeighbors();
+    // Neighbors loop
+    for( size_t j = 0; j < neighList.size(); ++j) {
+      int neighbourID = neighList[j];// Neighbour ID
+      int neigh_Index = Find(neighbourID);// Index in the map
+      // Neighbor node
+      GridNode const &neigh_node = Ingrid[neigh_Index];
+      /*
+       * If the nodes have different slopes and not in the same layer.
+       */
+      // Not the same slope
+      if( (current_Node.m_Slope > neigh_node.m_Slope) ||
+	  (current_Node.m_Slope < neigh_node.m_Slope) ) {
+	// Not the same layer
+	layerDiff = (current_Node.m_Layer > neigh_node.m_Layer) ?
+	            (current_Node.m_Layer - neigh_node.m_Layer) :
+	            (neigh_node.m_Layer - current_Node.m_Layer);
+	// Exactly one layer difference
+	if( layerDiff == 1 ) {
+	  // Create a pair
+	  TubeLayerPairProperty pp;
+	  pp.firstNodeID     = current_Node.m_detID;
+	  pp.firstNodeIndex  = i;
+	  pp.secondNodeID    = neighbourID;
+	  pp.secondNodeIndex = neigh_Index;
+	  // Add to pairs list
+	  NodePairSet.push_back(pp);
+	}
+      }// If not same slope
+    }// Neighbour loop
+  }// Grid node loop
+  /*
+   * Now we need to mark duplicates as invalid combinations. Not so
+   * efficient. Since geometry is nog changing, we don't realy
+   * mind.
+   */
+  for(size_t f = 0; f < NodePairSet.size(); ++f) {
+    // First pair
+    TubeLayerPairProperty &first = NodePairSet[f];
+    for(size_t s = (f + 1); s < NodePairSet.size(); ++s) {
+      // Second pair
+      TubeLayerPairProperty &second = NodePairSet[s];
+      // If pairs are equivalent mark the second as invalid
+      if( equalTubePairProperty(first, second) ) {
+	// Mark the second as invalid
+	second.isValid = false;
+      }
+    }
+  }
+  size_t cnt = 0;
+  for(size_t i = 0; i < NodePairSet.size(); ++i) {
+    if( NodePairSet[i].isValid ) {
+      cnt++;
+    }
+  }
+  dbggrid("Found %lu pairs and %lu valid ones", NodePairSet.size(), cnt);
+}
+//____________________ END FindNodeBetweenLayerNodePairs _____________
+
+
+void CoordGrid::AddVirtualNodes(std::vector < GridNode > &VNodesLayer,  std::vector < GridNode > &VNodesSector)
+{
+  dbggrid("Computing grid virtual tubes (Neigbor based).");
+  // Dummy local counters.
+  int NumTubesAdded  = 0;
+  // Start node ID for virtual nodes.
+  int StartVirtualID = START_VIRTUAL_ID;//6000;
+
+  // List of all nodes available in the detector map.
+  std::vector< GridNode > &Ingrid = m_grid;
+  // Sort all nodes by their layer number
+  dbggrid("Sorting nodes, increasing layer number");
+  std::sort(Ingrid.begin(), Ingrid.end(), LessThanLayer);
+  // Determine the pairs of nodes between the layers for which we want
+  // to compute virtual nodes and discard duplicates.
+  std::vector< TubeLayerPairProperty > NodePairSet;
+  FindNodeBetweenLayerNodePairs(NodePairSet);
+
+  // Loop through the possible combinations and create virtual nodes
+  // if the actual tubes virtually intersect.
+  for(size_t i = 0; i < NodePairSet.size(); ++i) {
+    TubeLayerPairProperty const &prop = NodePairSet[i];
+    if(prop.isValid) {
+      GridNode  &firstNode  = Ingrid[ prop.firstNodeIndex ];
+      GridNode  &secondNode = Ingrid[ prop.secondNodeIndex ];
+      // Create dummy virtual
+
+      GridNode Dummy_coord;
+      // Find intersection point.
+      //     if(firstNode.m_type == GridNode::STT_TYPE_SKEW && secondNode.m_type == GridNode::STT_TYPE_SKEW)
+      //     //	IntersectionPoint(hitMap, firstNode, secondNode, Dummy_coord) ;
+      //     else
+      // if(firstNode.m_type == GridNode::STT_TYPE_SKEW && secondNode.m_type == GridNode::STT_TYPE_SKEW)
+	IntersectionPointTubes(firstNode, secondNode, Dummy_coord);
+//else
+//	IntersectionPointSkeSke(firstNode, secondNode, Dummy_coord);
+
+	// Modify node ID
+	Dummy_coord.m_detID      = StartVirtualID + NumTubesAdded;
+	Dummy_coord.m_Orig_detID = Dummy_coord.m_detID;
+	std::pair<float, float> r_Theta;
+	float theta_deg = Cartesian_To_Polar(Dummy_coord.m_xDet, Dummy_coord.m_yDet, r_Theta);
+	Dummy_coord.m_r = r_Theta.first;
+	Dummy_coord.m_thetaDeg = theta_deg;
+
+	VNodesLayer.push_back(Dummy_coord);
+	NumTubesAdded++;
+      // If intersect
+    }// END if the pair is valid
+  }// End for NodePairSet
+  // Reset visiting variable for all nodes in the input graph
+
+  std::vector< std::vector<size_t> > SectorLeft;
+  std::vector< std::vector<size_t> > SectorRight;
+
+  for(size_t i = 0; i < 6; ++i) {
+    SectorLeft.push_back(std::vector<size_t>());
+    SectorRight.push_back(std::vector<size_t>());
+  }
+  // DEBUG
+  TNtuple limL ("SelectedSectorLeft","SELECTED SKEWED BETWEEN SECTORS","x:y:z");
+  TNtuple limR ("SelectedSectorRight","SELECTED SKEWED BETWEEN SECTORS","x:y:z");
+  // DEBUG
+  // Find sector boundaries per sector and per side
+  for(size_t i = 0; i < Ingrid.size(); ++i) {
+    GridNode const &tube = Ingrid[i];
+    if( (tube.m_type != GridNode::VIRTUAL_NODE) ) {
+      // Left or right boundary limit
+      if(tube.m_SectorLimit == -1) {
+	(SectorLeft[tube.m_Sector]).push_back(i);
+	limL.Fill(tube.m_x, tube.m_y, tube.m_z);
+      }
+      // Right limit
+      else if(tube.m_SectorLimit == 1) {
+	(SectorRight[tube.m_Sector]).push_back(i);
+	limR.Fill(tube.m_x, tube.m_y, tube.m_z);
+      }
+    }
+  }
+  //_______
+  dbggrid(" Total number of sectors = %d", SectorLeft.size());
+  dbggrid(" Number of left boundary limits = %d" , SectorLeft.size());
+  dbggrid(" Number of right boundary limits = %d", SectorRight.size());
+  
+  double currDist = 0;
+  size_t R_Index = 0;
+  // Loop all the sectors.
+  for(size_t s = 0; s < 6; ++s) { // Numsectors = 6
+    std::vector<size_t> const &currentLeftSector = SectorLeft[s];
+    // The counter sector is SectorRight[s - 1]. The right limts of
+    // the previous sector.
+    R_Index = ( s == 0 ) ? (SectorRight.size() - 1) : (s - 1);
+    std::vector<size_t> const &currentRightSector = SectorRight[R_Index];
+    // For each tube find its nearest neighbor in the other sector.
+    for(size_t l = 0; l < currentLeftSector.size(); ++l) {
+      GridNode  &CurLftNode = Ingrid[currentLeftSector[l]];
+      for(size_t r = 0; r < currentRightSector.size(); ++r) {
+	GridNode  &CurRgtNode = Ingrid[currentRightSector[r]];
+	// If in the same layer
+	if( (labs(CurLftNode.m_Layer - CurRgtNode.m_Layer) <=1 ) &&
+	    (CurLftNode.m_Sector != CurRgtNode.m_Sector) &&
+	    (CurLftNode.m_type == GridNode::STT_TYPE_SKEW && CurRgtNode.m_type == GridNode::STT_TYPE_SKEW) &&
+	    (CurLftNode.m_detID != CurRgtNode.m_detID)
+	    ){
+	  currDist = distanceBetweenTube(CurLftNode, CurRgtNode);
+	  //sqrt((CurLftNode.m_x - CurRgtNode.m_x) * (CurLftNode.m_x - CurRgtNode.m_x) + (CurLftNode.m_y - CurRgtNode.m_y) * (CurLftNode.m_y - CurRgtNode.m_y));
+	  
+	  //if( CurLftNode.m_detID == 1318 || CurRgtNode.m_detID == 1318)
+	  //    /info("%d, %d, %lf", firstNode.m_detID, secondNode.m_detID, distanceBetweenTube(firstNode, secondNode));
+	  //info("Node %d and %d, dist %f", CurLftNode.m_detID, CurRgtNode.m_detID, currDist); 
+	  if(currDist <3.5){
+	    (CurLftNode.m_neighbors).push_back(CurRgtNode.m_detID);
+	    /*	    GridNode Dummy_coord;
+	    // Find intersection point.
+	    IntersectionPointSkeSke(hitMap, CurLftNode, CurRgtNode, Dummy_coord);
+
+	    Dummy_coord.m_detID      = StartVirtualID + NumTubesAdded;
+	     Dummy_coord.m_Orig_detID = Dummy_coord.m_detID;
+	      std::pair<float, float> r_Theta;
+	      float theta_deg = Cartesian_To_Polar(Dummy_coord.m_xDet, Dummy_coord.m_yDet, r_Theta);
+	      Dummy_coord.m_r = r_Theta.first;
+	      Dummy_coord.m_thetaDeg = theta_deg;
+
+	     VNodesSector.push_back(Dummy_coord);
+	     NumTubesAdded++;*/
+	  }
+	}
+      }
+    }
+  }
+  for(size_t i = 0; i < Ingrid.size(); ++i) {
+    Ingrid[i].m_visited = false;
+  }
+
+  dbggrid(" Determined %d virtual tubes (neighborList)", NumTubesAdded);
+
+}
+
+void CoordGrid::fixNeighboring()
+{
+  dbggrid("Correcting the missing neighbor relations.");
+  size_t NumFixed = 0;
+  // List of all nodes available in the image (detector map)
+  //std::vector< GridNode > &Ingrid = hitMap.GetGrid();
+  std::vector< GridNode > &Ingrid = m_grid;
+
+  // Tubes loop
+  for(size_t i = 0; i < Ingrid.size()-1; ++i) {
+    GridNode &first = Ingrid[i];
+    // neighbor tubes loop
+    for(size_t j = i+1; j < Ingrid.size(); ++j) {
+      GridNode &second = Ingrid[j];
+      // A neig B and
+      // if(first.m_detID == 1768 || second.m_detID == 1768)
+      //	info("%d, %d", first.m_detID,second.m_detID);
+
+	
+      if( ( first.IsNeighboring(second.m_detID) ) &&
+	  ( !second.IsNeighboring(first.m_detID) )
+	  ) {
+	// Add first to the second
+
+	second.m_neighbors.push_back(first.m_detID);
+	NumFixed++;
+      }
+      // Otherwise
+      if( ( second.IsNeighboring(first.m_detID) ) &&
+          ( !first.IsNeighboring(second.m_detID) ) ){
+
+	first.m_neighbors.push_back(second.m_detID);
+	NumFixed++;
+      }
+    }// END For (j )
+  }// END for(i)
+  dbggrid("Total number of corrected neighboring relations = %lu", NumFixed);
+}
+
+
+
+void CoordGrid::isolateSectorAndLayerLimits(TNtuple &Sections, TNtuple &Layers)
+{
+  size_t countL, countS;
+  countL = countS = 0;
+
+  // Fetch the list of all detectors.
+  //std::vector< GridNode > const &Ingrid = hitMap.GetGrid();
+  std::vector< GridNode > const &Ingrid = m_grid;
+
+  for(size_t i = 0; i < Ingrid.size(); ++i) {
+    GridNode const &tube = Ingrid[i];
+    
+    if( tube.m_LayerLimit &&
+	(tube.m_type != GridNode::VIRTUAL_NODE)
+      ) {
+      Layers.Fill(tube.m_x, tube.m_y, tube.m_z_Det, tube.m_z);
+      countL++;
+    }
+    // it returns -1 if the tube is at the front, 1 if is at the back
+    // of the sector border and 0 elsewhere.
+    //( (tube.m_SectorLimit == 1) || (tube.m_SectorLimit == -1) || (tube.m_SectorLimit == 0) ) &&
+    if( (tube.m_SectorLimit != 0)
+	&& (tube.m_type != GridNode::VIRTUAL_NODE)
+      ) {
+      Sections.Fill(tube.m_x, tube.m_y, tube.m_z_Det, tube.m_z);
+      countS++;
+    }
+  }
+  // Set draw attributes for layer limits
+  Layers.SetMarkerStyle(8);
+  Layers.SetMarkerSize(0.5);
+  Layers.SetMarkerColor(kBlack);
+  // Set draw attributes for Sector limits
+  Sections.SetMarkerStyle(8);
+  Sections.SetMarkerSize(0.5);
+  Sections.SetMarkerColor(kBlue);
+
+  // Report numbers.
+  dbggrid("Count layer limit = %lu, sector limit: %lu", countL, countS);
+}
+
 
 /*
  * Note: Current implementation is not optimal and might be very
@@ -176,168 +455,6 @@ void CoordGrid::FillGrid(std::vector < HitCoordinate* > const& hitcoords)
   // All real tubes are activated.  Now we need to activate virtual
   // tubes as well. Note that every virtual tube has ONLY two
   // neighbors. These are the parent neigbours.
-   std::vector<int> tocheck;
-  char *visited 	= (char *) calloc(firstVirtIdx, sizeof(char));
-  /*
-  for(size_t j = firstVirtIdx; j < m_grid.size(); j++) {
-    GridNode &Virtual_tube = m_grid[j];
-    if( Virtual_tube.m_type == GridNode::VIRTUAL_NODE) {
-      std::vector<int> const &Neig_List = Virtual_tube.m_neighbors;
-      //assert (Neig_List.size() == 2);
-      // Note that each virtual tube can only have 2 neigbors.
-      int nID = Neig_List[0];
-      int nIndex = Find(nID);
-      GridNode const &First  = m_grid[nIndex];
-      nID = Neig_List[1];
-      nIndex = Find(nID);
-      GridNode const &Second = m_grid[nIndex];
-
-      if( (First.m_active) && (Second.m_active) ) {
-	if(!visited[First.m_detID]){
-	  tocheck.push_back(First.m_detID);
-	  visited[First.m_detID] = 1;
-	}
-	if(!visited[Second.m_detID]){
-	  tocheck.push_back(Second.m_detID);
-	  visited[Second.m_detID] = 1;
-	}
-
-	Virtual_tube.m_active = true;
-	vCnt++;
-      }
-    }
-  }
-
-
-  //  printf("need to check %d \n", tocheck.size());
-
-  for(size_t j = 0; j < tocheck.size(); j++) {
-    int nID = tocheck[j];
-
-    int nIndex = Find(nID);
-    GridNode  &First  = m_grid[nIndex];
-    if(First.m_neighbors.size() < 4)
-      continue;
-
-    char *neighVis 	= (char *) calloc(First.m_neighbors.size(), sizeof(char));
-
-    for(int k = 0; k < First.m_neighbors.size(); k++){
-      int neigh = First.m_neighbors[k];
-      int neighIdx = Find(neigh);
-      GridNode const &neighNode  = m_grid[neighIdx];
-      
-      if( neighNode.m_type != GridNode::VIRTUAL_NODE || neighVis[k] || !neighNode.m_active){
-	neighVis[k] = 1;
-	continue;
-      }
-
-      std::vector<int> inDir;
-      std::vector<double> distDir;
-
-      int cnt = 0;
-      int xdir = First.m_x - neighNode.m_x > 0? 1: 0;
-      int ydir = First.m_y - neighNode.m_y > 0? 1: 0;
-      double dist = sqrt((First.m_x - neighNode.m_x)*(First.m_x - neighNode.m_x) +
-			 (First.m_y - neighNode.m_y)*(First.m_y - neighNode.m_y));
-      inDir.push_back(neigh);
-      distDir.push_back(dist);
-	
-      for(int l = 0; l < First.m_neighbors.size(); l++){
-	int neigh2 = First.m_neighbors[l];
-	if(neigh == neigh2 || neighVis[l])
-	  continue;
-	
-	int neighIdx2 = Find(neigh2);
-	GridNode const &neighNode2  = m_grid[neighIdx2];
-	if( neighNode2.m_type != GridNode::VIRTUAL_NODE || !neighNode2.m_active) {
-	  neighVis[l] = 1;
-	  continue;
-	}
- 
-	int neighxdir = First.m_x - neighNode2.m_x > 0? 1: 0;
-	int neighydir = First.m_y - neighNode2.m_y > 0? 1: 0;
-	if(neighxdir != xdir || neighydir != ydir)
-	  continue;
-	
-	double neighdist =  sqrt((First.m_x - neighNode2.m_x)*(First.m_x - neighNode2.m_x) +
-				 (First.m_y - neighNode2.m_y)*(First.m_y - neighNode2.m_y));
-	inDir.push_back(neigh2);
-	distDir.push_back(neighdist);
-	neighVis[l] = 1;	
-      }
-      if(inDir.size() > 2){
-	dbggrid("ID %d has several virtual nodes in the same direction, we can clean ", nID);
-	vector<pair<int, double>> order(inDir.size());
-	for (int i=0; i<inDir.size(); ++i)
-	  order[i] = make_pair(inDir[i], distDir[i]);
-	sort(order.begin(), order.end(), ordering());
-	
-	for (int i=2; i<inDir.size(); ++i){
-	  int id = order[i].first;
-	  int idx = Find(id);
-	  GridNode  &remove  = m_grid[idx];
-	  // remove.m_active = false;
-	  (First.m_neighbors).erase(std::remove((First.m_neighbors).begin(), (First.m_neighbors).end(),id), (First.m_neighbors).end());
-	}
-      }
-      neighVis[k] = 1;
-    }
-  }
-
-	//	int skeID = neighNode.m_neighbors[0] == nID? neighNode.m_neighbors[1]: neighNode.m_neighbors[0];
-	//	int skeIdx = Find(skeID);
-	//	GridNode const &skeNode  = m_grid[neighIdx];
-	
-	*/
-  /*int cnt = 0;
-    int xdir = First.m_x - Virtual_tube.m_x > 0? 1: 0;
-    int ydir = First.m_y - Virtual_tube.m_y > 0? 1: 0;
-    double dist = sqrt((First.m_x - Virtual_tube.m_x)*(First.m_x - Virtual_tube.m_x) +
-    (First.m_y - Virtual_tube.m_y)*(First.m_y - Virtual_tube.m_y));
-
-    for(int k = 0; k < First.m_neighbors.size(); k++){
-    int neigh = First.m_neighbors[k];
-    if(neigh == Virtual_tube.m_detID)
-    continue;
-    int neighIdx = Find(nID);
-    GridNode const &neighNode  = m_grid[nIndex];
-    if( neighNode.m_type == GridNode::VIRTUAL_NODE) {
-    int neighxdir = First.m_x - neighNode.m_x > 0? 1: 0;
-    int neighydir = First.m_y - neighNode.m_y > 0? 1: 0;
-    if(neighxdir != xdir || neighydir != ydir)
-    continue;
-    double neighdist =  sqrt((First.m_x - neighNode.m_x)*(First.m_x - neighNode.m_x) +
-    (First.m_y - neighNode.m_y)*(First.m_y - neighNode.m_y));
-    if(neighdist < dist)
-    cnt++;
-    }
-    }
-    if(cnt > 1)
-    continue;
-
-    cnt = 0;
-
-    for(int k = 0; k < Second.m_neighbors.size(); k++){
-    int neigh = Second.m_neighbors[k];
-    if(neigh == Virtual_tube.m_detID)
-    continue;
-    int neighIdx = Find(nID);
-    GridNode const &neighNode  = m_grid[nIndex];
-    if( neighNode.m_type == GridNode::VIRTUAL_NODE) {
-    int neighxdir = Second.m_x - neighNode.m_x > 0? 1: 0;
-    int neighydir = Second.m_y - neighNode.m_y > 0? 1: 0;
-    if(neighxdir != xdir || neighydir != ydir)
-    continue;
-    double neighdist =  sqrt((Second.m_x - neighNode.m_x)*(First.m_x - neighNode.m_x) +
-    (Second.m_y - neighNode.m_y)*(First.m_y - neighNode.m_y));
-    if(neighdist < dist)
-    cnt++;
-    }
-    }
-
-    if(cnt > 1)
-    continue;*/
-  free(visited);
   info("Stored real STT points = %u,  %u virtual nodes, and %u MVD points", sttCnt,vCnt, mvdCnt);
 }
 
@@ -563,6 +680,11 @@ void CoordGrid::ActiveNeighboursList(int NodeID, std::vector<int> &ListOfNeighbo
             << std::endl;
 }
 //__________________________ END ActiveNeighboursList ___________________
+
+
+//_________________________ END isolateSectorAndLayerLimits __________
+
+
 //_____________ Debug function to dump in a file
 #if (WRITE_GRID_TO_ASCII > 0)
 void CoordGrid::WriteGrid(std::string const& fileName)const

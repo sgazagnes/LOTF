@@ -82,7 +82,7 @@ phfitting_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/in
 phfitting_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVectorFfwd.h
 phfitting_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVectorDfwd.h
 phfitting_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TFitResultPtr.h
-phfitting_cpp.so: simon_functions.h CoordGrid.h gridNode.h
+phfitting_cpp.so: auxfunctions.h CoordGrid.h gridNode.h
 phfitting_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVector3.h
 phfitting_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TError.h
 phfitting_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVector2.h
@@ -97,7 +97,6 @@ phfitting_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/in
 phfitting_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixFUtils.h
 phfitting_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixFUtilsfwd.h
 phfitting_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMath.h
-phfitting_cpp.so: pathCandidate.h auxiliaryfunctions.h utilfunctions.h logc.h
-phfitting_cpp.so: path_queue.h phfitting.h
+phfitting_cpp.so: pathCandidate.h logc.h phfitting.h
 phfitting_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RVersion.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RConfig.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TClass.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TDictAttributeMap.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TInterpreter.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TROOT.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TBuffer.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMemberInspector.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TError.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RtypesImp.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TIsAProxy.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TFileMergeInfo.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TCollectionProxyInfo.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/bin/rootcling
 phfitting_cpp__ROOTBUILDVERSION= 6.16/00

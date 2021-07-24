@@ -97,8 +97,7 @@ phmerging_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/in
 phmerging_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixFUtils.h
 phmerging_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixFUtilsfwd.h
 phmerging_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMath.h
-phmerging_cpp.so: logc.h simon_functions.h CoordGrid.h pathCandidate.h
-phmerging_cpp.so: auxiliaryfunctions.h utilfunctions.h path_queue.h
+phmerging_cpp.so: logc.h auxfunctions.h CoordGrid.h pathCandidate.h
 phmerging_cpp.so: phmerging.h
 phmerging_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RVersion.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RConfig.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TClass.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TDictAttributeMap.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TInterpreter.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TROOT.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TBuffer.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMemberInspector.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TError.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RtypesImp.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TIsAProxy.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TFileMergeInfo.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TCollectionProxyInfo.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/bin/rootcling
 phmerging_cpp__ROOTBUILDVERSION= 6.16/00

@@ -165,6 +165,48 @@ bool greaterThanCurve(candidateDistobject const &lc, candidateDistobject const &
 /**
  * Data structure to represent a point in 3D space
  */
+struct point3D{
+  // public:
+point3D()
+: m_x(0.000),
+    m_y(0.000),
+    m_z(0.000)
+  {};
+  
+explicit point3D(float x, float y, float z)
+  : m_x(x),
+    m_y(y),
+    m_z(z)
+  {};
+  
+point3D(point3D const &ot)
+  : m_x(ot.m_x),
+    m_y(ot.m_y),
+    m_z(ot.m_z)
+  {};
+
+  virtual ~point3D(){};
+
+  point3D& operator=(point3D const &ot)
+  {
+    if(this != &ot) {
+      this->m_x = ot.m_x;
+      this->m_y = ot.m_y;
+      this->m_z = ot.m_z;
+    }
+    return (*this);
+  };
+
+  // member parameters.
+  float m_x;
+  float m_y;
+  float m_z;
+
+private:
+  bool operator==(point3D const &ot) const;
+  bool operator>(point3D const &ot) const;
+  bool operator<(point3D const &ot) const;
+};
 
 //_____________________________
 /**

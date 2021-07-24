@@ -79,7 +79,7 @@ floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/bui
 floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVectorFfwd.h
 floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVectorDfwd.h
 floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TFitResultPtr.h
-floodingFilter_cpp.so: simon_functions.h CoordGrid.h gridNode.h
+floodingFilter_cpp.so: auxfunctions.h CoordGrid.h gridNode.h
 floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVector3.h
 floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TError.h
 floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVector2.h
@@ -94,11 +94,9 @@ floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/bui
 floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixFUtils.h
 floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixFUtilsfwd.h
 floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMath.h
-floodingFilter_cpp.so: pathCandidate.h auxiliaryfunctions.h utilfunctions.h
-floodingFilter_cpp.so: CollectSttMvdPoints.h
+floodingFilter_cpp.so: pathCandidate.h CollectSttMvdPoints.h
 floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TClonesArray.h
-floodingFilter_cpp.so: hitcoordinate.h pathopen.h reconstruction.h
-floodingFilter_cpp.so: trackObject.h error.h logc.h phconnect.h phfitting.h
-floodingFilter_cpp.so: phmerging.h phzinterp.h
+floodingFilter_cpp.so: hitcoordinate.h error.h trackObject.h logc.h
+floodingFilter_cpp.so: phconnect.h phfitting.h phmerging.h phzinterp.h
 floodingFilter_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RVersion.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RConfig.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TClass.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TDictAttributeMap.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TInterpreter.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TROOT.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TBuffer.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMemberInspector.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TError.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RtypesImp.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TIsAProxy.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TFileMergeInfo.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TCollectionProxyInfo.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/bin/rootcling
 floodingFilter_cpp__ROOTBUILDVERSION= 6.16/00

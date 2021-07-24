@@ -82,8 +82,7 @@ phzinterp_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/in
 phzinterp_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVectorFfwd.h
 phzinterp_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVectorDfwd.h
 phzinterp_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TFitResultPtr.h
-phzinterp_cpp.so: phzinterp.h pathCandidate.h auxiliaryfunctions.h
-phzinterp_cpp.so: utilfunctions.h gridNode.h
+phzinterp_cpp.so: phzinterp.h gridNode.h
 phzinterp_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVector3.h
 phzinterp_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TError.h
 phzinterp_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVector2.h
@@ -98,6 +97,6 @@ phzinterp_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/in
 phzinterp_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixFUtils.h
 phzinterp_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixFUtilsfwd.h
 phzinterp_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMath.h
-phzinterp_cpp.so: CoordGrid.h logc.h simon_functions.h
+phzinterp_cpp.so: pathCandidate.h auxfunctions.h CoordGrid.h logc.h
 phzinterp_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RVersion.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RConfig.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TClass.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TDictAttributeMap.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TInterpreter.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TROOT.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TBuffer.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMemberInspector.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TError.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RtypesImp.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TIsAProxy.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TFileMergeInfo.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TCollectionProxyInfo.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/bin/rootcling
 phzinterp_cpp__ROOTBUILDVERSION= 6.16/00

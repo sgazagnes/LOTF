@@ -11,7 +11,7 @@
 #include <set>
 #include <vector>
 
-#include "utilfunctions.h"
+#include "auxfunctions.h"
 
 struct TrackObject {
  public:

@@ -20,9 +20,20 @@
 
 int selectCompColour(size_t compNum, size_t numColours) {
   // Set colours per component.
-  int setColor = compNum % numColours;
-  int color = 1;
-  switch (setColor) {
+  // int setColor = compNum % numColours;
+  int setColor;
+  if(compNum < 8)
+    setColor = compNum + 2;
+  else if(compNum < 18)
+    setColor = compNum + 40;
+  else if (compNum < 28)
+    setColor = compNum + 30;
+  else
+    setColor = compNum + 20;
+
+  // int color = 1;    //setColor = compNum + 30;
+
+  /* switch (setColor) {
   case 0:
     color = 632;
     break;
@@ -50,8 +61,8 @@ int selectCompColour(size_t compNum, size_t numColours) {
     //case 6:
   default:
     color = 860;
-  }
-  return color;
+    }*/
+  return setColor;
 }
 /*
  * Infile contains the ntuples

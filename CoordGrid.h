@@ -9,6 +9,7 @@
 
 // C & C++ headers.
 #include <vector>
+#include "TNtuple.h"
 
 // Local headers
 struct HitCoordinate;
@@ -20,6 +21,66 @@ struct GridNode;
 
 bool Is_STT_SplitSkewedNode( GridNode const &node);
 bool IsVirtualSplitNode( GridNode const &node);
+
+
+
+struct TubeLayerPairProperty{
+  //public:
+  // Constructor
+TubeLayerPairProperty()
+: firstNodeID(0),
+    secondNodeID(0),
+    firstNodeIndex(0),
+    secondNodeIndex(0),
+    isValid(true)
+  {};
+  // Copy constructor
+  TubeLayerPairProperty(TubeLayerPairProperty const &ot)
+  : firstNodeID(ot.firstNodeID),
+    secondNodeID(ot.secondNodeID),
+    firstNodeIndex(ot.firstNodeIndex),
+    secondNodeIndex(ot.secondNodeIndex),
+    isValid(ot.isValid)
+  {};
+  // Destructor
+  virtual ~TubeLayerPairProperty(){};
+  
+  // Operators
+  TubeLayerPairProperty& operator=(TubeLayerPairProperty const &ot)
+  {
+    // check for self-assignment
+    if(&ot != this){
+      this->firstNodeID     = ot.firstNodeID;
+      this->secondNodeID    = ot.secondNodeID;
+      this->firstNodeIndex  = ot.firstNodeIndex;
+      this->secondNodeIndex = ot.secondNodeIndex;
+      this->isValid         = ot.isValid;
+    }
+    return *this;
+  };
+  bool operator==(TubeLayerPairProperty const &ot) const
+  {
+    return  (( (firstNodeID == ot.firstNodeID)  && ( secondNodeID == ot.secondNodeID) ) ||
+	     ( (firstNodeID == ot.secondNodeID) && ( secondNodeID == ot.firstNodeID) ));
+  };
+
+  friend bool equalTubePairProperty( TubeLayerPairProperty const &l,
+				     TubeLayerPairProperty const &r)
+  {
+    return (( (l.firstNodeID == r.firstNodeID)  && ( l.secondNodeID == r.secondNodeID) ) ||
+	    ( (l.firstNodeID == r.secondNodeID) && ( l.secondNodeID == r.firstNodeID) ));
+  };
+
+  // Local members
+  int    firstNodeID;
+  int    secondNodeID;
+  size_t firstNodeIndex;
+  size_t secondNodeIndex;
+  bool   isValid;
+  //protected:
+  //private:
+};
+
 
 struct CoordGrid {
   
@@ -41,8 +102,11 @@ struct CoordGrid {
   /* Add node(s) to grid */
   void ExtendedGrid(std::vector < GridNode > const &Nodes);
   void AddNodeToGrid(GridNode const &Node);
+  void FindNodeBetweenLayerNodePairs(std::vector< TubeLayerPairProperty > &NodePairSet);
+  void AddVirtualNodes(std::vector < GridNode > &VNodesLayer,  std::vector < GridNode > &VNodesSector);
+  void isolateSectorAndLayerLimits(TNtuple &Sections, TNtuple &Layers);
+  void fixNeighboring();
 
-  void Rearange_nodeIds();
   void FillGrid(std::vector < HitCoordinate* > const& hitcoords);
   
   // Functions to rest grid node properties
@@ -101,4 +165,6 @@ inline size_t CoordGrid::GetNumNodes() const
 {
   return (m_grid.size() + m_MVD_grid.size());
 }
+
+
 #endif// END interface

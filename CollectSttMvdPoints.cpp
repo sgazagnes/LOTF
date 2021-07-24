@@ -54,10 +54,9 @@
 #include "hitcoordinate.h"
 #include "gridNode.h"
 #include "CoordGrid.h"
-#include "pathopen.h"
-#include "utilfunctions.h"
 #include "logc.h"
 #include "trackObject.h"
+#include "auxfunctions.h"
 
 #define INCLUDE_STT_POINTS  1
 #define INCLUDE_MVD_POINTS  0
@@ -388,23 +387,37 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, char *inFile, TFile &Ou
     LastEvent = lastEvt;
   }
 
+  int nevtbatch = 4;
+  int curevt = -1;
+  int oldTrackID =-1, curTrackID = 0;
+
+  std::vector<HitCoordinate*>* cuEvtData;// batch cases
   for(int e = startEvent; e < LastEvent; ++e)
   {
     simuTr->GetEntry(e);
     digiTr->GetEntry(e);
-
+    curevt++;
     // New vector for the current event.
-    std::vector<HitCoordinate*>* cuEvtData = new std::vector<HitCoordinate*>();
+    if((curevt) % nevtbatch == 0 ){
+      // cuEvtData->clear();
+      cuEvtData = new std::vector<HitCoordinate*>();
+      curTrackID = 0;
+    }
+    // std::vector<HitCoordinate*>* cuEvtData = new std::vector<HitCoordinate*>(); // normal cases
 
+    oldTrackID = -1;
 #if ( INCLUDE_STT_POINTS > 0 )
     // Fetch STT data points.
-    int oldTrackID =-1;
+    // int oldTrackID =-1, curTrackID = 0;
     for(int i = 0; i < SttHitArray->GetEntriesFast(); ++i)
     {
       HitCoordinate* currentHit = new HitCoordinate();
 
       // Set the event number
-      currentHit->m_EvtNum = e;
+      //     currentHit->m_EvtNum = (int) e;///normal cases;
+
+      currentHit->m_EvtNum = (int) e/nevtbatch; // batch cases
+      // printf("Evt %d \n", currentHit->m_EvtNum);
 
       // Fetch the stt hit point
       PndSttHit *pSttHit = (PndSttHit*) SttHitArray->At(i);
@@ -415,14 +428,20 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, char *inFile, TFile &Ou
 
       // Set the trackID for the current point
       
-      pSttMCPoint->Print(NULL);
-      currentHit->m_trackID = pSttMCPoint->GetTrackID();
+      //pSttMCPoint->Print(NULL);
+      if(oldTrackID!=pSttMCPoint->GetTrackID())
+	curTrackID++;
+      
+      currentHit->m_trackID = curTrackID;//pSttMCPoint->GetTrackID();
+ 
+      //   print 
       /* if(oldTrackID!=pSttMCPoint->GetTrackID()){
       printf("%f\n\n", sqrt(pow(pSttMCPoint->GetPx(),2)+ pow(pSttMCPoint->GetPy(),2)));
       }*/
       //   printf("%f\n\n", sqrt(pow(pSttMCPoint->GetPx(),2)+ pow(pSttMCPoint->GetPy(),2)));
 
       oldTrackID = pSttMCPoint->GetTrackID();
+      // printf("%d \n", oldTrackID);
       // MC point coordinates
       TVector3 mcposition;
       pSttMCPoint->Position(mcposition);
@@ -661,7 +680,17 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, char *inFile, TFile &Ou
      * We have seen all detectors for the current event, add event
      * data to main container.
      */
-    outHit_coords->push_back(cuEvtData);
+    // For batch cases
+    //  printf("ENd loop, curevt %d\n", curevt);
+    if((curevt) % nevtbatch == nevtbatch - 1 || e == LastEvent -1){
+      //  printf("Pushing\n\n");
+
+      outHit_coords->push_back(cuEvtData);
+      curevt = -1;
+    }
+
+    // outHit_coords->push_back(cuEvtData); // For normal cases
+
   } // End of event loop
   //////// Number of hits per detector.
   dbgcollect("mvdStrip_Cnt = %d, mvdPixel_Cnt = %d, Stt_Cnt = %d", mvdStrCntMC, mvdPixCntMC, SttCntMC);
@@ -828,7 +857,7 @@ MCTrackPoints( std::vector < std::vector<HitCoordinate*>* > const &evtData)
       }
     }// END current event loop
     numTracks = idtracks.size();
-    info("Event %d contains %d tracks", e,(numTracks));
+    info("Event %d contains %d tracks", e, numTracks);
     
    // Now, we know the number of available tracks for the current
     // event; We can allocate memory.

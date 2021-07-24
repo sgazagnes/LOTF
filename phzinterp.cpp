@@ -17,7 +17,7 @@
 #include "phzinterp.h"
 #include "gridNode.h"
 #include "logc.h"
-#include "simon_functions.h"
+#include "auxfunctions.h"
 
 
 
@@ -149,14 +149,14 @@ void ZCoordinates(CoordGrid &gr, std::vector< GridNode > &Ingrid,std::vector < P
 
       if(dir == -1){
 	distxx += sqrt(x.back()*x.back()+y.back()*y.back());
-	for(int i =vect->size()-1; i >= 0; i--){
+	for(int i = (int) vect->size()-1; i >= 0; i--){
 	  distxx +=  sqrt(pow(x[i-1]-x[i],2.) + pow(y[i-1]-y[i],2.));
 	  if(vect->at(i) == firstid)
 	    break;
 	}
       }else{
 	distxx += sqrt(x[0]*x[0]+y[0]*y[0]);
-	for(size_t i =0; i < lastid; i++){
+	for(int i =0; i < lastid; i++){
 	  if(vect->at(i) == lastid)
 	    break;
 	  distxx +=  sqrt(pow(x[i+1]-x[i],2.) + pow(y[i+1]-y[i],2.));
@@ -187,8 +187,8 @@ void ZCoordinates(CoordGrid &gr, std::vector< GridNode > &Ingrid,std::vector < P
       // dbgtrkz("Total fist %lf, slope %lf", totxydist, (zf-z0)/totxydist);
       bool change =0;
       if(dir == -1){
-	for(int i = vect->size()-1; i >=0; i--){
-	  if(i < vect->size()-1) Node_distance += sqrt(pow(x[i]-x[i+1],2)+pow(y[i]-y[i+1],2));//-xPts[start]-yPts[start]
+	for(int i = (int) vect->size()-1; i >=0; i--){
+	  if(i < (int) vect->size()-1) Node_distance += sqrt(pow(x[i]-x[i+1],2)+pow(y[i]-y[i+1],2));//-xPts[start]-yPts[start]
 	  else Node_distance += sqrt(pow(x[i],2)+pow(y[i],2));
 	
 	  z[i] = z0 + (zf-z0)*Node_distance/totxydist;
@@ -201,7 +201,7 @@ void ZCoordinates(CoordGrid &gr, std::vector< GridNode > &Ingrid,std::vector < P
 	}
       }else{
 	for(size_t i = 0; i <vect->size(); i++){
-	  if(i >= 0) Node_distance += sqrt(pow(x[i]-x[i-1],2)+pow(y[i]-y[i-1],2));//-xPts[start]-yPts[start]
+	  if(i > 0) Node_distance += sqrt(pow(x[i]-x[i-1],2)+pow(y[i]-y[i-1],2));//-xPts[start]-yPts[start]
 	  else Node_distance += sqrt(pow(x[i],2)+pow(y[i],2));
 	
 	  z[i] = z0 + (zf-z0)*Node_distance/totxydist;

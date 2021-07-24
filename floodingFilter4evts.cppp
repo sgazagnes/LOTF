@@ -34,7 +34,7 @@
 #include "phzinterp.h"
 
 // DEBUG AND STORE definitions
-#define EVALUATE_ERROR 1
+#define EVALUATE_ERROR 0
 #define READ_GRID_FROM_FILE 0
 #define DO_RECONSTRUCTION 1
 #define DO_CONNECT 1
@@ -75,7 +75,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
   // Second error type. Per track error value. Based on curvature data.
   std::string PerTrkErrPars = "complex:misMatched:bestIdx";
-   PerTrkErrPars += ":MCLength:CClength";
+   PerTrkErrPars += ":MCLength";
   PerTrkErrPars += ":Jacardsingle:Jacardaverage";
   PerTrkErrPars += ":UnderMergeError:OverMergeError:disX:disY:disZ";
   TNtuple ErrorNtuplePerTrack("PerTrackError","Per track values of error", PerTrkErrPars.c_str());
@@ -1095,7 +1095,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 				     static_cast<float>(erObj->isNotmatched),
 				     static_cast<float>(erObj->matchIndex),
 				     static_cast<float>(erObj->BestMatchMCLength),
-				     static_cast<float>(erObj->CurrentTrackLength),
+				     // static_cast<float>(erObj->CurrentTrackLength),
 				     //  static_cast<float>(erObj->MCMinCurrentLength),
 				     //   static_cast<float>(erObj->CurrentMinMCLength),
 				     erObj->Jacardsingle,
@@ -1144,12 +1144,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
       // delete activeId;
       //delete remaining;
       // delete idToProcess;
-       if(nEvproc == 15000)
-	 //
-
-
-
-	 //if(nEvproc == 4950) // 4 evets batch
+      if(nEvproc == 15000)
 	break;
   }
   #endif

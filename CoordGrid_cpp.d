@@ -1,9 +1,10 @@
 
 # DO NOT DELETE
 
-CoordGrid_cpp.so: hitcoordinate.h gridNode.h
-CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVector3.h
-CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TError.h
+CoordGrid_cpp.so: auxfunctions.h CoordGrid.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TNtuple.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TTree.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/Compression.h
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/Rtypes.h
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RtypesCore.h
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/ROOT/RConfig.h
@@ -16,25 +17,59 @@ CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/in
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TSchemaHelper.h
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TIsAProxy.h
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVirtualIsAProxy.h
-CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVector2.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/ROOT/TIOFeatures.hxx
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TBasket.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TKey.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TNamed.h
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TObject.h
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TStorage.h
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVersionCheck.h
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RVersion.h
-CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrix.h
-CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixF.h
-CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixT.h
-CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixTBase.h
-CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMathBase.h
-CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixFBasefwd.h
-CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixDBasefwd.h
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TString.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMathBase.h
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/ROOT/RStringView.hxx
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/ROOT/RWrap_libcpp_string_view.h
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/ROOT/libcpp_string_view.h
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/ROOT/TypeTraits.hxx
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/ROOT/RSpan.hxx
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/ROOT/span.hxx
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TDatime.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TBuffer.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TClass.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TDictionary.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/ESTLType.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TObjArray.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TSeqCollection.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TCollection.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TIterator.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVirtualRWMutex.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVirtualMutex.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TObjString.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/ThreadLocalStorage.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TArrayD.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TArray.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TArrayI.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TAttFill.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TAttLine.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TAttMarker.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TBranch.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TDataType.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TBranchCacheInfo.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TBits.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TDirectory.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TList.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TUUID.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVirtualTreePlayer.h
+CoordGrid_cpp.so: gridNode.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVector3.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TError.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVector2.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrix.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixF.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixT.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixTBase.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixFBasefwd.h
+CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixDBasefwd.h
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVectorFfwd.h
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TVectorDfwd.h
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixTUtils.h
@@ -42,6 +77,6 @@ CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/in
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixFUtils.h
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMatrixFUtilsfwd.h
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMath.h
-CoordGrid_cpp.so: CoordGrid.h logc.h
+CoordGrid_cpp.so: pathCandidate.h hitcoordinate.h logc.h
 CoordGrid_cpp.so: /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RVersion.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RConfig.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TClass.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TDictAttributeMap.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TInterpreter.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TROOT.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TBuffer.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TMemberInspector.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TError.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/RtypesImp.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TIsAProxy.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TFileMergeInfo.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/include/root6/TCollectionProxyInfo.h /home/Simon/Documents/Projects/Nuclear/fairsoft_jun19/build/bin/rootcling
 CoordGrid_cpp__ROOTBUILDVERSION= 6.16/00

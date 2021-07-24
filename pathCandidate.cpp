@@ -5,7 +5,7 @@
  *************************************/
 #include <iterator>
 #include "pathCandidate.h"
-#include "simon_functions.h"
+#include "auxfunctions.h"
 #include "logc.h"
 // Constructors
 PathCandidate::PathCandidate()

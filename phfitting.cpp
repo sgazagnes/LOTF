@@ -15,9 +15,9 @@
 #include "TStopwatch.h"
 #include "TH1.h"
 
-#include "simon_functions.h"
+#include "auxfunctions.h"
 #include "logc.h"
-#include "path_queue.h"
+//#include "path_queue.h"
 #include "phfitting.h"
 
 
@@ -43,14 +43,14 @@ double nodeDistanceToLinearFit(double xdet, double ydet, double *x_coef, double 
 
   double xIntersect, yIntersect, currDist;
       
-  if(nroot ==1){
-    xIntersect = gsl_poly_eval(x_coef, 2, x0[0]);
-    yIntersect = gsl_poly_eval(y_coef, 2, x0[0]);
-    currDist = sqrt(pow(xIntersect - xdet,2) + pow(yIntersect - ydet,2));
-  }
+  if(nroot == 1){
+  xIntersect = gsl_poly_eval(x_coef, 2, x0[0]);
+  yIntersect = gsl_poly_eval(y_coef, 2, x0[0]);
+  currDist = sqrt(pow(xIntersect - xdet,2) + pow(yIntersect - ydet,2));
+    }
 
 		
-  for (int j = 0; j < nroot; j++){
+  for (int j = 1; j < nroot; j++){
     double newx = gsl_poly_eval(x_coef, 2, x0[j]);
     double newy = gsl_poly_eval(y_coef, 2, x0[j]);
     double newdist = sqrt(pow(newx - xdet,2) + pow(newy - ydet,2));
@@ -58,7 +58,8 @@ double nodeDistanceToLinearFit(double xdet, double ydet, double *x_coef, double 
       xIntersect = newx;
       yIntersect = newy;
       currDist = newdist;
-    } else if( currDist > newdist) {
+      } else 
+    if( currDist > newdist) {
       xIntersect = newx;
       yIntersect = newy;
       currDist = newdist;
@@ -153,7 +154,7 @@ int fitNextId(CoordGrid &gr, std::vector< GridNode > &Ingrid, PathCandidate &can
      dirLayer = -1;
    }
   
-  for (int i = 0; i <next.size(); i++){
+  for (size_t i = 0; i < next.size(); i++){
     int curId = next[i];
     GridNode *node = &Ingrid[gr.Find(curId)];
        // Replacing the node by the correct Intersection point based on its virtual node if it exists
@@ -178,9 +179,9 @@ int fitNextId(CoordGrid &gr, std::vector< GridNode > &Ingrid, PathCandidate &can
 
 
     if(testLayer){
-      if(node->m_Layer - layers[layers.size()-1] == dirLayer){
+      if((int) node->m_Layer - layers[layers.size()-1] == (int) dirLayer){
 	plausible.push_back(node->m_detID);
-      } else if(node->m_Layer - layers[layers.size()-1] == 0) {
+      } else if((int) node->m_Layer - layers[layers.size()-1] == 0) {
 	uncertain.push_back(node->m_detID);
       } else
 	unlikely.push_back(node->m_detID);
@@ -237,7 +238,7 @@ int fitNextId(CoordGrid &gr, std::vector< GridNode > &Ingrid, PathCandidate &can
     xfit.push_back(anchors[ firstElt].m_xDet);
     yfit.push_back(anchors[ firstElt].m_yDet);
 
-    for (int i = firstElt, inc=0; i <  anchors.size()-1; i++, inc++){ 
+    for (size_t i = firstElt, inc=0; i <  anchors.size()-1; i++, inc++){ 
       double newval = p[inc] + sqrt(pow(anchors[i+1].m_xDet-anchors[i].m_xDet,2.)
 				    + pow(anchors[i+1].m_yDet-anchors[i].m_yDet,2.));
       p.push_back(newval);
@@ -349,8 +350,8 @@ void fittingPhase(CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 	    GridNode &headNode = Ingrid[gr.Find(testCand.m_headNode)];
 	    GridNode Dummy;
 	    
-	    double currDistTail = IntersectionPointSkeSke(gr, *prevNode, tailNode, Dummy);
-	    double currDistHead = IntersectionPointSkeSke(gr, *prevNode, headNode, Dummy);
+	    double currDistTail = IntersectionPointTubes(*prevNode, tailNode, Dummy);
+	    double currDistHead = IntersectionPointTubes(*prevNode, headNode, Dummy);
 	    //dbgfit("%d %f, %d %f", tailId, currDistTail, headId, currDistHead);
 	    if(currDistTail < 5. || currDistHead < 5.){
 	      if(currDistTail <= currDistHead){
@@ -444,7 +445,7 @@ void fittingPhase(CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 	    dbgfit("This node %d belongs to %d tracks, testing all", goodId, goodNode->m_cm.size());
 
 	    for (size_t i = 0; i< goodNode->m_cm.size(); i++){	      
-	      int potCCtoMerge = goodNode->m_cm[i];
+	      unsigned int potCCtoMerge = goodNode->m_cm[i];
 	      if(potCCtoMerge == curCand.m_id)
 		continue;
 	      

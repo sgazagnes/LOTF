@@ -5,52 +5,25 @@
  * ********************************/
 #include "loadLibs.C"
 
-void runCollector( size_t plength = 1,
-                   size_t area    = 1,
-                   //size_t Orientations = 2,//Number of orientations
-		   // Minimum number of tubes needed to consider orientation valid.
-                   size_t MinResponce = 2,//2,// Minimum orientation responce
-                   float lambda = 1.0,
-                   float tol = 1.1,//60 graden//0.35,//0.14, 1.05
-                   std::string const &OutFileName = "Tracks_output.root",
-		   size_t dim = 2,// Plot dimension
-		   size_t gapSize = 0,// Number of layers to skip
-		   int firstEvt =0, //3, //9, //0,190
-		   int lastEvt =20000///10  //6
+void runCollector( std::string const &OutFileName = "Tracks_output.root",		   
+		   int firstEvt =33, //9, //0,190
+		   int lastEvt =37
 		   )//50->61, 4->5
 {
   // Load basic libs and headers.
   // gROOT->LoadMacro("loadLibs.C");
   loadLibs();
-  // define the Compiler flags
-  //  std::string CompileOptions = "-W -Wall -Wextra";// -Weffc++
-  //  CompileOptions += " -Wshadow -Wfloat-equal -Wredundant-decls";
-  // CompileOptions += " -O2 -march=native -mtune=native -include sstream";
-  // CompileOptions += " -fPIC -fPIE";// -fstack-check";
-  // CompileOptions += " -ansi -pedanticflo -std=c++11";// -std=gnu++11";
-  //CompileOptions += " -funroll-loops -fopenmp -malign-double";
-  
-  //  gSystem->SetAclicMode(TSystem::kOpt);
-  //  gSystem->SetFlagsOpt(CompileOptions.c_str());
 
   // Compile and load nedded modules.
-  gSystem->CompileMacro("auxiliaryfunctions.cpp","kO");
+  gSystem->CompileMacro("auxfunctions.cpp","kO");
   gSystem->CompileMacro("gridNode.cpp","kO");
-  gSystem->CompileMacro("mvdMapCreator.cpp","kO");
   gSystem->CompileMacro("hitcoordinate.cpp","kO");
   gSystem->CompileMacro("CoordGrid.cpp","kO");
   gSystem->CompileMacro("pathCandidate.cpp","kO");
-  gSystem->CompileMacro("utilfunctions.cpp","kO");
-  gSystem->CompileMacro("path_queue.cpp","kO");
   gSystem->CompileMacro("trackObject.cpp","kO");
-  gSystem->CompileMacro("pathopen.cpp","kO");
   gSystem->CompileMacro("SttMVDEventDataReader.cpp","kO");
-  //gSystem->CompileMacro("performFilter.cpp","kO");
   gSystem->CompileMacro("logc.cpp","kO");
-  gSystem->CompileMacro("queue.cpp","kO");
   gSystem->CompileMacro("CollectSttMvdPoints.cpp","kO");
-  gSystem->CompileMacro("simon_functions.cpp","kO");
-  gSystem->CompileMacro("reconstruction.cpp","kO");
   gSystem->CompileMacro("phconnect.cpp","kO");
   gSystem->CompileMacro("phfitting.cpp","kO");
   gSystem->CompileMacro("phmerging.cpp","kO");
@@ -58,14 +31,26 @@ void runCollector( size_t plength = 1,
   gSystem->CompileMacro("floodingFilter.cpp","kO");
   gSystem->CompileMacro("error.cpp","kO");
   gSystem->CompileMacro("circle.cpp","kO");
+  gSystem->CompileMacro("CreatePlotAllEventComponents.C","kO");
+
+  gROOT->ProcessLine(Form("floodingFilter(\"%s\", %d, %d);", OutFileName.c_str(), firstEvt, lastEvt));
+
+
+  // OLD CODE
+    //  gSystem->CompileMacro("mvdMapCreator.cpp","kO");
+  // gSystem->CompileMacro("auxiliaryfunctions.cpp","kO");
+  //gSystem->CompileMacro("utilfunctions.cpp","kO");
+  // gSystem->CompileMacro("path_queue.cpp","kO");
+  //  gSystem->CompileMacro("pathopen.cpp","kO");
+  //  gSystem->CompileMacro("queue.cpp","kO");
+  // gSystem->CompileMacro("reconstruction.cpp","kO");
 
   //======= Load the Plot and helper macro's ====
-   gSystem->CompileMacro("PlotTracks.C","k0");
-  gSystem->CompileMacro("PlotGrid.C","k0");
-   gSystem->CompileMacro("PlotOrientations.C","kO");
-  gSystem->CompileMacro("PlotConnectedComponents.C","kO");
-  gSystem->CompileMacro("PlotMergedComponents.C","kO");
-  gSystem->CompileMacro("CreatePlotAllEventComponents.C","kO");
+  //   gSystem->CompileMacro("PlotTracks.C","k0");
+   //  gSystem->CompileMacro("PlotGrid.C","k0");
+  //  gSystem->CompileMacro("PlotOrientations.C","kO");
+  //  gSystem->CompileMacro("PlotConnectedComponents.C","kO");
+  //  gSystem->CompileMacro("PlotMergedComponents.C","kO");
   //gSystem->CompileMacro("SttHitCheck.C","k0");
   // gSystem->CompileMacro("DrawCorrected.C","k0");
   // gSystem->CompileMacro("ComputePerTrackError.C","k0");
@@ -78,7 +63,6 @@ void runCollector( size_t plength = 1,
   /* Perform the actual filtering (run main) */
   // gROOT->ProcessLine(Form("performFilter(%ld, %ld, %ld, %f, %f, %ld, \"%s\", %d, %d);", plength, area, MinResponce, lambda, tol, gapSize,OutFileName.c_str(), firstEvt, lastEvt));
 
-  gROOT->ProcessLine(Form("floodingFilter(\"%s\", %d, %d);", OutFileName.c_str(), firstEvt, lastEvt));
   // gROOT->ProcessLine(Form("CreatePlotAllEventComponents(\"%s\");", OutFileName.c_str()));
 
   //_________ Make plots ________
