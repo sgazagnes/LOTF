@@ -60,9 +60,12 @@
 
 #define INCLUDE_STT_POINTS  1
 #define INCLUDE_MVD_POINTS  0
-#define WRITE_TO_ASCII_FILE 1
+#define WRITE_TO_ASCII_FILE 0
 #define WRITE_TO_JSON_FILE 0
 #define READ_NEIGHBORS_FROM_FILE 0
+
+
+
 
 void CollectGridToTree( CoordGrid const &gr, TNtuple &out)
 {
@@ -74,7 +77,7 @@ void CollectGridToTree( CoordGrid const &gr, TNtuple &out)
 	//&& (curPoint.m_type == GridNode::VIRTUAL_NODE)
 	) {// If fired
       out.Fill(curPoint.m_x, curPoint.m_y, curPoint.m_z,
-	       curPoint.m_xDet, curPoint.m_yDet, curPoint.m_z_Det);
+	       curPoint.m_xDet, curPoint.m_yDet, curPoint.m_zDet);
     }
   }
 }
@@ -89,7 +92,7 @@ void CollectGridToTree( CoordGrid const &gr, TNtuple &out)
 void CollectSttDetecorCoords(TClonesArray const &TubeArray, // In par
                              std::vector < GridNode > &detNodes)// Out par
 {
-  info("Total number of tubes = %d ",TubeArray.GetEntries());
+  dbgcollect("Total number of tubes = %d ",TubeArray.GetEntries());
           
   // Tubes numbering starts with 1 ???
   PndSttTube *tube = NULL;
@@ -155,7 +158,7 @@ void CollectSttDetecorCoords(TClonesArray const &TubeArray, // In par
 
     // Update point
     node.m_r = r_Theta.first;
-    node.m_theta = r_Theta.second;
+    node.m_thetaRad = r_Theta.second;
     node.m_thetaDeg = theta_deg;
     node.m_xDet   = node.m_x;
     node.m_yDet   = node.m_y;
@@ -170,12 +173,12 @@ void CollectSttDetecorCoords(TClonesArray const &TubeArray, // In par
     // OutTxtFile << node.m_halfLength <<",";
     if( tube->IsParallel() ) {
       node.m_type  = GridNode::STT_TYPE_PARA;
-      node.m_z_Det = 0.0;
+      node.m_zDet = 0.0;
       nPara++;
     }
     else {
      node.m_type = GridNode::STT_TYPE_SKEW;
-     node.m_z_Det = node.m_z;
+     node.m_zDet = node.m_z;
      nSkewed++;
     }
     // OutTxtFile << node.m_type <<",";
@@ -231,6 +234,7 @@ void CollectSttDetecorCoords(TClonesArray const &TubeArray, // In par
     // Add node to the node list
     detNodes.push_back(node);
   }// Tube loop
+  //std::sort(detNodes.begin(), detNodes.end(), compareByID);
   dbggrid("%d tubes collected: number of sector limits = %d, right-limit = %d, left-limit = %d, number of skewed = %d, number of para = %d", nSkewed+nPara, (sRight + sLeft), sRight, sLeft, nSkewed, nPara);
   
 }
@@ -387,6 +391,7 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, char *inFile, TFile &Ou
     LastEvent = lastEvt;
   }
 
+  // THIS IS WHERE TO CHANGE THE NUMBER OF EVENTS PER BATCH
   int nevtbatch = 1;
   int curevt = -1;
   int oldTrackID =-1, curTrackID = 0;
@@ -833,7 +838,7 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, char *inFile, TFile &Ou
 std::vector< std::vector < MCTrackObject* >* >*
 MCTrackPoints( std::vector < std::vector<HitCoordinate*>* > const &evtData)
 {
-  info("Extracting MC tracks for %d events", evtData.size());
+  dbgcollect("Extracting MC tracks for %d events", evtData.size());
   //	    << " events.\n";
   // Output Parameter
   std::vector< std::vector < MCTrackObject* >* >* outVar =
@@ -857,7 +862,7 @@ MCTrackPoints( std::vector < std::vector<HitCoordinate*>* > const &evtData)
       }
     }// END current event loop
     numTracks = idtracks.size();
-    info("Event %d contains %d tracks", e, numTracks);
+    dbgcollect("Event %d contains %d tracks", e, numTracks);
     
    // Now, we know the number of available tracks for the current
     // event; We can allocate memory.

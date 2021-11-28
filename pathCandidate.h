@@ -30,7 +30,6 @@ struct PathCandidate{
   PathCandidate& operator=(PathCandidate const &ot);
 
   // Member fuctions
-  void updateHeadAndTailNodes();
   void insertNewNode(CoordGrid &gr, std::vector< GridNode > &Ingrid, GridNode *node,  std::vector<int>::iterator it);
   void insertNewNodeFinal(CoordGrid &gr, std::vector< GridNode > &Ingrid, GridNode *node,  std::vector<int>::iterator it);
   bool compareTwoPathsLength(PathCandidate *a, PathCandidate *b) ;

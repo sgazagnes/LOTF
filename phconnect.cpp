@@ -28,7 +28,7 @@ void removeIdFromNeigh(GridNode *neighNode, std::vector<int> *prevNodes, int cur
     if(prevNodes->at(i) != neighNode->m_detID){ 		
       (neighNode->m_neighbors).erase(std::remove((neighNode->m_neighbors).begin(), (neighNode->m_neighbors).end(),prevNodes->at(i)), (neighNode->m_neighbors).end());
       if(i == 0)
-	neighNode->parent = curId;
+	neighNode->m_parent = curId;
     }
   }
 }
@@ -43,8 +43,7 @@ bool areAdjacent(CoordGrid &gr,  std::vector< GridNode > &Ingrid, std::vector<in
 
   for (size_t i = 0; i < v->size(); i++){
     int neighId   = v->at(i);
-    int neighIdx  = gr.Find(neighId);
-    GridNode &neighNode = Ingrid[neighIdx];
+    GridNode &neighNode = Ingrid[neighId-1];
     //prevNodes.push_back(neighId);
     if(neighNode.m_cm.size() >0) break;
     for (size_t j = i+1; j < v->size (); j++){
@@ -74,7 +73,7 @@ bool sortNeighbors(CoordGrid &gr, GridNode *currentNode,  PathCandidate &cand, s
 
   for(size_t i = 0; i < currentNode->m_neighbors.size(); i++){
     int neighId 	= currentNode->m_neighbors[i];
-    GridNode &neighNode = Ingrid[gr.Find(neighId)];
+    GridNode &neighNode = Ingrid[neighId-1];
     
     if(cand.isInCandidate(neighId))
       continue;
@@ -130,7 +129,7 @@ void addNodesToCand (CoordGrid &gr, std::vector< GridNode > &Ingrid,  PathCandid
 
   for (size_t i = 0; i < v.size(); i++){
     int neighId   = v[i];
-    GridNode *neighNode = &Ingrid[gr.Find(neighId)];
+    GridNode *neighNode = &Ingrid[neighId-1];
     cand.insertNewNode(gr, Ingrid, neighNode, cand.m_memberList->end());
     visited[neighId] = 1;
   }
@@ -153,7 +152,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
     int curDir 	       	= 0; // Current direction
     int nextDir 	= 0; // Next direction (when finding neighbors)
     int curId 		= idToProcess[n].first; // Id to process 
-    GridNode *curNode   = &Ingrid[gr.Find(curId)]; // Current node 
+    GridNode *curNode   = &Ingrid[curId-1]; // Current node 
 
     /* ++++++++++++++++++++++++++++++++++++++++++++++++++++ */   
     /* BEGIN WITH NODES WITH ONE NEIGHBOR OR IN LAYER LIMIT */     
@@ -210,7 +209,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
       // Stqrt the loop
       while(cond){
 	startIt++;
-	dbgconnect("With my buddy %d, we have %d neighbors, nextDir is %d", curId, n_neighbors, nextDir);
+	//	dbgconnect("With my buddy %d, we have %d neighbors, nextDir is %d", curId, n_neighbors, nextDir);
 
 	//Choosing the next direction based on previous search of neaighbors    
 	if (nextDir & UP){           // we are going up 	      
@@ -244,7 +243,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 
 	    //Adding the next neighbor
 	    neighId    = v->at(0);
-	    neighNode  = &Ingrid[gr.Find(neighId)];
+	    neighNode  = &Ingrid[neighId-1];
 	    cand->insertNewNode(gr, Ingrid, neighNode,cand->m_memberList->end());
 	    visited[neighId] = 1;
 	    n_connected++;
@@ -275,7 +274,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 
 	else if (sameLayer.size() == 1 ){ // Same layer neighbor to handle... (NEED TO CHECK IS CAN BE MORE THAN 1)
 
-	  dbgconnect("Cur id%d, Check the same layer with the next node %d", curId,sameLayer[0], visited[sameLayer[0]]);
+	  //dbgconnect("Cur id%d, Check the same layer with the next node %d", curId,sameLayer[0], visited[sameLayer[0]]);
 	  
 	  if(visited[sameLayer[0]])  // If the same layer node has already been visited, we stop
 	    cond = false;	      
@@ -283,19 +282,19 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	  else { 
 
 	    int candId 	 	= sameLayer[0];
-	    GridNode *candNode  = &Ingrid[gr.Find(candId)];
+	    GridNode *candNode  = &Ingrid[candId-1];
 	    curLayer            = candNode->m_Layer;
 
 	    //CHECK if neighbors of the current candidate are all neighbors to one of the node on the next layer
 	    for(size_t i = 0; i < candNode->m_neighbors.size(); i++){
 	      neighId = candNode->m_neighbors[i];	      
-	      neighNode = &Ingrid[gr.Find(neighId)];
+	      neighNode = &Ingrid[neighId-1];
 	      if (neighId == curId || neighNode->m_type == GridNode::VIRTUAL_NODE)
 		continue;
 	      
 	      int haveNeigh = 0; // Check variable to know if we found a neighbor		
 	      for (size_t j = 0; j < v->size(); j++){
-		dbgconnect("Test adjacency between neigh ID %d and v at j %d", neighId, v->at(j));
+		//	dbgconnect("Test adjacency between neigh ID %d and v at j %d", neighId, v->at(j));
 
 		// If the node in the next layer is a neighbor, we can stop
 		if(v->at(j) == neighId || (neighNode->IsNeighboring(v->at(j)))){
@@ -308,13 +307,13 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 		// We can test this by checking if all this nod eneighbors are either visited or
 		// in the next layer vector of nodes
 		else{
-		  GridNode &mynode = Ingrid[gr.Find(v->at(j))];
+		  GridNode &mynode = Ingrid[v->at(j)-1];
 		  bool addthisnode = true;
 		  for(size_t k = 0; k < mynode.m_neighbors.size(); k++){
 		    int oth = mynode.m_neighbors[k];
 
 		    if(oth!= candId && !cand->isInCandidate(oth) && std::find(v->begin(), v->end(), oth) == v->end() && std::find( candNode->m_neighbors.begin(),  candNode->m_neighbors.end(), oth) ==  candNode->m_neighbors.end()  ){
-		      dbgconnect("This node %d has other neighbor %d not visited", v->at(j), oth);
+		      //dbgconnect("This node %d has other neighbor %d not visited", v->at(j), oth);
 		      addthisnode = false;
 		      break; //The node did not fullfilled the condition, this is a hard case, we should break here
 		    }
@@ -323,7 +322,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 		    // The node fulfilled the condition, let's add it to the list and keep looking for more
 		    if(nextVirt.size() > 0){ // Add the virtual if it exists
 		      for(size_t p = 0; p < nextVirt.size();p++){
-			GridNode &virt = Ingrid[gr.Find(nextVirt[p])];
+			GridNode &virt = Ingrid[nextVirt[p]-1];
 			if(virt.IsNeighboring(v->at(j))){
 			  cand->insertNewNode(gr, Ingrid, &virt,cand->m_memberList->end());
 			  visited[virt.m_detID] = 1;
@@ -333,7 +332,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 			}
 		      }
 		    }
-		    dbgconnect("We are adding the node %d", v->at(j));
+		    //dbgconnect("We are adding the node %d", v->at(j));
 
 		    cand->insertNewNode(gr, Ingrid, &mynode,cand->m_memberList->end());
 		    visited[mynode.m_detID] = 1;
@@ -359,7 +358,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 
 	    // If we did not find a good reason to stop, then we add the candidate	    
 	    if (cond == true){ 		
-	      dbgconnect("All neighbors of candidate look good, let's insert it!");
+	      //dbgconnect("All neighbors of candidate look good, let's insert it!");
 
 	      cand->insertNewNode(gr, Ingrid, candNode,cand->m_memberList->end());
 	      visited[candId] = 1;
@@ -387,9 +386,9 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	    } 
 
 	    // If we had to stop
-	    else {
+	    /*else {
 	       dbgconnect("Neighbors not connected... \n", n_connected, n_neighbors);
-	    } 
+	       } */
 	  } // ELSE the same layer not was visited already
 	} // END of IF SAME LAYER == 1
 
@@ -411,10 +410,10 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 
 	    // I need to comment properly this otherwise nobody will understand what is happening
 	    for(size_t i = 0; i < v->size(); i++){
-	      GridNode &mynode = Ingrid[gr.Find(v->at(i))];
+	      GridNode &mynode = Ingrid[v->at(i)-1];
 	      char n = 0;
 	      for(size_t j = 0; j < mynode.m_neighbors.size(); j++){
-		GridNode &thenode = Ingrid[gr.Find(mynode.m_neighbors[j])];
+		GridNode &thenode = Ingrid[mynode.m_neighbors[j]-1];
 		if(thenode.m_type == GridNode::VIRTUAL_NODE)
 		  continue;
 		if(thenode.m_Layer == curLayer && !(cand->isInCandidate(thenode.m_detID))){
@@ -441,7 +440,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 
 	      // Delete virtuals that are not neighbors to these nodes
 	      for(size_t i = 0; i < nextVirt.size();){
-		GridNode &virt = Ingrid[gr.Find(nextVirt[i])];
+		GridNode &virt = Ingrid[nextVirt[i]-1];
 		int neighId1 = virt.m_neighbors[0];
 		int neighId2 = virt.m_neighbors[1];
 		if(std::find(v->begin(), v->end(), neighId2) != v->end() ||
@@ -472,7 +471,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	      if(nextVirt.size()> 3){
 		//Cleaning virtual nodes
 		//	error("Changing virt lsit");
-		int sizeT = prevNodes.size();
+		size_t sizeT = prevNodes.size();
 		prevNodes.insert(prevNodes.end(),  nextVirt.begin(),  nextVirt.end());
 
 		//	for(size_t f = 0; f < nextVirt.size(); f++)
@@ -481,15 +480,15 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 		int goodV[2] = {-1,-1};
 		for(size_t f = 0; f < sizeT; f++){
 		  float mindist[2] = {1000,1000};
-		  GridNode &prevC = Ingrid[gr.Find(prevNodes[f])];
+		  GridNode &prevC = Ingrid[prevNodes[f]-1];
 		  for(size_t g = 0; g < v->size(); g++){
-		    GridNode &nextC = Ingrid[gr.Find(v->at(g))];
+		    GridNode &nextC = Ingrid[v->at(g)-1];
 		    float curdis = sqrt(pow(prevC.m_x-nextC.m_x,2) + pow(prevC.m_y-nextC.m_y,2));
 		    if(curdis < mindist[0]){
 		      goodV[1]= goodV[0];
 		      mindist[1]= mindist[0];
 		      for(size_t h = 0; h< nextC.m_neighbors.size(); h++){
-			GridNode &neighC = Ingrid[gr.Find(nextC.m_neighbors[nextC.m_neighbors.size()- 1 -h])];
+			GridNode &neighC = Ingrid[nextC.m_neighbors[nextC.m_neighbors.size()- 1 -h]-1];
 			if(neighC.m_type != GridNode::VIRTUAL_NODE)
 			  continue;
 			if(prevC.IsNeighboring(neighC.m_detID))
@@ -498,7 +497,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 		      mindist[0]=curdis;
 		    } else if( curdis <mindist[1]){
 		      for(size_t h = 0; h< nextC.m_neighbors.size(); h++){
-			GridNode &neighC = Ingrid[gr.Find(nextC.m_neighbors[nextC.m_neighbors.size()- 1 -h])];
+			GridNode &neighC = Ingrid[nextC.m_neighbors[nextC.m_neighbors.size()- 1 -h]-1];
 			if(neighC.m_type !=  GridNode::VIRTUAL_NODE)
 			  continue;
 			if(prevC.IsNeighboring(neighC.m_detID))
@@ -527,7 +526,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 
 	    for (size_t i = 0; i < v->size(); i++){ // add the next nodes
 	      neighId   = v->at(i);
-	      neighNode = &Ingrid[gr.Find(neighId)];
+	      neighNode = &Ingrid[neighId-1];
 	      cand-> insertNewNode(gr, Ingrid, neighNode, cand->m_memberList->end());
 	      visited[neighId] = 1;
 	      n_connected++;
@@ -540,14 +539,14 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	    nextDir = 0;
 	    
 	    curId       = lookneigh[0];
-	    curNode     = &Ingrid[gr.Find(curId)];
+	    curNode     = &Ingrid[curId-1];
 	    curLayer    = curNode->m_Layer;
 	      
 	    n_neighbors = 0;
 	      
 	    for(size_t i = 0; i < lookneigh.size(); i++){ // Looking for new neighbors
 	      int id         = lookneigh[i];
-      	      GridNode *node = &Ingrid[ gr.Find(id)];
+      	      GridNode *node = &Ingrid[id-1];
 	      prevNodes.push_back(id);
 	      cond = sortNeighbors(gr, node, *cand, prevLayer, sameLayer, nextLayer, nextVirt, visited,  &nextDir);
 	    }
@@ -563,20 +562,20 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	if (n_neighbors == 0 || n_neighbors >= 5 || !cond){	    
 	  if(n_neighbors == 0) {
 	    int firstId         = cand->m_tailNode;
-	    GridNode &firstNode = Ingrid[ gr.Find(firstId)];
+	    GridNode &firstNode = Ingrid[firstId-1];
 	    int lastId          = cand->m_headNode;
-	    GridNode &lastNode  = Ingrid[gr.Find(lastId)];
-	    dbgconnect("No more neighbors in sight, checking if could be finished already ?");
+	    GridNode &lastNode  = Ingrid[lastId-1];
+	    //  dbgconnect("No more neighbors in sight, checking if could be finished already ?");
 	      
 	    if((firstNode.m_LayerLimit == 1 && lastNode.m_LayerLimit == 1)){		 
-	      dbgconnect("track goes through all layers or makes a loop, likily finished");		 
+	      //dbgconnect("track goes through all layers or makes a loop, likily finished");		 
 	      cand->m_finished = FINISHED;		 
 	    } else if(labs(curNode->m_SectorLimit) > 0 || cand->m_isOnSectorLimit){
-	      dbgconnect("Track is on sector limit, might have a connection somewhere else");
+	      // dbgconnect("Track is on sector limit, might have a connection somewhere else");
 	      cand->m_finished = ONGOING;
 	      cand->m_isOnSectorLimit= true;		 
 	    } else {		 
-	      dbgconnect("Candidate has no more neighbors, but doesn't seem finished (First %d, last %d)", firstId, lastId);
+	      //dbgconnect("Candidate has no more neighbors, but doesn't seem finished (First %d, last %d)", firstId, lastId);
 	      cand->m_finished = ONGOING;		 
 	    }	      
 	  } // end if n_neighbors == 0
@@ -592,7 +591,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	    nextDir = 4;
 	    n_neighbors = nextLayer.size();
 	    for(size_t i = 0; i < nextVirt.size();){
-	      GridNode &virt = Ingrid[gr.Find(nextVirt[i])];
+	      GridNode &virt = Ingrid[nextVirt[i]-1];
 	      int neighId1 = virt.m_neighbors[0];
 	      int neighId2 = virt.m_neighbors[1];
 	      if((cand->isInCandidate(neighId1) && std::find(nextLayer.begin(), nextLayer.end(), neighId2) != nextLayer.end()) || (cand->isInCandidate(neighId2) && std::find(nextLayer.begin(), nextLayer.end(), neighId1) != nextLayer.end())){
@@ -609,7 +608,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	    nextDir = 1;
 	    n_neighbors = prevLayer.size();
 	    for(size_t i = 0; i < nextVirt.size();){
-	      GridNode &virt = Ingrid[gr.Find(nextVirt[i])];
+	      GridNode &virt = Ingrid[nextVirt[i]-1];
 	      int neighId1 = virt.m_neighbors[0];
 	      int neighId2 = virt.m_neighbors[1];
 	      if((cand->isInCandidate(neighId1) && std::find(prevLayer.begin(), prevLayer.end(), neighId2) != prevLayer.end()) || (cand->isInCandidate(neighId2) && std::find(prevLayer.begin(), prevLayer.end(), neighId1) != prevLayer.end())){
@@ -655,7 +654,7 @@ void findEasyTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector
 	//	error("Not a good cm %d, has length < 2",cand->m_headNode);
 	for(size_t i = 0; i < (cand->m_memberList)->size(); i++){   
 	  visited[(cand->m_memberList)->at(i)] = 0;
-	  GridNode &toDel = Ingrid[gr.Find((cand->m_memberList)->at(i))];
+	  GridNode &toDel = Ingrid[(cand->m_memberList)->at(i)-1];
 	  toDel.m_cm.clear();
 
 	}

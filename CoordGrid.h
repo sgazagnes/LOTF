@@ -17,7 +17,7 @@ struct GridNode;
 
 // Write the enire grid to a ascii file
 #define WRITE_GRID_TO_ASCII 0
-#define START_VIRTUAL_ID 6000
+//#define START_VIRTUAL_ID 6000
 
 bool Is_STT_SplitSkewedNode( GridNode const &node);
 bool IsVirtualSplitNode( GridNode const &node);
@@ -138,19 +138,15 @@ struct CoordGrid {
   void WriteGrid(std::string const& fileName="GridDumpFile.txt") const;
   //___________ END DEBUG FUNCTIONS     
 #endif
-  // Tolerance for computing the orientation based Att-spcace
-  float m_AttSpaceTolerance;
-  size_t firstVirtIdx;
+
+  int firstVirtIdx;
   // Members (currently only STT tubes.
   std::vector< GridNode > m_grid;
-  /*
-   * FIXME FIXME We need to include MVD into the static grid geometry.
-   *
-   * Store MVD points separately This is for now until we find out how
-   * to store full MVD and handle detector indices.
-   */
+
+  // MVD grid 
   std::vector< GridNode > m_MVD_grid;
-  
+  std::set< int > m_STT_idx;
+
   //_______________________ PROTECTED members ____________
   // protected:
   

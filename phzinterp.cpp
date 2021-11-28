@@ -50,8 +50,8 @@ void ZCoordinates(CoordGrid &gr, std::vector< GridNode > &Ingrid,std::vector < P
     for(size_t i = 0; i < anchors.size(); i++){
       GridNode  &node = anchors[i];
 
-      if(node.m_weight && node.m_z_Det != 0.0){
-	double zadd = (double) node.m_z_Det;
+      if(node.m_weight && node.m_zDet != 0.0){
+	double zadd = (double) node.m_zDet;
 	if(zadd > 105 || zadd < -35)
 	  continue;
 	xPts.push_back((double) node.m_xDet);
@@ -74,7 +74,7 @@ void ZCoordinates(CoordGrid &gr, std::vector< GridNode > &Ingrid,std::vector < P
       zPts.clear();
 
       for(size_t i = 0; i < x.size(); i++){
-	GridNode &d = Ingrid[gr.Find(curCand.m_memberList->at(i))];
+	GridNode &d = Ingrid[curCand.m_memberList->at(i)-1];
 	//	info("node %d weight %d", d.m_detID,d.m_weight);
 	//	info("%f, %f, %f", x[i], y[i], z[i]);
 
@@ -218,8 +218,8 @@ void ZCoordinates(CoordGrid &gr, std::vector< GridNode > &Ingrid,std::vector < P
     } else {
       dbgtrkz("We found no z points");
       for(size_t i = 0; i <vect->size(); i++){
-	int idx = gr.Find(vect->at(i));
-	GridNode &node = Ingrid[idx];
+	//int idx = gr.Find(vect->at(i));
+	GridNode &node = Ingrid[vect->at(i)-1];
 	z[i] = node.m_z;
       }
     }

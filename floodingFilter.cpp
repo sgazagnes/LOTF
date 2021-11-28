@@ -1,8 +1,6 @@
 
 /*************************************
  * Author: S. Gazagnes               *
- * Version:                          *
- * License:                          *
  *************************************/
 
 #include <iostream>
@@ -46,100 +44,118 @@
 #define WRITE_CONNECTED_COMPONENTS_JSON 0
 #define WRITE_CM_ASCII_FILE 0
 #define WRITE_TIME_ASCII_FILE 1
+#define WRITE_LIST_RECO_ID 1
 
 void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 {
   
-  TStopwatch timer, timerpevt;
-
-  //Setting verbosity level, put 1 for the debug you want
-  //error/time/info/collect/grid/connect/fit/merge/trkz/trkerror
-  bool v[10] = {1,1,0,0,0,0,0,0,0,0};//{0,0,0,0,0,0,0,0,1,1}{1,1,1,0,0,0,0,0,0,0};
-  set_verbosity(v);
-  
-  // Structure to hold the detector data (grid)
-  std::vector < GridNode > detNodes;
+  /* Files and Tuples definitions */
   
   // File and structure to hold the output coordinates.
-  TFile Out_Put_File(OutFileName.c_str(),"RECREATE","Outputfile Created by performFilter", 9);
+  TFile OutputFile(OutFileName.c_str(), "RECREATE", "Outputfile created by floodingFilter macro", 9);
 
   // Collected coordinates for tracks.
-  TNtuple coord ("CoordCollected" , "Collected Coordinates in x y plane", "x:y:z:x_Det:y_Det:z_Det");
+  TNtuple GridCoordNtuple("CoordCollected" , "Collected Coordinates in x y plane", "x:y:z:x_Det:y_Det:z_Det");
 
-  // Ntuple to hold Error values for all events available in the
-  // current events set. The value is evaluated per image.
-  std::string errorParameter = "nMC:nComp:Error_underMerge:Error_overMerge:TotalError";
-  errorParameter += ":Error_underMergeNorm:Error_overMergeNorm:TotalErrorNorm";
-  // Create Ntuple to hold parameters.
-  TNtuple ErrorNtuple("ErrorEstimate","Segmentation error values", errorParameter.c_str());
+  // Ntuple to hold Global Error values 
+  std::string GlobalErrorPars = "evtID:nMC:nReco:Error_underMerge:Error_overMerge:TotalError";
+  GlobalErrorPars += ":Error_underMergeNorm:Error_overMergeNorm:TotalErrorNorm";
+  TNtuple GlobalErrorNtuple("GlobalEvtError","Segmentation error values", GlobalErrorPars.c_str());
 
-  // Second error type. Per track error value. Based on curvature data.
-  std::string PerTrkErrPars = "complex:misMatched:bestIdx";
-   PerTrkErrPars += ":MCLength:CClength";
-  PerTrkErrPars += ":Jacardsingle:Jacardaverage";
-  PerTrkErrPars += ":UnderMergeError:OverMergeError:disX:disY:disZ";
-  TNtuple ErrorNtuplePerTrack("PerTrackError","Per track values of error", PerTrkErrPars.c_str());
+  // NTuple to hold error per MC track
+  std::string PerMCTrkErrPars = "evtID:Complex:Mismatched:MatchIdx:MCLength:RecoLength:InterLength:UnionLength";
+  PerMCTrkErrPars += ":F1score:MeanDiffX:MeanDiffY:MeanDiffZ";
+  TNtuple ErrorPerMCTrackNtuple("PerMCTrackError", "Per track values of error", PerMCTrkErrPars.c_str());
+  
+  //NTuple to hold curvature/momentum parameters per pair of MC and Reco track
+  std::string CurvTrkPars = "evtID:MC_px:MC_py:MC_pz:MC_r1:MC_r2";
+  CurvTrkPars+= ":tr_rIsoRand:tr_rIsoRand16:tr_rIsoRand84:tr_rAnc:tr_rPts:tr_scattAngle";
+  TNtuple CurvPerTrackNtuple("PerTrackCurv", "Per track values of circle fit and MC momentum", CurvTrkPars.c_str());
 
-  std::string CurvTrak = "MC_px:MC_py:MC_pz:MC_a:MC_b:MC_r:MC_E:tr_a:tr_b:tr_r:tr_E:tr_theta";
+  // NTuple to hold panda error metric per reco track
+  std::string PerRecoTrkErrPars = "evtID:Rank:Clone";
+  TNtuple ErrorPerRecoTrackNtuple("PerRecoTrackError", "Per track values of error", PerRecoTrkErrPars.c_str());
 
-  std::string DisTrak = "disx:disy:disz";
 
-  TNtuple ErrorNtupleDisPerTrack("DisPerTrackError","Per track values of displacement",DisTrak.c_str());
+  //NTuple to hold coordinates differences between MC and Reco
+  std::string DiffTrkPars = "disx:disy:disz";
+  TNtuple CoordDiffPerTrackNtuple("CoordDiffPerTrackError", "Per track values of coordinates errors",
+				 DiffTrkPars.c_str());
 
-  // PerTrkErrPars += ":MCMinCurrentLength:CurrentMinMCLength";
-  TNtuple CurvNtuplePerTrack("PerTrackCurv","Per track values of circle fit", CurvTrak.c_str());
-  // NTuple to hold the coordinates of all connected components.
+  // NTuple to hold the coordinates of all reco'd tracks.
   std::string ConnCompPar = "EvtNum:CompNum:bestIdx:tubeId:x:y:z:r:thetaDeg:x_Det:y_Det:z_Det";
   TNtuple ConnectedCoord ("ConnectedComponents", "Connected component Coordinates", ConnCompPar.c_str());
-  
+
+    // NTuple to hold the coordinates of the anchors of the reco'd tracks.
   std::string AnchorCCPar = "EvtNum:CompNum:x_Det:y_Det:z_Det";   
-  TNtuple AnchorCCCoord ("ConnectedComponentsAnchors", "Connected component anchors Coordinates", AnchorCCPar.c_str());
-  // Hold number of components per event
+  TNtuple AnchorCCCoord ("ConnectedComponentsAnchors", "Connected component anchors Coordinates",
+			 AnchorCCPar.c_str());
+  
+  // NTuple to Hold number of components per event
   TNtuple ComponentPerEvt ("ComponentPerEvt", "Component per event","evtNum:numComponents");
 
-  //geo 2 1572086365 // geo 1 1583944737 // Muon_z0 1611761510 // Muon_z30 1611844116 // Muon_z120 1611844771 /// 1000 1613554871 // 20000: 1614788215 // 20000B15: 1618615353 // Test  Muon B1 1619780508 // Beam 3 1619749644
+  // Ntuple to hold MC tubes IDS and track number
+  TNtuple MCDetID("MCDetID", "MC track detectors per event","evtNum:MCtrkID:detID");
+  TNtuple RecoDetID("RecoDetID", "Reco'd track detectors per event","evtNum:RecotrkID:detID");
 
-  /* Read all data directly from sim, digi and parameter files */
-  char *SimName = "../rootfiles/evtcomplete20000Beam3";   
-
-  std::vector < std::vector<HitCoordinate*>* >* Hit_coords = 
-    CollectSttMvdPoints(detNodes, SimName, Out_Put_File,1619749644, firstEvt, lastEvt);
-  //evtmuonz120
   
-  std::vector< std::vector < MCTrackObject* >* > *MC_Tracks = MCTrackPoints(*Hit_coords);
+  // Setting verbosity level, put 1 for the debug you want
+  // {error,time,info,collect,grid,connect,fit,merge,trkz,trkerror}
+  // examples: {0,0,0,0,0,0,0,0,1,1}{1,1,1,0,0,0,0,0,0,0};
+  bool v[10] = {1,1,1,0,0,0,0,0,0,1};
+  set_verbosity(v);
+  
+
+  // Reading the parameters of given simulations
+  char *SimName = "../rootfiles/evtcomplete20000";   
+  // geo 2 1572086365
+  // geo 1 1583944737
+  // Muon_z0 1611761510
+  // Muon_z30 1611844116
+  // Muon_z120 1611844771
+  // 20000: 1614788215
+  // 20000B15: 1618615353
+  // Muon B1 1619780508
+  // Beam 3 1619749644
+
+  // Read all data directly from sim, digi and parameter files 
+  std::vector < GridNode > DetectorNodes;
+  std::vector < std::vector<HitCoordinate*>* >* HitsData = 
+    CollectSttMvdPoints(DetectorNodes, SimName, OutputFile, 1614788215, firstEvt, lastEvt);
+  
+  std::vector< std::vector < MCTrackObject* >* > *MCTracks = MCTrackPoints(*HitsData);
   
   // Write event info to output  
-  WriteEventPlotsToFile( (*Hit_coords), Out_Put_File);
+  WriteEventPlotsToFile( (*HitsData), OutputFile);
   
-  // Create an empty grid object
-  CoordGrid gr;
-  
-  // Init Grid for STT detector nodes (fill the map).
-  gr.Initialize(detNodes);
-  gr.CorrectLayerLimit();
+  // Create an empty grid object and init it for STT
+  CoordGrid GridStruct;
+  GridStruct.Initialize(DetectorNodes);
+  GridStruct.CorrectLayerLimit();
   TNtuple Layers("LayerLimits","Layer Limits.","x:y:det_z:z");
   TNtuple Sections("SectionsLimits","Section Limits.","x:y:det_z:z");
+  
   // Isolate Sector and Layer Limits
-  gr.isolateSectorAndLayerLimits(Sections, Layers);
+  GridStruct.isolateSectorAndLayerLimits(Sections, Layers);
   Sections.Write();
   Layers.Write();
 
-  TNtuple* OrigGrid = GridToNtuple(detNodes, "OrigGridCoord");
-  OrigGrid->SetMarkerStyle(8);
-  OrigGrid->SetMarkerSize(0.2);
-  OrigGrid->SetMarkerColor(kBlack);
+  // Write Original grid setup to root file
+  TNtuple* OrigGrid = GridToNtuple(DetectorNodes, "OrigGridCoord");
+  OrigGrid->SetMarkerStyle(7);
+  OrigGrid->SetMarkerSize(0.3);
+  OrigGrid->SetMarkerColor(17);
   OrigGrid->Write();
 
-  dbggrid("Fix neighbouring before extension.");
-  
-  gr.fixNeighboring();
-  
+  // Fix some neighbors before extending to Virtual Node  
+  GridStruct.fixNeighboring();
+
+  // Extend grid with Virtual Nodes
   std::vector < GridNode > VNodesLayer;
   std::vector < GridNode > VNodesSector;
+  GridStruct.AddVirtualNodes(VNodesLayer, VNodesSector);
 
-  gr.AddVirtualNodes(VNodesLayer, VNodesSector);
-
-  // Compute_Virtual_InterSector_Nodes(gr, 6,VNodes);
+  // Old extension for intersector Nodes: Compute_Virtual_InterSector_Nodes(gr, 6,VNodes);
   TNtuple* virtualTubesLayer = GridToNtuple(VNodesLayer, "VirtualNodesLayer");
   TNtuple* virtualTubesSector = GridToNtuple(VNodesSector, "VirtualNodesSector");
 
@@ -152,510 +168,522 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   virtualTubesSector->SetMarkerSize(0.2);
   virtualTubesSector->SetMarkerColor(kCyan);
   virtualTubesSector->Write();
-  
-  /* Extend the grid with new virtual points and fix the missing neighboring relations   */
 
   dbggrid("Extending the grid by %d virtual nodes between the layers.", VNodesLayer.size());
   dbggrid("Extending the grid by %d virtual nodes between the sectors.", VNodesSector.size());
 
-  gr.ExtendedGrid(VNodesLayer);
-  gr.ExtendedGrid(VNodesSector);
+  GridStruct.ExtendedGrid(VNodesLayer);
+  GridStruct.ExtendedGrid(VNodesSector);
 
-  dbggrid("Fixing neighbouring after extension.");
-  gr.fixNeighboring();
-  
-  TNtuple* extendedGrid = GridToNtuple(gr.m_grid, "ExtendedGrid");
+  // Fix some neighbors after extending to Virtual Node  
+  GridStruct.fixNeighboring();
+
+  // Write extended grid
+  TNtuple* extendedGrid = GridToNtuple(GridStruct.m_grid, "ExtendedGrid");
   extendedGrid->SetMarkerStyle(7);//8
   extendedGrid->SetMarkerSize(0.3);
   extendedGrid->SetMarkerColor(17);//41
   extendedGrid->Write();
 
-  dbggrid("Total number of tubes after extension = %d", gr.GetNumNodes());
-  // Delete allocated memory
+  dbggrid("Total number of tubes after extension = %d", GridStruct.GetNumNodes());
+  
+  // Clean up
   delete OrigGrid;
   delete virtualTubesLayer;
   delete virtualTubesSector;
   delete extendedGrid;
+  VNodesLayer.clear();
+  VNodesSector.clear();
 
+  // Finding total number of events collected
+  unsigned int totalnumEvt = HitsData->size();
+  info("We have %u event(s) to process", totalnumEvt);
   
-  unsigned int totalnumEvt = Hit_coords->size();
-  info("There will be %u event(s) to process", totalnumEvt);
   // Start the timer.
-  auto t2 = std::chrono::high_resolution_clock::now();
-
-  //  CoordGrid grCopy;
-
-#if(DO_RECONSTRUCTION == 1)
+  auto TimeAll        = std::chrono::high_resolution_clock::now();
+  double RecTotalTime = 0;
 
 
+  /*  +++++++++++++++++++++++++++++++++++++++  */
+  /*  ++++++++ Start reconstruction +++++++++  */
+  /*  +++++++++++++++++++++++++++++++++++++++  */
+
+  TStopwatch timer;
+
+  #if(DO_RECONSTRUCTION == 1)
   timer.Start();
+  int nEvtProc  = 0;
+  int nTrkProc  = 0;
+  int nHitsProc = 0;
 
-  /* Fill the grid with the current hit points and process. Handles   each event separately.*/
-  // Event loop
-  int nEvproc = 0;
-
+  // Open file to write timings
   #if (WRITE_TIME_ASCII_FILE > 0)  
-  // Write to an ASCII file
-  //////////// Comments to write to file
-  std::string header = "evt,trks,hits,filltime,contime, fittime, mergtime, ztime,tottime\n";
-  //////// End of comments.
-  std::ofstream OutTxtFile;
-  OutTxtFile.open ("Timeperevent.csv");
-  
-  if (OutTxtFile.is_open()) {
-    OutTxtFile << header;
-  }
-  
-  //OutTxtFile.close();
+  std::string header = "evt,trks,hits,filltime,contime,fittime,mergtime,ztime,tottime\n";
+  std::ofstream TimeTxtFile;
+  TimeTxtFile.open ("Timeperevent.csv");
+  if (TimeTxtFile.is_open()) 
+    TimeTxtFile << header;
+  #endif
+
+  #if (WRITE_LIST_RECO_ID > 0)
+  std::string MCheader = "evt,trkid,detid\n";
+  std::ofstream MCOutTxtFile;
+  MCOutTxtFile.open ("MCTrackIDList.csv");
+  if (MCOutTxtFile.is_open()) 
+    MCOutTxtFile << MCheader;
+
+  std::string Recoheader = "evt,trkid,detid\n";
+  std::ofstream RecOutTxtFile;
+  RecOutTxtFile.open ("RecoTrackIDList.csv");
+  if (RecOutTxtFile.is_open()) 
+    RecOutTxtFile << Recoheader; 
   #endif
   
-  for(size_t k = 0; k < Hit_coords->size(); ++k) {
-    //   if(k == 28 || k == 90 || k == 42||k == 55||k==97) continue;
-
-    if(MC_Tracks->at(k)->size() == 0){ // || k == 5238
-      info("This event did not contain anay tracks");
-      continue;
-    }
-    
-    // info("MC_Tracks->at(k)->size() is %d", MC_Tracks->at(k)->size());
+  // Checking that the event has enough number of hits to process (10 minimum)
+  for(size_t evt = 0; evt < HitsData->size(); ++evt) {
     int totHits = 0;
     std::set<int> nIndTubes;
-    for(size_t i = 0; i < MC_Tracks->at(k)->size(); ++i) {
-      MCTrackObject const *MCtrack = MC_Tracks->at(k)->at(i);
+    
+    for(size_t i = 0; i < MCTracks->at(evt)->size(); ++i) {
+      MCTrackObject const *MCtrack = MCTracks->at(evt)->at(i);
       std::set<int> MCSttComp((MCtrack->m_STT_Component).begin(), (MCtrack->m_STT_Component).end());
       nIndTubes.insert(MCSttComp.begin(), MCSttComp.end());
     }
+    
+    totHits = nIndTubes.size();
 
-    if( nIndTubes.size() <= 10){
-      error("This event did not contain enough hits, continue %d", nIndTubes.size());
-      // gr.ResetGrid();
-       continue;
+    if(totHits == 0){ // 
+      info("This event did not contain any tracks");
+      continue;
+    } else if( totHits <= 10){
+      info("This event contains only %d hits, skip", totHits);
+      continue;
     } else {
+      info("Processing event: %d", evt);
+      nHitsProc += totHits;
+      nTrkProc  += MCTracks->at(evt)->size();
       nIndTubes.clear();
-      nEvproc++;
-    }
- 
-    error("Processing event: %d", k);
-
-    timerpevt.Start();
-    auto t1 = std::chrono::high_resolution_clock::now();
-
-    double fillingTime, connectTime, fittingTime, mergingTime, zRecTime, totalTime;
-    
-    int numberSTThits = (int) nIndTubes.size(); 
-    int numberSTTtracks = (int) MC_Tracks->at(k)->size();
-    
-    std::vector<HitCoordinate*> const *dd = 0;
-    dd = Hit_coords->at(k);
-    if(dd) 
-      gr.FillGrid(*dd);
-    
- 
-    /* Pushing all active detectors into queue */
-    fillingTime =  std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count();
-    //   timing("Fill grid phase ended. Time %lf s",
-    //	   std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count());
-
-    std::vector< GridNode > &Ingridori = gr.m_grid;
-    std::vector< GridNode > Ingrid(Ingridori);
-    
-    std::vector< std::set<int>* >* connectedComp = 0;
-    connectedComp = new std::vector< std::set<int>* >();
-    
-    std::vector< int > activeId, remaining;
-    std::vector<pair<int, unsigned short>> idToProcess, prio, oth;
-
-    int nactiveAll = 0, nactiveReal = 0;
-
-    for(size_t n = 0; n < Ingrid.size(); ++n) {
-      GridNode &curNode = Ingrid[n];
-      if(curNode.m_active){
-	int NodeId = Ingrid[n].m_detID;
-	if(curNode.m_type != GridNode::VIRTUAL_NODE  ) {
-	  activeId.push_back(NodeId);
-	  nactiveReal++;
-	  /* Keep only active neighbors  */
-	  for  ( int i = 0; i < curNode.m_neighbors.size();){
-	    int neigh_ID = curNode.m_neighbors[i];
-	    int neigh_index = gr.Find(neigh_ID);
-	    if(Ingrid[neigh_index].m_type == GridNode::VIRTUAL_NODE){
-	      int nID = Ingrid[neigh_index].m_neighbors[0] == NodeId? Ingrid[neigh_index].m_neighbors[1]:
-		Ingrid[neigh_index].m_neighbors[0];
-	      GridNode const &First  = Ingrid[gr.Find(nID)];
-	      if(First.m_active)
-		Ingrid[neigh_index].m_active = true;
-	      else{
-		(curNode.m_neighbors).erase((curNode.m_neighbors).begin()+i);
-		continue;
-	      }
-		
-	    } else if(!Ingrid[neigh_index].m_active){
-	      (curNode.m_neighbors).erase((curNode.m_neighbors).begin()+i);
-	      continue;
-	    }
-	    i++;
-	  }
-	  //pair<int, unsigned short> p1 = {NodeId, (unsigned short) curNode.m_neighbors.size()};
-	  if(curNode.m_LayerLimit == 1 )
-	    prio.push_back(make_pair(NodeId, (unsigned short) curNode.m_neighbors.size()));
-	  else if (curNode.m_neighbors.size() == 1)
-	    oth.push_back(make_pair(NodeId, (unsigned short) curNode.m_neighbors.size()));
-	  else
-	    idToProcess.push_back(make_pair(NodeId, (unsigned short) curNode.m_neighbors.size()));
-	    //idToProcess.push_back(make_pair(NodeId, (unsigned short) curNode.m_neighbors.size()));
-	}	
-	nactiveAll++;
-      }      
+      nEvtProc++;
     }
 
+    
+    //Starting Evt clock
+    auto TimeEvt = std::chrono::high_resolution_clock::now();   
+    double FillingTime;
+    double ConnectTime;
+    double FittingTime;
+    double MergingTime;
+    double zRecTime;
+    double EvtTotalTime;
+    
+    int nSTTHits  = (int) totHits; 
+    int nMCTracks = (int) MCTracks->at(evt)->size();
 
-    //   remaining = activeId;
-    dbgconnect("Found %d active detectors (%d with virtuals)", nactiveReal, nactiveAll);
-    sort(prio.begin(), prio.end(), sortbysec);
+    // Filling the grid
+    if(HitsData->at(evt)) 
+      GridStruct.FillGrid(*(HitsData->at(evt)));
+        
+    auto TimeNow = std::chrono::high_resolution_clock::now();
+    FillingTime  = std::chrono::duration<double>(TimeNow - TimeEvt).count();
+    timing("Time elapsed to fill the grid: %.6lf s", FillingTime);
 
-    idToProcess.insert( idToProcess.begin(), oth.begin(), oth.end() );
-    idToProcess.insert( idToProcess.begin(), prio.begin(), prio.end() );
-    prio.clear();
-    oth.clear();
-    // sort(idToProcess.begin(), idToProcess.end(), sortbysec);
+    std::vector< GridNode > &DetGridCopy = GridStruct.m_grid; // Copying the grid to avoid re-init for each event
+    std::vector< GridNode > DetGrid(DetGridCopy);              // Starting from a fresh already init grid :)
+  
+    std::vector< std::set<int>* >* RecoTrackListDetID = 0; // Vector of reconstruction tracks
+    RecoTrackListDetID = new std::vector< std::set<int>* >(); 
+    
+    int nTubesFired = 0;
+    
+    std::vector<pair<int, unsigned short>> ListActiveTubes;
+    std::vector<pair<int, unsigned short>> ListPrioTubes;
+    std::vector<pair<int, unsigned short>> ListOtherTubes;
+    std::set<int>::iterator it = GridStruct.m_STT_idx.begin();
 
-    std::vector< int > idComplex;  
+     while (it != GridStruct.m_STT_idx.end()) {
+       int Idx = *it;
+       GridNode &CurNode = DetGrid[Idx-1];
+       it++;
+
+       for  ( size_t i = 0; i < CurNode.m_neighbors.size() ; ){
+	 int NeighTubeIdx = CurNode.m_neighbors[i];
+	 
+	 if(DetGrid[NeighTubeIdx-1].m_type == GridNode::VIRTUAL_NODE){
+	   int nID = DetGrid[NeighTubeIdx-1].m_neighbors[0] == Idx?
+	     DetGrid[NeighTubeIdx-1].m_neighbors[1] : DetGrid[NeighTubeIdx-1].m_neighbors[0];
+	   GridNode const &First  = DetGrid[nID-1];
+	   
+	   if(First.m_active)
+	     DetGrid[NeighTubeIdx-1].m_active = true;
+	   else{
+	     (CurNode.m_neighbors).erase((CurNode.m_neighbors).begin()+i);
+	     continue;
+	   }
+	    
+	 } else if(!DetGrid[NeighTubeIdx-1].m_active){
+	   (CurNode.m_neighbors).erase((CurNode.m_neighbors).begin()+i);
+	   continue;
+	 }
+	 
+	 i++;
+       } // End For CurNode neighbors
+	  
+       if(CurNode.m_LayerLimit == 1 )
+	 ListPrioTubes.push_back(make_pair(Idx, (unsigned short) CurNode.m_neighbors.size()));
+       else if (CurNode.m_neighbors.size() == 1)
+	 ListOtherTubes.push_back(make_pair(Idx, (unsigned short) CurNode.m_neighbors.size()));
+       else
+	 ListActiveTubes.push_back(make_pair(Idx, (unsigned short) CurNode.m_neighbors.size()));
+       
+       nTubesFired++;         
+     } // End while GridStruct
+
+    
+    dbgconnect("Found %d active detectors (%d with virtuals)", GridStruct.m_STT_idx.begin(), nTubesFired);
+    sort(ListPrioTubes.begin(), ListPrioTubes.end(), sortbysec);
+
+    ListActiveTubes.insert( ListActiveTubes.begin(), ListOtherTubes.begin(), ListOtherTubes.end() );
+    ListActiveTubes.insert( ListActiveTubes.begin(), ListPrioTubes.begin(), ListPrioTubes.end() );
+    ListPrioTubes.clear();
+    ListOtherTubes.clear();
+
+    std::vector< int > ListComplexTracks;  
     #if(EVALUATE_ERROR == 1)
-    //info("Finding complex tracks");
-    complexTracks(gr, MC_Tracks->at(k), &idComplex);
+    ComplexTracks(GridStruct, MCTracks->at(evt), &ListComplexTracks);
     #endif
     
     
-    std::vector < PathCandidate* > tracklets;
-    int candidateId 	= 0;
-    char *visited 	= (char *) calloc(Ingrid[Ingrid.size()-1].m_detID+1, sizeof(char));
+    std::vector < PathCandidate* > RecoTracks;
+    int candidateId  = 0;
+    char *visited    = (char *) calloc(DetGrid.size()+1, sizeof(char));
 
-    dbgconnect("First step is finding the obvious tracklets");
+
+    /* ++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+      
+    /*        First Reconstruction Phase: Connect           */
+      
+    /* ++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+
+    #if(DO_CONNECT == 1)
+    info("First phase: finding obvious tracklets");
+    findEasyTracks (GridStruct, DetGrid, RecoTracks, ListActiveTubes, visited, &candidateId);
+    TimeNow     =  std::chrono::high_resolution_clock::now();
+    ConnectTime = std::chrono::duration<double>( TimeNow - TimeEvt ).count() - FillingTime;
+    timing("Time elapsed in connect phase: %.6lf s",  ConnectTime);
     
-#if(DO_CONNECT == 1)
-    findEasyTracks (gr, Ingrid, tracklets, idToProcess, visited, &candidateId);
-    connectTime = std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count()
-      - fillingTime;
-    // timing("Connect phase ended. Time %lf s",  connectTime);
-#endif
+    if(RecoTracks.size() > 0)
+      dbgconnect("We found %d RecoTracks", candidateId);
 
-    if(tracklets.size() > 0)
-      dbgconnect("We found %d tracklets", candidateId);
-
-
-    size_t sizeBef = idToProcess.size();
-    for(unsigned int n = 0; n < idToProcess.size();) {
-      int curId  = idToProcess[n].first;
-      if(visited[curId] == 1){
-	idToProcess.erase(idToProcess.begin() + n);
+    size_t OldnTubes = ListActiveTubes.size();
+    
+    for(unsigned int n = 0; n < ListActiveTubes.size();) {
+      
+      if(visited[ListActiveTubes[n].first] == 1){
+	ListActiveTubes.erase(ListActiveTubes.begin() + n);
 	continue;
       }
+      
       n++;
     }
     
-    dbgconnect("We matched %lu detectors (remaining %lu)", sizeBef-idToProcess.size(),idToProcess.size() );
+    dbgconnect("We matched %lu detectors (remaining %lu)",
+	       OldnTubes-ListActiveTubes.size(), ListActiveTubes.size());
 
-    std::sort(tracklets.begin(), tracklets.end(), compareTwoPathsLength);
+    std::sort(RecoTracks.begin(), RecoTracks.end(), compareTwoPathsLength);    
+    #endif
 
     
     /* ++++++++++++++++++++++++++++++++++++++++++++++++++++ */
       
-    /*               Let's do some fitting !!!!             */
+    /*        First Reconstruction Phase: Fitting           */
       
     /* ++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 
-    // Array for detecting merging profiles
-    int **toMergeWith =  (int **) calloc(tracklets.size(), sizeof(int*));
-    for (size_t i =0; i < tracklets.size(); i++)
-      toMergeWith[i] = (int *) calloc(tracklets.size(), sizeof(int));
-
-
+    #if(DO_FITTING)
+    // Array to store the IDs of tracks to be merged
+    int **TrackIDToMerge =  (int **) calloc(RecoTracks.size(), sizeof(int*));
+    for (size_t i = 0; i < RecoTracks.size(); i++)
+      TrackIDToMerge[i] = (int *) calloc(RecoTracks.size(), sizeof(int));
     
-#if(DO_FITTING)
-    dbgfit("Starting fitting phase");
+    info("Second phase: fitting to find complex tracks");
+    fittingPhase(GridStruct, DetGrid, RecoTracks, ListActiveTubes, visited, TrackIDToMerge);
 
-    fittingPhase(gr, Ingrid, tracklets, idToProcess, visited, toMergeWith);
-
-    for(size_t n = 0; n < idToProcess.size(); ++n) {
-      if(visited[idToProcess[n].first] == 1){
-	idToProcess.erase(idToProcess.begin() + n);
+    OldnTubes = ListActiveTubes.size();
+    for(size_t n = 0; n < ListActiveTubes.size(); ++n) {
+      
+      if(visited[ListActiveTubes[n].first] == 1){
+	ListActiveTubes.erase(ListActiveTubes.begin() + n);
 	n--;
       }
+      
     }
     
-    dbgfit("After fitting, we have %lu remaining active nodes\n",  idToProcess.size());
-    fittingTime = std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count() - connectTime -fillingTime;
-    // timing("Fitting phase ended. Time %lf s",  std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count());
+    dbgfit("We matched %lu detectors (remaining %lu)",
+	       OldnTubes-ListActiveTubes.size(), ListActiveTubes.size());
+
+    TimeNow     =  std::chrono::high_resolution_clock::now();
+    FittingTime = std::chrono::duration<double>( TimeNow - TimeEvt ).count() - ConnectTime - FillingTime;
+    timing("Time elapsed in fitting phase: %.6lf s",  FittingTime);
 
 
-    // Trying to connect easy remaining nodes
+
     
-    sort( idToProcess.begin(), idToProcess.end() );
-	
-    for(size_t n = 0; n < idToProcess.size(); ++n) {
-      std::vector<int> sameLayer;
-      std::vector<int> otherLayer;
-
-      int nodeId = idToProcess[n].first;
-      if(visited[nodeId])
-	continue;
-      GridNode &myNode = Ingrid[gr.Find(nodeId)];
-      //  info("Checking remaining node %d, visited %d", nodeId, visited[nodeId]);
-      //visited[nodeId] = 3;
+    // Trying to connect remaining nodes if possible FIXME because I'm a mess
+    sort( ListActiveTubes.begin(), ListActiveTubes.end() );	
+    for(size_t n = 0; n < ListActiveTubes.size(); ++n) {
+      std::vector<int> SameLayerTubes;
+      std::vector<int> OtherLayerTubes;
+      int TubeID = ListActiveTubes[n].first;
       
-      bool allvisited = true;
-      for(size_t m = 0; m < myNode.m_neighbors.size(); m++){
-	int neighId = myNode.m_neighbors[m];
-	GridNode &myNeigh = Ingrid[gr.Find(neighId)];
-	if(myNeigh.m_type == GridNode::VIRTUAL_NODE)
+      if(visited[TubeID])
+	continue;
+      
+      GridNode &ThisTube     = DetGrid[TubeID-1];
+      bool     AreAllVisited = true;
+      
+      for(size_t m = 0; m < ThisTube.m_neighbors.size(); m++){
+	int NeighTubeID     = ThisTube.m_neighbors[m];
+	GridNode &NeighTube = DetGrid[NeighTubeID-1];
+	
+	if(NeighTube.m_type == GridNode::VIRTUAL_NODE)
 	  continue;
-	//	info("Has neighbor %d, which is connect to %d CC, and is layer %d", neighId, myNeigh.m_cm.size(), myNeigh.m_Layer);
-	if(!visited[neighId]){
-	  allvisited = false;
-	  // visited[neighId] = 3;
-	}else if(visited[neighId] == 1){
-	  if(myNeigh.m_Layer == myNode.m_Layer){
-	    //	    info("Same Layer, put in list (connect with CC %d)", myNeigh.m_cm[0] );
-	    if(std::find(sameLayer.begin(), sameLayer.end(), neighId) == sameLayer.end())
-	      sameLayer.push_back(neighId);
+
+	if(!visited[NeighTubeID]){
+	  AreAllVisited = false;
+	} else if(visited[NeighTubeID] == 1){
+	  if(NeighTube.m_Layer == ThisTube.m_Layer){
+	    if(std::find(SameLayerTubes.begin(), SameLayerTubes.end(), NeighTubeID) == SameLayerTubes.end())
+	      SameLayerTubes.push_back(NeighTubeID);
 	  } else{
-	    //	    info("Other Layer, put in list (connect with CC %d)", myNeigh.m_cm[0]);
-	    if(std::find(otherLayer.begin(), otherLayer.end(), neighId) == otherLayer.end())
-	      otherLayer.push_back(neighId);
+	    if(std::find(OtherLayerTubes.begin(), OtherLayerTubes.end(), NeighTubeID) == OtherLayerTubes.end())
+	      OtherLayerTubes.push_back(NeighTubeID);
 	  }
 	}
-      }
-
+	
+      } // End For tube neighbors
 
       
-      if(sameLayer.size() > 0){
+      if(SameLayerTubes.size() > 0){
+	GridNode &NeighTube = DetGrid[SameLayerTubes[0]-1];
+	int TrackToMerge    = NeighTube.m_cm[0];
 
-	//	info("We have %d nodes on same layer, and all visited, we connect to %d", sameLayer.size(),sameLayer[0] );
-	
-	GridNode &myNeigh = Ingrid[gr.Find(sameLayer[0])];
-	//	info("We have %d nodes on same layer, and all visited, we connect to %d, cm is %d", sameLayer.size(),myNeigh.m_detID, myNeigh.m_cm[0] );
-
-	int potCCtoMerge = myNeigh.m_cm[0];
-
-	//	info("We connect %d to CC %d",nodeId,potCCtoMerge   );
-
-	const auto p = std::find_if(tracklets.begin(), tracklets.end(),
-				    [potCCtoMerge](const PathCandidate *obj){ return obj->m_id == potCCtoMerge; } );
+	const auto p = std::find_if(RecoTracks.begin(), RecoTracks.end(),
+				    [TrackToMerge](const PathCandidate *obj){ return obj->m_id == TrackToMerge; } );
 
 	PathCandidate &neighCand = *(*p); // The CC that the node belongs to	   	   
 
 	//Find where the node is in the list of the other CC
-
 	std::vector<int>::iterator it = std::find((neighCand.m_memberList)->begin(),
-						  (neighCand.m_memberList)->end(), myNeigh.m_detID);
-	//	info("We connect %d to CC %d",nodeId,potCCtoMerge   );
+						  (neighCand.m_memberList)->end(),
+						  NeighTube.m_detID);
 
-	neighCand.insertNewNode(gr, Ingrid, &myNode, it);
-	visited[nodeId] = 1;
-	//	info("Connected");
-      } else if(allvisited && otherLayer.size() >  0){
-	//	info("We have %d nodes on other layers, and all visited", otherLayer.size());
-	std::vector<int> CC;
-
-	for(size_t m = 0; m < otherLayer.size(); m++){
-	  GridNode &myNeigh = Ingrid[gr.Find(otherLayer[m])];
-	  if(std::find(CC.begin(), CC.end(), myNeigh.m_cm[0]) == CC.end()){
-	    CC.push_back(myNeigh.m_cm[0]);
+	neighCand.insertNewNode(GridStruct, DetGrid, &ThisTube, it);
+	visited[TubeID] = 1;
+      } else if(AreAllVisited && OtherLayerTubes.size() >  0){
+	std::vector<int> PotTrackList;
+	
+	for(size_t m = 0; m < OtherLayerTubes.size(); m++){
+	  GridNode &NeighTube = DetGrid[OtherLayerTubes[m]-1];
+	  
+	  if(std::find(PotTrackList.begin(), PotTrackList.end(), NeighTube.m_cm[0]) == PotTrackList.end()){
+	    PotTrackList.push_back(NeighTube.m_cm[0]);
 	  }
+	  
 	}
-	if(CC.size() == 0){
-	  // info("All neighbors are connected to single CC %d", CC[0]);
-	  int potCCtoMerge = CC[0];
-	  //	  dbgconnect("We connect %d to CC %d",nodeId,potCCtoMerge   );
+	
+	if(PotTrackList.size() == 0){
+	  int TrackToMerge = PotTrackList[0];
+	  const auto p = std::find_if(RecoTracks.begin(), RecoTracks.end(),
+				      [TrackToMerge](const PathCandidate *obj){ return obj->m_id == TrackToMerge;});
 
-	  const auto p = std::find_if(tracklets.begin(), tracklets.end(),
-				      [potCCtoMerge](const PathCandidate *obj){ return obj->m_id == potCCtoMerge;});
-
-	  PathCandidate &neighCand = *(*p); // The CC that the node belongs to	   	   
-
-	  //Find where the node is in the list of the other CC
+	  PathCandidate &neighCand = *(*p); // The PotTrackList that the node belongs to	   	   
+	  //Find where the node is in the list of the other PotTrackList
 	  std::vector<int>::iterator it = std::find((neighCand.m_memberList)->begin(),
-						    (neighCand.m_memberList)->end(), otherLayer[0]);
-	  neighCand.insertNewNode(gr, Ingrid, &myNode, it);
-	  visited[nodeId] = 1;
-	} 
-      }
-    }
+						    (neighCand.m_memberList)->end(), OtherLayerTubes[0]);
+	  neighCand.insertNewNode(GridStruct, DetGrid, &ThisTube, it);
+	  visited[TubeID] = 1;
+	}
+	
+      } // End IF ELSE IF same Layer size
+      
+    } // End For List Active Tubes
 
 
-    for(size_t n = 0; n < idToProcess.size(); ++n) {
-      if(visited[idToProcess[n].first] == 1){
-	idToProcess.erase(idToProcess.begin() + n);
+    for(size_t n = 0; n < ListActiveTubes.size(); ++n) {
+      
+      if(visited[ListActiveTubes[n].first] == 1){
+	ListActiveTubes.erase(ListActiveTubes.begin() + n);
 	n--;
       }
+      
     }
 
-
-    for(size_t n = 0; n < idToProcess.size(); ++n) {
-    std::vector<int> sameLayer;
-    std::vector<int> otherLayer;
-    std::vector<int> connected; 
+    
+    // Connecting to the tracklets under certain conditions (FIXME ALSO I'm extremely brutal)
+    for(size_t n = 0; n < ListActiveTubes.size(); ++n) {
+      std::vector<int> SameLayerTubes;
+      std::vector<int> OtherLayerTubes;
+      std::vector<int> TubesConnect; 
       std::vector<GridNode*> inQueue; 
-
-      int nodeId = idToProcess[n].first;
-      if(visited[nodeId])
+      int TubeID = ListActiveTubes[n].first;
+      
+      if(visited[TubeID])
 	continue;
-      GridNode &myNode = Ingrid[gr.Find(nodeId)];
-      //  info("Checking remaining node %d, visited %d", nodeId, visited[nodeId]);
-      connected.push_back(nodeId);
-      visited[nodeId] = 3;
-      for(size_t m = 0; m < myNode.m_neighbors.size(); m++){
-	int neighId = myNode.m_neighbors[m];
-	GridNode &myNeigh = Ingrid[gr.Find(neighId)];
-	if(myNeigh.m_type == GridNode::VIRTUAL_NODE)
+      
+      GridNode &ThisTube = DetGrid[TubeID-1];
+      TubesConnect.push_back(TubeID);
+      visited[TubeID] = 3;
+      
+      for(size_t m = 0; m < ThisTube.m_neighbors.size(); m++){
+	int NeighTubeID     = ThisTube.m_neighbors[m];
+	GridNode &NeighTube = DetGrid[NeighTubeID-1];
+	
+	if(NeighTube.m_type == GridNode::VIRTUAL_NODE)
 	  continue;
-	//	info("Has neighbor %d, which is connect to %d CC, and is layer %d", neighId, myNeigh.m_cm.size(), myNeigh.m_Layer);
-	if(!visited[neighId]){
-	  connected.push_back(neighId);
-	  inQueue.push_back(&myNeigh);
-	  visited[neighId] = 3;
+
+	if(!visited[NeighTubeID]){
+	  TubesConnect.push_back(NeighTubeID);
+	  inQueue.push_back(&NeighTube);
+	  visited[NeighTubeID] = 3;
 	}
       }
+      
       while(inQueue.size()>0){
-	GridNode *cur = inQueue.back();
-	//	info("Checking %d", cur->m_detID);
-		
+	GridNode *cur = inQueue.back();		
 	inQueue.pop_back();
+	
 	for(size_t m = 0; m < cur->m_neighbors.size(); m++){
-	  int neighId = cur->m_neighbors[m];
-	  // info("Neigh %d", neighId);
+	  int NeighTubeID = cur->m_neighbors[m];
 
-	  GridNode &myNeigh = Ingrid[gr.Find(neighId)];
-	    if(myNeigh.m_type == GridNode::VIRTUAL_NODE)
-	      continue;
+	  GridNode &NeighTube = DetGrid[NeighTubeID-1];
+	  if(NeighTube.m_type == GridNode::VIRTUAL_NODE)
+	    continue;
 
-	    if(!visited[neighId]){
-	      connected.push_back(neighId);
-	      inQueue.push_back(&myNeigh);
-	      visited[neighId] = 3;
-	      //   info("Adding neighbor %d", neighId, myNeigh.m_cm.size());
-	    } else if(visited[neighId] == 1){
-	      //info("Neigh %d is connected to CC  %d",neighId, myNeigh.m_cm[0]);
-	    }
-	  }
+	  if(!visited[NeighTubeID]){
+	    TubesConnect.push_back(NeighTubeID);
+	    inQueue.push_back(&NeighTube);
+	    visited[NeighTubeID] = 3;
+	  }/* else if(visited[NeighTubeID] == 1){
+	   //info("Neigh %d is TubesConnect to PotTrackList  %d",NeighTubeID, NeighTube.m_cm[0]);
+	   }*/
 	}
-	if(connected.size() > 5){
-	  //  info("we found %d nodes connected, set a new cand", connected.size());
-	  sort( connected.begin(),  connected.end() );
-	  PathCandidate *cand 	= new PathCandidate();// Create a new tracklet candidate
-	  cand->m_id 		= (candidateId)++;// tracklet id
-	  int prevLayer = -1;
-	  std::vector<int> virt; 
+      }
+      
+      if(TubesConnect.size() > 5){
+	sort( TubesConnect.begin(),  TubesConnect.end() );
+	PathCandidate *cand 	= new PathCandidate();// Create a new tracklet candidate
+	cand->m_id 		= (candidateId)++;// tracklet id
+	int prevLayer = -1;
+	std::vector<int> virt; 
 
-	  for(size_t m = 0; m < connected.size(); m++){
-	    //  info("Contain node %d", connected[m]);
-	    int curId = connected[m];
-	    GridNode *addNode = &Ingrid[gr.Find(curId)];
-	    if(virt.size() > 0 && addNode->m_Layer != prevLayer){
-	      addNodesToCand (gr, Ingrid, *cand, visited, virt);
-	    }
+	for(size_t m = 0; m < TubesConnect.size(); m++){
+	  int curId         = TubesConnect[m];
+	  GridNode *addNode = &DetGrid[curId-1];
+	  
+	  if(virt.size() > 0 && addNode->m_Layer != prevLayer){
+	    addNodesToCand (GridStruct, DetGrid, *cand, visited, virt);
+	  }
 	    
-	    visited[curId] = 1;
-	    cand->insertNewNode(gr, Ingrid, addNode, cand->m_memberList->end());
-	    for(size_t p = 0; p < addNode->m_neighbors.size(); p++){
-	      int neighId =  addNode->m_neighbors[p];
-	      GridNode &myNeigh = Ingrid[gr.Find(neighId)];
-	      if(myNeigh.m_type == GridNode::VIRTUAL_NODE)
-		virt.push_back(neighId);
+	  visited[curId] = 1;
+	  cand->insertNewNode(GridStruct, DetGrid, addNode, cand->m_memberList->end());
+	  for(size_t p = 0; p < addNode->m_neighbors.size(); p++){
+	    int NeighTubeID     =  addNode->m_neighbors[p];
+	    GridNode &NeighTube = DetGrid[NeighTubeID-1];
+	    
+	    if(NeighTube.m_type == GridNode::VIRTUAL_NODE)
+	      virt.push_back(NeighTubeID);
 	      
-	    }
-	    prevLayer = addNode->m_Layer;
 	  }
-	  int firstId         = cand->m_tailNode;
-	  GridNode &firstNode = Ingrid[ gr.Find(firstId)];
-	  int lastId          = cand->m_headNode;
-	  GridNode &lastNode  = Ingrid[gr.Find(lastId)];
+	  prevLayer = addNode->m_Layer;
+	}
+	
+	int firstId         = cand->m_tailNode;
+	int lastId          = cand->m_headNode;
+	GridNode &firstNode = DetGrid[firstId-1];
+	GridNode &lastNode  = DetGrid[lastId-1];
 	      
-	  if((firstNode.m_LayerLimit == 1 && lastNode.m_LayerLimit == 1)){		 
-	    // dbgconnect("track goes through all layers or makes a loop, likily finished");		 
-	    cand->m_finished = FINISHED;		 
-	  }  else {		 
-	    //  dbgconnect("Candidate has no more neighbors, but doesn't seem finished");
-	    cand->m_finished = ONGOING;	   
-	  }
-	  //dbgconnect("Pushing cm %d with length %d, tail node %d, head node %d, first layer %d, last layer %d, IsOnSectorLimit %d, status  %d. ", cand->m_id, cand->m_length, cand->m_tailNode, cand->m_headNode,cand->m_layers[0], cand->m_layers[cand->m_layers.size()-1], cand->m_isOnSectorLimit, cand->m_finished);
-	  tracklets.push_back(cand);
-	} /*else {
-	  info("we found %d nodes connected, not enough for a new cand, let's just connect to closest CC", connected.size());
+	if((firstNode.m_LayerLimit == 1 && lastNode.m_LayerLimit == 1)){		 
+	  cand->m_finished = FINISHED;		 
+	}  else {		 
+	  cand->m_finished = ONGOING;	   
+	}
+	  RecoTracks.push_back(cand);
+	}
 
-	  for(size_t m = 0; m < connected.size(); m++){
-	    info("node %d", connected[m]);
+      /// FIX THIS PART (CODE still works well without it)
+      /*else {
+
+	  info("we found %d nodes TubesConnect, not enough for a new cand, let's just connect to closest PotTrackList", TubesConnect.size());
+
+	  for(size_t m = 0; m < TubesConnect.size(); m++){
+	    info("node %d", TubesConnect[m]);
 	    float mindist = 10000;
 	    int goodcc = -1;
 	    int goodNeigh = -1;
-	    int curId = connected[m];
-	    GridNode &addNode = Ingrid[gr.Find(curId)];
+	    int curId = TubesConnect[m];
+	    GridNode &addNode = DetGrid[gr.Find(curId)];
 	    for(size_t p = 0; p < addNode.m_neighbors.size(); p++){
-	      int neighId =  addNode.m_neighbors[p];
-	      GridNode &myNeigh = Ingrid[gr.Find(neighId)];
-	      if(myNeigh.m_type == GridNode::VIRTUAL_NODE || visited[neighId] != 1)
+	      int NeighTubeID =  addNode.m_neighbors[p];
+	      GridNode &NeighTube = DetGrid[gr.Find(NeighTubeID)];
+	      if(NeighTube.m_type == GridNode::VIRTUAL_NODE || visited[NeighTubeID] != 1)
 		continue;
-	      double currDist = distanceBetweenTube(addNode, myNeigh);
+	      double currDist = distanceBetweenTube(addNode, NeighTube);
 	      if(currDist < mindist){
-		goodcc = myNeigh.m_cm[0];
-		goodNeigh = neighId;
+		goodcc = NeighTube.m_cm[0];
+		goodNeigh = NeighTubeID;
 		mindist=currDist;
 	      }
 	    }
 
-	    info("Best match is %d with CC %d", goodNeigh, goodcc);
-	    const auto p = std::find_if(tracklets.begin(), tracklets.end(),
+	    info("Best match is %d with PotTrackList %d", goodNeigh, goodcc);
+	    const auto p = std::find_if(RecoTracks.begin(), RecoTracks.end(),
 					[goodcc](const PathCandidate *obj){ return obj->m_id==goodcc;});
 
-	    PathCandidate &neighCand = *(*p); // The CC that the node belongs to	   	   
+	    PathCandidate &neighCand = *(*p); // The PotTrackList that the node belongs to	   	   
 
-	    //Find where the node is in the list of the other CC
+	    //Find where the node is in the list of the other PotTrackList
 	    std::vector<int>::iterator it = std::find((neighCand.m_memberList)->begin(),
 						      (neighCand.m_memberList)->end(), goodNeigh);
-	    neighCand.insertNewNode(gr, Ingrid, &addNode, it);
-	    visited[nodeId] = 1;
+	    neighCand.insertNewNode(gr, DetGrid, &addNode, it);
+	    visited[TubeID] = 1;
 	  }
 	}
 	}*/
-	//	sameLayer.clear();
-	//	otherLayer.clear();
-//	connected.clear();
+	//	SameLayerTubes.clear();
+	//	OtherLayerTubes.clear();
+//	TubesConnect.clear();
 	  
     }
 
 
     dbgfit("Ended the connecttion of remaining nodes");
-
-    std::sort(tracklets.begin(), tracklets.end(), compareTwoPathsLength);
-
+    std::sort(RecoTracks.begin(), RecoTracks.end(), compareTwoPathsLength);
     using nodeDist = std::pair<int, float>;
-
-
-
     
-    for(unsigned int l = 0; l < tracklets.size(); l++){
+    for(unsigned int l = 0; l < RecoTracks.size(); l++){
      
-      PathCandidate &curCand = *(tracklets[l]);
+      PathCandidate &curCand = *(RecoTracks[l]);
       if(curCand.m_finished > 2) //!curCand.m_isValid || 
 	continue;
 
-      GridNode &firstNode = Ingrid[gr.Find(curCand.m_tailNode)];
-      GridNode &lastNode  = Ingrid[gr.Find(curCand.m_headNode)];
-      dbgmerge("NEW Tracklet %d is unfinished, firstNode %d, lastNode %d", curCand.m_id, firstNode.m_detID, lastNode.m_detID);
+      GridNode &firstNode = DetGrid[curCand.m_tailNode-1];
+      GridNode &lastNode  = DetGrid[curCand.m_headNode-1];
+      dbgmerge("NEW Tracklet %d is unfinished, firstNode %d, lastNode %d",
+	       curCand.m_id, firstNode.m_detID, lastNode.m_detID);
 
       if(!(firstNode.m_LayerLimit == 1 || curCand.m_toMergeTail.size()> 0 || firstNode.m_neighbors.size() > 0)) { 
-	dbgmerge("Let's look into tail direction, with the %lu tracklets we found previously", tracklets.size());
+	dbgmerge("Let's look into tail direction, with the %lu tracklets found previously", RecoTracks.size());
 	std::vector<nodeDist> toCheck;
-	for(unsigned int n = 0; n < tracklets.size(); ++n) {
-	  PathCandidate &testCand = *(tracklets[n]);
+	for(unsigned int n = 0; n < RecoTracks.size(); ++n) {
+	  PathCandidate &testCand = *(RecoTracks[n]);
 	  if (testCand.m_finished == 3 || n == l) continue;
 
 	  GridNode checkNode;
 	  if(labs((int) firstNode.m_detID - testCand.m_tailNode)
 	     < labs((int) firstNode.m_detID - testCand.m_headNode)){
-	    checkNode = Ingrid[gr.Find(testCand.m_tailNode)];
+	    checkNode = DetGrid[testCand.m_tailNode-1];
 	  }else{
-	    checkNode = Ingrid[gr.Find(testCand.m_headNode)];
+	    checkNode = DetGrid[testCand.m_headNode-1];
 	  }
 
 	  if(labs((int) checkNode.m_Sector - firstNode.m_Sector) > 1)
@@ -664,7 +692,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
 	  double currDist = sqrt(pow(firstNode.m_x- checkNode.m_x,2) +pow(firstNode.m_y- checkNode.m_y,2)) ;
 	  dbgmerge("Distance %lf", currDist);
-	  if(currDist < 6.){
+	  if(currDist < 6.){ // Empirical Criterion
 	    toCheck.push_back(make_pair(checkNode.m_detID,currDist));
 	   } else
 	    dbgmerge("Too far, no possible merging");
@@ -672,79 +700,93 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	}
 
 	dbgmerge("Checking now \n");
-
 	if(toCheck.size() > 0){
-	  // info("Found nodes to Cgeck");
-
 	  std::sort(toCheck.begin(), toCheck.end(), [](nodeDist const &a, nodeDist const &b) { 
 						      return a.second < b.second;	  });
 	  
 	  for(size_t i = 0; i < MIN(toCheck.size(),5); i++){
-	    GridNode &check = Ingrid[gr.Find(toCheck[i].first)];
-	    int potCCtoMerge = check.m_cm[0];
+	    GridNode &check = DetGrid[toCheck[i].first-1];
+	    int TrackToMerge = check.m_cm[0];
 	      
-	    const auto p = std::find_if(tracklets.begin(), tracklets.end(),
-					[potCCtoMerge](const PathCandidate *obj){ return obj->m_id == potCCtoMerge; } );
+	    const auto p = std::find_if(RecoTracks.begin(), RecoTracks.end(),
+					[TrackToMerge](const PathCandidate *obj){ return obj->m_id == TrackToMerge; } );
 
-	    PathCandidate &testCand = *(*p); // The CC that the node belongs to
-	    dbgmerge("Check CC %d", potCCtoMerge);
+	    PathCandidate &testCand = *(*p); // The PotTrackList that the node belongs to
+	    dbgmerge("Check PotTrackList %d", TrackToMerge);
 
 	    int caseMerge      = 0;
 	    int offAnc         = 0;
+	    
 	    if(check.m_detID == testCand.m_tailNode && testCand.m_toMergeTail.size() == 0){
 	      dbgmerge("Possibility in tail, testing angle");
 	      offAnc      = 0;
 	      caseMerge   = 0;
 	      GridNode &prevAnc = curCand.m_anchors[1];
 	      dbgmerge("PrevAncho %d, %f, %f", prevAnc.m_detID,prevAnc.m_xDet, prevAnc.m_yDet);
-	      dbgmerge("Next neigh Anc %d, %f, %f", testCand.m_anchors[offAnc].m_detID,testCand.m_anchors[offAnc].m_xDet, testCand.m_anchors[offAnc].m_yDet);
+	      dbgmerge("Next neigh Anc %d, %f, %f", testCand.m_anchors[offAnc].m_detID,
+		       testCand.m_anchors[offAnc].m_xDet, testCand.m_anchors[offAnc].m_yDet);
 
 	      float angle_xy = returnAngle(prevAnc.m_xDet, firstNode.m_xDet, testCand.m_anchors[offAnc].m_xDet,
 	      		   prevAnc.m_yDet, firstNode.m_yDet, testCand.m_anchors[offAnc].m_yDet);
 	      dbgmerge("Angle xy with track %f", angle_xy);
 
-
-	      float dot = (firstNode.m_xDet - prevAnc.m_xDet)*(testCand.m_anchors[offAnc+1].m_xDet - testCand.m_anchors[offAnc].m_xDet) +(firstNode.m_yDet - prevAnc.m_yDet)*(testCand.m_anchors[offAnc+1].m_yDet - testCand.m_anchors[offAnc].m_yDet);    //# dot product between [x1, y1] and [x2, y2]
-	      float det = (firstNode.m_xDet - prevAnc.m_xDet)*(testCand.m_anchors[offAnc+1].m_yDet - testCand.m_anchors[offAnc].m_yDet) -(firstNode.m_yDet - prevAnc.m_yDet)*(testCand.m_anchors[offAnc+1].m_xDet - testCand.m_anchors[offAnc].m_xDet); //x1*y2 - y1*x2    //  # determinant
+	      //# dot product between [x1, y1] and [x2, y2]
+	      float dot = (firstNode.m_xDet - prevAnc.m_xDet)*
+		(testCand.m_anchors[offAnc+1].m_xDet - testCand.m_anchors[offAnc].m_xDet) +
+		(firstNode.m_yDet - prevAnc.m_yDet)*
+		(testCand.m_anchors[offAnc+1].m_yDet - testCand.m_anchors[offAnc].m_yDet);
+	       //x1*y2 - y1*x2    //  # determinant
+	      float det = (firstNode.m_xDet - prevAnc.m_xDet)*
+		(testCand.m_anchors[offAnc+1].m_yDet - testCand.m_anchors[offAnc].m_yDet) -
+		(firstNode.m_yDet - prevAnc.m_yDet)*
+		(testCand.m_anchors[offAnc+1].m_xDet - testCand.m_anchors[offAnc].m_xDet);
 	      float angle = atan2(det, dot)* 180 / 3.14;
 	      dbgmerge("Vector Angle xy with track %f", angle);
 
-	      // # atan2(y, x) or atan2(sin, cos)
 	      if(fabs(angle) < 70){
 	      	dbgmerge("We should merge %d and %d \n", curCand.m_id, testCand.m_id);
-		curCand.m_toMergeTail.push_back(potCCtoMerge);
+		curCand.m_toMergeTail.push_back(TrackToMerge);
 		testCand.m_toMergeTail.push_back(curCand.m_id);		  		    
-		//	toMergeWith[curCand.m_id][potCCtoMerge] = caseMerge;
+		//	TrackIDToMerge[curCand.m_id][TrackToMerge] = caseMerge;
 		curCand.m_finished = 2;
 		testCand.m_finished = 2;
 
 	      	break;
 	      }
+	      
 	    } else if(check.m_detID == testCand.m_headNode && testCand.m_toMergeHead.size() == 0){
 	      dbgmerge("Possibility in head, testing angle");
 	      offAnc      = testCand.m_anchors.size()-1;
 	      caseMerge   = 1;
 	      GridNode &prevAnc = curCand.m_anchors[1];
 	      dbgmerge("PrevAncho %d, %f, %f", prevAnc.m_detID,prevAnc.m_xDet, prevAnc.m_yDet);
-	      dbgmerge("Next neigh Anc %d, %f, %f", testCand.m_anchors[offAnc].m_detID,testCand.m_anchors[offAnc].m_xDet, testCand.m_anchors[offAnc].m_yDet);
+	      dbgmerge("Next neigh Anc %d, %f, %f", testCand.m_anchors[offAnc].m_detID,
+		       testCand.m_anchors[offAnc].m_xDet, testCand.m_anchors[offAnc].m_yDet);
 
 	      float angle_xy = returnAngle(prevAnc.m_xDet, firstNode.m_xDet, testCand.m_anchors[offAnc].m_xDet,
 					   prevAnc.m_yDet, firstNode.m_yDet, testCand.m_anchors[offAnc].m_yDet);
 	      dbgmerge("Angle xy with track %f", angle_xy);
 
-	      float dot = (firstNode.m_xDet - prevAnc.m_xDet)*(testCand.m_anchors[offAnc-1].m_xDet - testCand.m_anchors[offAnc].m_xDet) +(firstNode.m_yDet - prevAnc.m_yDet)*(testCand.m_anchors[offAnc-1].m_yDet - testCand.m_anchors[offAnc].m_yDet);    //# dot product between [x1, y1] and [x2, y2]
-	      float det = (firstNode.m_xDet - prevAnc.m_xDet)*(testCand.m_anchors[offAnc-1].m_yDet - testCand.m_anchors[offAnc].m_yDet) -(firstNode.m_yDet - prevAnc.m_yDet)*(testCand.m_anchors[offAnc-1].m_xDet - testCand.m_anchors[offAnc].m_xDet); //x1*y2 - y1*x2    //  # determinant
+	      float dot = (firstNode.m_xDet - prevAnc.m_xDet)*
+		(testCand.m_anchors[offAnc-1].m_xDet - testCand.m_anchors[offAnc].m_xDet) +
+		(firstNode.m_yDet - prevAnc.m_yDet)*
+		(testCand.m_anchors[offAnc-1].m_yDet - testCand.m_anchors[offAnc].m_yDet);  
+	      float det = (firstNode.m_xDet - prevAnc.m_xDet)*
+		(testCand.m_anchors[offAnc-1].m_yDet - testCand.m_anchors[offAnc].m_yDet) -
+		(firstNode.m_yDet - prevAnc.m_yDet)*
+		(testCand.m_anchors[offAnc-1].m_xDet - testCand.m_anchors[offAnc].m_xDet); 
 	      float angle = atan2(det, dot)* 180 / 3.14;
+	      
 	      if(fabs(angle) < 70){
 		dbgmerge("We should merge %d and %d \n", curCand.m_id, testCand.m_id);
-		curCand.m_toMergeTail.push_back(potCCtoMerge);
+		curCand.m_toMergeTail.push_back(TrackToMerge);
 		testCand.m_toMergeHead.push_back(curCand.m_id);		  		    
-		//	toMergeWith[curCand.m_id][potCCtoMerge] = caseMerge;
+		//	TrackIDToMerge[curCand.m_id][TrackToMerge] = caseMerge;
 		curCand.m_finished = 2;
 		testCand.m_finished = 2;
-
 		break;
 	      }
+	      
 	    }
 	  }
 	} else {
@@ -756,99 +798,117 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
       
       if(!(lastNode.m_LayerLimit == 1 || curCand.m_toMergeHead.size()> 0 || lastNode.m_neighbors.size() > 0)) {
-	dbgmerge("Let's look into head direction, with the %lu tracklets we found previously", tracklets.size());
+	dbgmerge("Let's look into head direction, with the %lu RecoTracks we found previously", RecoTracks.size());
 	std::vector<nodeDist> toCheck;
 
-	for(unsigned int n = 0; n < tracklets.size(); ++n) {
-	  PathCandidate &testCand = *(tracklets[n]);
+	for(unsigned int n = 0; n < RecoTracks.size(); ++n) {
+	  PathCandidate &testCand = *(RecoTracks[n]);
 	  if (testCand.m_finished == 3 || n == l) continue;
 	
 	  GridNode checkNode;
-	  if(labs((int) lastNode.m_detID - testCand.m_tailNode) < labs((int) lastNode.m_detID - testCand.m_headNode)){
-	    checkNode = Ingrid[gr.Find(testCand.m_tailNode)];
+	  if(labs((int) lastNode.m_detID - testCand.m_tailNode) <
+	     labs((int) lastNode.m_detID - testCand.m_headNode)){
+	    checkNode = DetGrid[testCand.m_tailNode-1];
 	  }else{
-	    checkNode = Ingrid[gr.Find(testCand.m_headNode)];
+	    checkNode = DetGrid[testCand.m_headNode-1];
 	  }
 	  
 	  dbgmerge("Testing with node %d from tracklet %d",checkNode.m_detID, testCand.m_id);
 
-	  double currDist = sqrt(pow(lastNode.m_x- checkNode.m_x,2) +pow(lastNode.m_y- checkNode.m_y,2)) ;
-	  if(labs((int) checkNode.m_Sector - lastNode.m_Sector) > 1 && labs((int) checkNode.m_Sector - lastNode.m_Sector) != 5 )
+	  double currDist = sqrt(pow(lastNode.m_x- checkNode.m_x,2) + pow(lastNode.m_y- checkNode.m_y,2));
+	  if(labs((int) checkNode.m_Sector - lastNode.m_Sector) > 1 &&
+	     labs((int) checkNode.m_Sector - lastNode.m_Sector) != 5 )
 	    continue;
 	  dbgmerge("Distance %lf", currDist);
 
-	  if(currDist < (double) 6.){
+	  if(currDist < (double) 6.)
 	    toCheck.push_back(make_pair(checkNode.m_detID,currDist));
-	  } else
+	  else
 	    dbgmerge("Too far, no possible merging");
 	  
 	}
+	
 	if(toCheck.size() > 0){
-	  //  info("Found nodes to Cgeck");
-
 	  std::sort(toCheck.begin(), toCheck.end(), [](nodeDist const &a, nodeDist const &b) { 
 						      return a.second < b.second;	  });
 	  
 	  for(size_t i = 0; i < MIN(toCheck.size(),5); i++){
-	    GridNode &check = Ingrid[gr.Find(toCheck[i].first)];
-	    int potCCtoMerge = check.m_cm[0];
+	    GridNode &check = DetGrid[GridStruct.Find(toCheck[i].first)];
+	    int TrackToMerge = check.m_cm[0];
 	      
-	    const auto p = std::find_if(tracklets.begin(), tracklets.end(),
-					[potCCtoMerge](const PathCandidate *obj){ return obj->m_id == potCCtoMerge; } );
-	    dbgmerge("Check CC %d", potCCtoMerge);
+	    const auto p = std::find_if(RecoTracks.begin(), RecoTracks.end(),
+					[TrackToMerge](const PathCandidate *obj){ return obj->m_id == TrackToMerge; } );
+	    dbgmerge("Check PotTrackList %d", TrackToMerge);
 
-	    PathCandidate &testCand = *(*p); // The CC that the node belongs to
+	    PathCandidate &testCand = *(*p); // The PotTrackList that the node belongs to
 	    int caseMerge      = 0;
 	    int offAnc         = 0;
+	    
 	    if(check.m_detID == testCand.m_tailNode && testCand.m_toMergeTail.size() == 0){
 	      dbgmerge("Possibility in tail, testing angle");
 	      offAnc      = 0;
 	      caseMerge   = 2;
 	      GridNode &prevAnc = curCand.m_anchors[curCand.m_anchors.size()-2];
 	      dbgmerge("PrevAncho %d, %f, %f", prevAnc.m_detID,prevAnc.m_xDet, prevAnc.m_yDet);
-	      dbgmerge("Next neigh Anc %d, %f, %f", testCand.m_anchors[offAnc].m_detID,testCand.m_anchors[offAnc].m_xDet, testCand.m_anchors[offAnc].m_yDet);
+	      dbgmerge("Next neigh Anc %d, %f, %f", testCand.m_anchors[offAnc].m_detID,
+		       testCand.m_anchors[offAnc].m_xDet, testCand.m_anchors[offAnc].m_yDet);
 
 	      float angle_xy = returnAngle(prevAnc.m_xDet, lastNode.m_xDet, testCand.m_anchors[offAnc].m_xDet,
 					   prevAnc.m_yDet, lastNode.m_yDet, testCand.m_anchors[offAnc].m_yDet);
 	      dbgmerge("Angle xy with track %f", angle_xy);
 
-	      float dot = (lastNode.m_xDet - prevAnc.m_xDet)*(testCand.m_anchors[offAnc+1].m_xDet - testCand.m_anchors[offAnc].m_xDet) +(lastNode.m_yDet - prevAnc.m_yDet)*(testCand.m_anchors[offAnc+1].m_yDet - testCand.m_anchors[offAnc].m_yDet);    //# dot product between [x1, y1] and [x2, y2]
-	      float det = (lastNode.m_xDet - prevAnc.m_xDet)*(testCand.m_anchors[offAnc+1].m_yDet - testCand.m_anchors[offAnc].m_yDet) -(lastNode.m_yDet - prevAnc.m_yDet)*(testCand.m_anchors[offAnc+1].m_xDet - testCand.m_anchors[offAnc].m_xDet); //x1*y2 - y1*x2    //  # determinant
+	      float dot = (lastNode.m_xDet - prevAnc.m_xDet)
+		*(testCand.m_anchors[offAnc+1].m_xDet - testCand.m_anchors[offAnc].m_xDet) +
+		(lastNode.m_yDet - prevAnc.m_yDet)*
+		(testCand.m_anchors[offAnc+1].m_yDet - testCand.m_anchors[offAnc].m_yDet);   
+	      float det = (lastNode.m_xDet - prevAnc.m_xDet)*
+		(testCand.m_anchors[offAnc+1].m_yDet - testCand.m_anchors[offAnc].m_yDet) -
+		(lastNode.m_yDet - prevAnc.m_yDet)*
+		(testCand.m_anchors[offAnc+1].m_xDet - testCand.m_anchors[offAnc].m_xDet);
 	      float angle = atan2(det, dot)* 180 / 3.14;
 	      dbgmerge("Vector Angle xy with track %f", angle);
+	      
 	      if(fabs(angle) < 70){
 		dbgmerge("We should merge %d and %d \n", curCand.m_id, testCand.m_id);
-		curCand.m_toMergeHead.push_back(potCCtoMerge);
+		curCand.m_toMergeHead.push_back(TrackToMerge);
 		testCand.m_toMergeTail.push_back(curCand.m_id);		  		    
-		//toMergeWith[curCand.m_id][potCCtoMerge] = caseMerge;
+		//TrackIDToMerge[curCand.m_id][TrackToMerge] = caseMerge;
 		curCand.m_finished = 2;
 		testCand.m_finished = 2;
 		break;
 	      }
+	      
 	    } else if(check.m_detID == testCand.m_headNode && testCand.m_toMergeHead.size() == 0){
 	      dbgmerge("Possibility in head, testing angle");
 	      offAnc      = testCand.m_anchors.size()-1;
 	      caseMerge   = 1;
 	      GridNode &prevAnc = curCand.m_anchors[curCand.m_anchors.size()-2];
 	      dbgmerge("PrevAncho %d, %f, %f", prevAnc.m_detID,prevAnc.m_xDet, prevAnc.m_yDet);
-	      dbgmerge("Next neigh Anc %d, %f, %f", testCand.m_anchors[offAnc].m_detID,testCand.m_anchors[offAnc].m_xDet, testCand.m_anchors[offAnc].m_yDet);
+	      dbgmerge("Next neigh Anc %d, %f, %f", testCand.m_anchors[offAnc].m_detID,
+		       testCand.m_anchors[offAnc].m_xDet, testCand.m_anchors[offAnc].m_yDet);
 
 	      float angle_xy = returnAngle(prevAnc.m_xDet, lastNode.m_xDet, testCand.m_anchors[offAnc].m_xDet,
 					   prevAnc.m_yDet, lastNode.m_yDet, testCand.m_anchors[offAnc].m_yDet);
 	      dbgmerge("Angle xy with track %f", angle_xy);
 
-	      float dot = (lastNode.m_xDet - prevAnc.m_xDet)*(testCand.m_anchors[offAnc-1].m_xDet - testCand.m_anchors[offAnc].m_xDet) +(lastNode.m_yDet - prevAnc.m_yDet)*(testCand.m_anchors[offAnc-1].m_yDet - testCand.m_anchors[offAnc].m_yDet);    //# dot product between [x1, y1] and [x2, y2]
-	      float det = (lastNode.m_xDet - prevAnc.m_xDet)*(testCand.m_anchors[offAnc-1].m_yDet - testCand.m_anchors[offAnc].m_yDet) -(lastNode.m_yDet - prevAnc.m_yDet)*(testCand.m_anchors[offAnc-1].m_xDet - testCand.m_anchors[offAnc].m_xDet); //x1*y2 - y1*x2    //  # determinant
+	      float dot = (lastNode.m_xDet - prevAnc.m_xDet)*
+		(testCand.m_anchors[offAnc-1].m_xDet - testCand.m_anchors[offAnc].m_xDet) +
+		(lastNode.m_yDet - prevAnc.m_yDet)*
+		(testCand.m_anchors[offAnc-1].m_yDet - testCand.m_anchors[offAnc].m_yDet); 
+	      float det = (lastNode.m_xDet - prevAnc.m_xDet)*
+		(testCand.m_anchors[offAnc-1].m_yDet - testCand.m_anchors[offAnc].m_yDet) -
+		(lastNode.m_yDet - prevAnc.m_yDet)*
+		(testCand.m_anchors[offAnc-1].m_xDet - testCand.m_anchors[offAnc].m_xDet);
 	      float angle = atan2(det, dot)* 180 / 3.14;
 	      dbgmerge("Vector Angle xy with track %f", angle);
+	      
 	      if(fabs(angle) < 70){
 		dbgmerge("We should merge %d and %d \n", curCand.m_id, testCand.m_id);
-		curCand.m_toMergeHead.push_back(potCCtoMerge);
+		curCand.m_toMergeHead.push_back(TrackToMerge);
 		testCand.m_toMergeHead.push_back(curCand.m_id);		  		    
-		//toMergeWith[curCand.m_id][potCCtoMerge] = caseMerge;
+		//TrackIDToMerge[curCand.m_id][TrackToMerge] = caseMerge;
 		curCand.m_finished = 2;
 		testCand.m_finished = 2;
-
 		break;
 	      }
 	    }
@@ -858,349 +918,418 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	}
 
       }
-
-      //if(curCand.m_finished < 2){
-      //	dbgmerge("We found no good candidate to merge with");
-      //	curCand.m_finished = 3;
-     // }
-	  
-     // dbgmerge("\n\n\n");
     }
    
- #endif // IF TRUE
+    #endif // IF FITTING TRUE
+
 
     
+    /* ++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+      
+    /*        Third Reconstruction Phase: Merging           */
+      
+    /* ++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 
 
-#if(DO_MERGING)
-    // Merging potential candidates
-    for(unsigned int l = 0; l < tracklets.size(); l++){
-      PathCandidate &curCand = *(tracklets[l]);
+
+    #if(DO_MERGING)
+    info("Third phase: merging tracks");
+
+    for(unsigned int l = 0; l < RecoTracks.size(); l++){
+      PathCandidate &curCand = *(RecoTracks[l]);
       curCand.m_isValid =false;
     }
+    
     dbgmerge("Starting Merging phase\n");
-    mergeTracks (gr, Ingrid, tracklets, &candidateId);
-    mergingTime = std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count() - fittingTime - connectTime - fillingTime;
-    // timing("Merging phase ended. Real time %f s, CPU time %f s.", timer.RealTime(),timer.CpuTime());
-      //timing("Merging phase ended. Time %lf s",  std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count());
+    mergeTracks (GridStruct, DetGrid, RecoTracks, &candidateId);
+    TimeNow     =  std::chrono::high_resolution_clock::now();
+    MergingTime = std::chrono::duration<double>(TimeNow - TimeEvt ).count() -
+      FittingTime - ConnectTime - FillingTime;
 
+    for(unsigned int l = 0; l < RecoTracks.size(); l++){
+      PathCandidate &curCand = *(RecoTracks[l]);
+      if(!curCand.m_isValid){
+	RecoTracks.erase(RecoTracks.begin() + l);
+	l--;
+	continue;
+      }
+    }
+
+    for(unsigned int l = 0; l < RecoTracks.size(); l++){
+      PathCandidate &curCand = *(RecoTracks[l]);
+      std::vector<int>  curTrk( *(curCand.m_memberList));
+      std::sort(curTrk.begin(), curTrk.end());
+
+      std::vector<int>::iterator it;
+      it = remove_if(curTrk.begin(), curTrk.end(), bind2nd(greater<int>(), GridStruct.firstVirtIdx-1));
+      curTrk.erase(it,curTrk.end());
+
+      for(unsigned int m = l+1; m < RecoTracks.size(); m++){
+	PathCandidate &testCand = *(RecoTracks[m]);
+	std::vector<int>  testTrk (*(testCand.m_memberList));
+	std::sort(testTrk.begin(), testTrk.end());
+	it = remove_if(testTrk.begin(), testTrk.end(), bind2nd(greater<int>(), GridStruct.firstVirtIdx-1));
+	testTrk.erase(it,testTrk.end());
+
+	std::vector<int> IntersectionList( (curTrk.size() + testTrk.size()), 0 );
+	std::vector<int>::iterator it2;
+	//	  std::vector<int> IntersectionList( (Cur_Comp_list.size() + MCSttComp.size()), 0 );
+	it2 = std::set_intersection(curTrk.begin(), curTrk.end(),
+				    testTrk.begin(), testTrk.end(),
+				    IntersectionList.begin());
+	IntersectionList.resize(it2 - IntersectionList.begin());
+	if((float) IntersectionList.size() > 0.66* MIN(curTrk.size(), testTrk.size())){
+	  //error("Track %d and track %d, length %ld and %ld, intersection %ld", l,m,curTrk.size(), testTrk.size(),		  IntersectionList.size());
+	  if(curTrk.size() < testTrk.size()){
+	    RecoTracks.erase(RecoTracks.begin() + l);
+	    l--;
+	    break;
+	  } else {
+	    RecoTracks.erase(RecoTracks.begin() + m);
+	    m--;
+	  }
+	}
+      }
+    }
+
+    dbgmerge("Number of valid RecoTracks: %d", RecoTracks.size());  
+    timing("Time elapsed in merging phase: %.6lf s.", MergingTime);
 #endif
+   
 
 #if (DO_ZRECONS)  
-      //CompZCoordinates(gr, curCand);
-      ZCoordinates(gr, Ingrid, tracklets);
-      zRecTime = std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count() - mergingTime - fittingTime - connectTime - fillingTime;
+    info("Fourth phase: z reconstruction");
+   ZCoordinates(GridStruct, DetGrid, RecoTracks);
+   TimeNow  = std::chrono::high_resolution_clock::now();
+   zRecTime = std::chrono::duration<double>(TimeNow - TimeEvt).count() -
+     MergingTime - FittingTime - ConnectTime - FillingTime;
+   timing("Time elapsed in z-reconstruction phase: %.6lf s.", zRecTime);
 #endif
       
-    //fitZCoordinates(gr, tracklets);
 
       
-      //    if(tracklets.size() > 0){
-      //for (size_t i =0; i < tracklets.size(); i++)
-      //	free(toMergeWith[i]);
-      //free(toMergeWith);
-      for(unsigned int l = 0; l < tracklets.size(); l++){
-	PathCandidate &curCand = *(tracklets[l]);
-	if(!curCand.m_isValid){
-	  tracklets.erase(tracklets.begin() + l);
-	  l--;
-	  continue;
-	}
-      }
-
-      for(unsigned int l = 0; l < tracklets.size(); l++){
-	PathCandidate &curCand = *(tracklets[l]);
-	std::vector<int>  curTrk( *(curCand.m_memberList));
-	std::sort(curTrk.begin(), curTrk.end());
-
-	std::vector<int>::iterator it;
-	it = remove_if(curTrk.begin(), curTrk.end(), bind2nd(greater<int>(), 4999));
-	curTrk.erase(it,curTrk.end());
-
-	for(unsigned int m = l+1; m < tracklets.size(); m++){
-	  PathCandidate &testCand = *(tracklets[m]);
-	  std::vector<int>  testTrk (*(testCand.m_memberList));
-	  std::sort(testTrk.begin(), testTrk.end());
-	  it = remove_if(testTrk.begin(), testTrk.end(), bind2nd(greater<int>(), 4999));
-	  testTrk.erase(it,testTrk.end());
-
-	  std::vector<int> IntersectionList( (curTrk.size() + testTrk.size()), 0 );
-	  std::vector<int>::iterator it2;
-	  //	  std::vector<int> IntersectionList( (Cur_Comp_list.size() + MCSttComp.size()), 0 );
-	  it2 = std::set_intersection(curTrk.begin(), curTrk.end(),
-				      testTrk.begin(), testTrk.end(),
-				      IntersectionList.begin());
-	  IntersectionList.resize(it2 - IntersectionList.begin());
-	  if((float) IntersectionList.size() > 0.66* MIN(curTrk.size(), testTrk.size())){
-	    //error("Track %d and track %d, length %ld and %ld, intersection %ld", l,m,curTrk.size(), testTrk.size(),		  IntersectionList.size());
-	    if(curTrk.size() < testTrk.size()){
-	      tracklets.erase(tracklets.begin() + l);
-	      l--;
-	      break;
-	    } else {
-	      tracklets.erase(tracklets.begin() + m);
-	      m--;
-	    }
-	  }
-	}
-      }
-
-      info("Number of valid tracklets: %d", tracklets.size());    
-
-      std::vector < MCTrackObject* > *mcTracksCurrentEvent = MC_Tracks->at(k);
-      // SOrt MC tracks increasing length
-      std::sort(mcTracksCurrentEvent->begin(), mcTracksCurrentEvent->end(), greaterThanLength);
-      std::vector<int> matchedId = BestCompIdToMCTracks( mcTracksCurrentEvent, &tracklets);
-      
-      for(unsigned int l = 0; l < tracklets.size(); l++){
-	PathCandidate *curCand = tracklets[l];
-	std::set<int> const *trk = curCand->m_memberIdSet;
-	  std::vector<int> const *vect = curCand->m_memberList;
-
-	  if(curCand->m_isValid) {
-
-	    std::set<int> *comp = new std::set<int>((*trk));	    
-	    connectedComp->push_back(comp);
-	    // info("Best match id for track %d is %d",l, matchedId[l]);
-	  }
-	}
-    
-	int NumConnComp = connectedComp->size();
-	//info("Number of connected components: %d", NumConnComp);    
-	//	std::vector<TrackObject*>* MVDMergedTraks = MergeConnectedComponentsWithMVD(gr, connectedComp);
-	// TrackZ_CoordinatesDistNorm(gr, MVDMergedTraks);
-	//	timer.Stop();
+   //    if(RecoTracks.size() > 0){
+   //for (size_t i =0; i < RecoTracks.size(); i++)
+   //	free(TrackIDToMerge[i]);
+   //free(TrackIDToMerge);
   
-	//__________________ Determind eth Z-coordinate values.
-    
-	ComponentPerEvt.Fill(k, NumConnComp);
+
+   std::vector < MCTrackObject* > *MCTracksEvt = MCTracks->at(evt);
+   std::sort(MCTracksEvt->begin(), MCTracksEvt->end(), greaterThanLength);
 
 
-	int cm =0;
-	for(unsigned int l = 0; l < tracklets.size(); l++){
-	  PathCandidate &curCand = *(tracklets[l]);
-	  std::set<int> const *trk = curCand.m_memberIdSet;
-	  std::vector<int> const *vect = curCand.m_memberList;
-	  std::vector<double> &x =  curCand.m_x;
-	  std::vector<double> &y =  curCand.m_y;
-	  std::vector<double> &z =  curCand.m_z; 
+   #if (WRITE_LIST_RECO_ID > 0)
+   if (MCOutTxtFile.is_open()) {
+     for(unsigned int l = 0, cm =0; l < MCTracksEvt->size(); l++){
+       MCTrackObject const *CurMCtrack = MCTracksEvt->at(l);
+       std::set<int> MCSttComp((CurMCtrack->m_STT_Component).begin(), (CurMCtrack->m_STT_Component).end());
+       if(MCSttComp.size()>5){
+	 for(auto it = MCSttComp.begin(); it != MCSttComp.end(); ++it){
+	   int id = *it;
+	   MCOutTxtFile << evt+firstEvt << "," << cm << "," << id << '\n';
+	   MCDetID.Fill(evt+firstEvt,
+			  cm,
+			  id);	  
+	 }
+	 cm++;
+       }
+     }
+   }
+   #endif
+   
+   for(unsigned int l = 0; l < RecoTracks.size(); l++){
+     PathCandidate *Cand          = RecoTracks[l];
+     std::set<int> const *trk     = Cand->m_memberIdSet;
+     std::vector<int> const *vect = Cand->m_memberList;
 
-	  std::vector<double> &r =  curCand.m_r;
-	  std::vector<double> &theta =  curCand.m_theta; 
-
-	  if(curCand.m_isValid) {
-	    for( size_t i = 0;  i < vect->size(); ++i) {
-	      int detID = vect->at(i);// Id of the current detector
-	      //	printf("CM %d, id %d \n", cm, detID);
-	      int d_Index = gr.Find(detID);// Index in the grid
-	      GridNode  &node = Ingrid[d_Index];
-	      //  debug("%lf, %lf, %lf", x[i], y[i], z[i]);
-	      //if(node.m_type!= GridNode::STT_TYPE_SKEW)
-	      // .. ConnectedCoord.Fill(k, cm, detID, node.m_x, node.m_y, node.m_z , node.m_r,node.m_thetaDeg,
-	      //			x[i], y[i], 0);
-	      //else
-	      ConnectedCoord.Fill(k, cm, matchedId[l], node.m_detID, node.m_x, node.m_y, node.m_z,
-				  node.m_r,node.m_thetaDeg,  x[i],y[i],z[i]);
-
-	    }
-	    for( size_t i = 0;  i < curCand.m_anchors.size(); ++i) {
-	      //if(curCand.m_anchors[i].m_weight == 1)
-		AnchorCCCoord.Fill(k, cm,  curCand.m_anchors[i].m_xDet,curCand.m_anchors[i].m_yDet,curCand.m_anchors[i].m_z_Det);
-	    }
-	    cm++;
-		  
-	  }
-	}
-
-
-    
-	// ------------------------------------------------------------------------
-	#if (WRITE_CM_ASCII_FILE > 0)  
-	// Write to an ASCII file
-	//////////// Comments to write to file
-	std::string header = "cm,x,y,z,mx,my,mz\n";
-	//////// End of comments.
-	std::ofstream OutTxtFile;
-	OutTxtFile.open ("ConnectedComponents.csv");
-  
-	if (OutTxtFile.is_open()) {
-	  OutTxtFile << header;
-	  for(unsigned int l = 0; l < tracklets.size(); l++){
-	    PathCandidate &curCand = *(tracklets[l]);
-	    std::vector<int>  *trk = curCand.m_memberList;
-	    for(size_t cm = 0 ; cm < trk->size(); ++cm) {
-	      int detID = trk->at(cm);// Id of the current detector
-	      //	printf("CM %d, id %d \n", cm, detID);
-	      int d_Index = gr.Find(detID);// Index in the grid
-	      GridNode  &node = Ingrid[d_Index];
-	      OutTxtFile << l << "," << node.m_x <<"," << node.m_y <<"," << node.m_z <<"," <<	  node.m_xDet<<"," << node.m_yDet<<"," << node.m_z_Det<< '\n';
-	      // k = event number, cm = component number,....
-	      //	ConnectedCoord.Fill(k, cm, node.m_detID, node.m_x, node.m_y, node.m_z,
-	      //			    node.m_xDet, node.m_yDet, node.m_z_Det);
-	      //printf("%d, %d, %d, %f, %f, %f, %f, %f, %f \n", k, cm, node.m_detID, node.m_x, node.m_y, node.m_z,
-	      //		    node.m_xDet, node.m_yDet, node.m_z_Det);
-
-
-	    }
-	    // Print Info
-	  }
-	  // Writ
-	}
-  
-	//OutTxtFile.close();
-	#endif
-
-	totalTime = std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t1 ).count();
-	#if (WRITE_TIME_ASCII_FILE > 0)  
-  
-	if (OutTxtFile.is_open()) {
-	  OutTxtFile << k << "," << numberSTTtracks <<"," << nactiveReal <<"," << fillingTime <<"," << connectTime <<","<< fittingTime <<","<< mergingTime <<","<< zRecTime<<","<<totalTime<< '\n';	  
-	}
-  
-	//OutTxtFile.close();
-	#endif
+     if(Cand->m_isValid) {
+       std::set<int> *comp = new std::set<int>((*trk));	    
+       RecoTrackListDetID->push_back(comp);
+     }
 	
-	#if(EVALUATE_ERROR)
+   }
     
-	//	dbgtrkerror("Error for all sectors");
+   int NumConnComp = RecoTrackListDetID->size();
+   info("Number of tracks reconstructed: %d", NumConnComp);
+	      
+   ComponentPerEvt.Fill(evt, NumConnComp);
 
-	// Determine the segmentation error. Based on total area.
-	//	if(connectedComp->size() > 0){
-	MCMatchingError *MC_match_error =  MatchMCTracksWithConnectedComponents(MC_Tracks->at(k), connectedComp);
+   TimeNow      =std::chrono::high_resolution_clock::now() ;
+   EvtTotalTime = std::chrono::duration<double>(TimeNow - TimeEvt).count();
+   RecTotalTime += EvtTotalTime;
+   timing("Time elapsed for this event (%d hits, %d tracks): %.6lf s", totHits, nMCTracks, EvtTotalTime);
+
+   std::vector<int> BestRecoMCMatchIDs = MatchBestRecoToMC( GridStruct, MCTracksEvt, &RecoTracks);
+
+	
+   for(unsigned int l = 0, cm = 0; l < RecoTracks.size(); l++){
+     PathCandidate &curCand       = *(RecoTracks[l]);
+     std::set<int>  trkset        = *curCand.m_memberIdSet;
+     std::vector<int> const *vect = curCand.m_memberList;
+     std::vector<double> &x       = curCand.m_x;
+     std::vector<double> &y       = curCand.m_y;
+     std::vector<double> &z       = curCand.m_z; 
+     std::vector<double> &r       = curCand.m_r;
+     std::vector<double> &theta   = curCand.m_theta; 
+
+     if(curCand.m_isValid) {
+       for( size_t i = 0;  i < vect->size(); ++i) {
+	 int detID       = vect->at(i);
+	 GridNode  &node = DetGrid[detID-1];
+	 ConnectedCoord.Fill(evt,
+			     cm,
+			     BestRecoMCMatchIDs[l],
+			     node.m_detID,
+			     node.m_x,
+			     node.m_y,
+			     node.m_z,
+			     node.m_r,
+			     node.m_thetaDeg,
+			     x[i],
+			     y[i],
+			     z[i]);
+
+       }
+       
+       for( size_t i = 0;  i < curCand.m_anchors.size(); ++i) {
+	 AnchorCCCoord.Fill(evt,
+			    cm,
+			    curCand.m_anchors[i].m_xDet,
+			    curCand.m_anchors[i].m_yDet,
+			    curCand.m_anchors[i].m_zDet);
+       }      
+       cm++;		  
+     }
+   }
+
+   // Write for QA
+   #if (WRITE_LIST_RECO_ID > 0)  
+   if (RecOutTxtFile.is_open()) {
+     for(unsigned int l = 0, cm = 0; l < RecoTracks.size(); l++){
+       PathCandidate &curCand       = *(RecoTracks[l]);
+       if(curCand.m_isValid) {
+	 std::set<int>  trkset        = *curCand.m_memberIdSet;
+	 auto it = trkset.upper_bound(GridStruct.firstVirtIdx);
+	 trkset.erase(it, trkset.end());
+	 if(trkset.size()>5){
+	   for(auto it = trkset.begin(); it != trkset.end(); ++it){
+	     int id = *it;
+	     RecOutTxtFile << evt+firstEvt << "," << cm << "," << id << '\n';
+	     RecoDetID.Fill(evt+firstEvt,
+			    cm,
+			    id);	  
+	   }
+	   cm++;
+	 }
+       }
+     }
+   }
+   #endif // End IF writing to ascii file
+
+   
+   // Write to an ASCII file
+   #if (WRITE_CM_ASCII_FILE > 0)  
+   std::string header = "trkid,detid,x,y,z,cx,cy,cz\n";
+   std::ofstream OutTxtFile;
+   OutTxtFile.open ("ReconstructedTracksList.csv");
+    if (OutTxtFile.is_open()) {
+     OutTxtFile << header;
+     for(unsigned int l = 0; l < RecoTracks.size(); l++){
+       PathCandidate &curCand = *(RecoTracks[l]);
+       if(curCand.m_isValid) {
+	 std::vector<int>  *trk = curCand.m_memberList;
+	 for(size_t cm = 0 ; cm < trk->size(); ++cm) {
+	   int detID = trk->at(cm);
+	   GridNode  &node = DetGrid[detID-1];
+	   OutTxtFile << l << "," << detID<< "," << node.m_x << "," << node.m_y << "," << node.m_z << ","
+		      << node.m_xDet<< "," << node.m_yDet << "," << node.m_zDet << '\n';
+
+	 }
+       }
+     }
+   }
+   #endif // End IF writing to ascii file
+
+
+   #if (WRITE_TIME_ASCII_FILE > 0)  
+   if (TimeTxtFile.is_open()) {
+     TimeTxtFile << evt+firstEvt << "," << nMCTracks << "," << GridStruct.m_STT_idx.size() << ","
+		 << FillingTime << "," << ConnectTime << ","<< FittingTime << ","
+		 << MergingTime << "," << zRecTime<< "," <<EvtTotalTime << '\n';	  
+   }
+   #endif
+
+
+	
+   #if(EVALUATE_ERROR)
+	
+   EvtErrorStruct *EvtError =  ComputeGlobalEvtErrors(GridStruct, MCTracksEvt, RecoTrackListDetID);	  
+   GlobalErrorNtuple.Fill(static_cast<float>(evt+firstEvt),
+			  static_cast<float>(EvtError->nMCTracks),
+			  static_cast<float>(EvtError->nRecoTracks),
+			  static_cast<float>(EvtError->UnderMerge),
+			  static_cast<float>(EvtError->OverMerge),
+			  static_cast<float>(EvtError->TotalError),
+			  static_cast<float>(EvtError->UnderMergeNorm),
+			  static_cast<float>(EvtError->OverMergeNorm),
+			  static_cast<float>(EvtError->TotalErrorNorm));
+	
+   delete EvtError;
+
+
+   std::vector< TrackErrorStruct* > *PandaErrors = PandaErrorMetric(GridStruct, MCTracksEvt, &RecoTracks);
+
+   if(PandaErrors != 0) {
+     for(size_t f = 0; f < PandaErrors->size(); ++f) {
+       TrackErrorStruct const *erPandaObj = PandaErrors->at(f);	    
+       ErrorPerRecoTrackNtuple.Fill(static_cast<float>(evt+firstEvt),
+				    static_cast<float>(erPandaObj->tr_rank),
+				    static_cast<float>(erPandaObj->tr_isClone));
+     }
+   }
+
+   for(size_t r = 0; r < PandaErrors->size(); ++r) {
+     delete PandaErrors->at(r);
+   }
+   delete PandaErrors;
+	
+   std::vector< TrackErrorStruct* > *TrackErrors = ComputeErrorPerRecoTrack(GridStruct, MCTracksEvt,
+									    &RecoTracks, ListComplexTracks,
+									    BestRecoMCMatchIDs);
+
+   if(TrackErrors != 0) {
+     for(size_t f = 0; f < TrackErrors->size(); ++f) {
+       TrackErrorStruct const *erObj      = TrackErrors->at(f);
+
+       ErrorPerMCTrackNtuple.Fill(static_cast<float>(evt+firstEvt),
+				  static_cast<float>(erObj->isComplex),
+				  static_cast<float>(erObj->isNotmatched),
+				  static_cast<float>(erObj->MatchIndex),
+				  static_cast<float>(erObj->MCTrackLength),
+				  static_cast<float>(erObj->RecoTrackLength),
+				  static_cast<float>(erObj->IntersectionLength),
+				  static_cast<float>(erObj->UnionLength),
+				  static_cast<float>(erObj->F1score),
+				  static_cast<float>(erObj->MeanDiffX),
+				  static_cast<float>(erObj->MeanDiffY),
+				  static_cast<float>(erObj->MeanDiffZ));
+	    
+       CurvPerTrackNtuple.Fill(static_cast<float>(evt+firstEvt),
+			       static_cast<float>(erObj->MC_px),
+			       static_cast<float>(erObj->MC_py),
+			       static_cast<float>(erObj->MC_pz),
+			       static_cast<float>(erObj->MC_r1),
+			       static_cast<float>(erObj->MC_r2),
+			       static_cast<float>(erObj->tr_rIsoRand),
+			       static_cast<float>(erObj->tr_rIsoRand16),
+			       static_cast<float>(erObj->tr_rIsoRand84),
+			       static_cast<float>(erObj->tr_rAnc),
+			       static_cast<float>(erObj->tr_rPts),
+			       static_cast<float>(erObj->tr_scattAngle));
+	    
+       if(!erObj->isNotmatched)
+	 for(size_t p = 0; p < erObj->DiffX.size(); p++){
+	   CoordDiffPerTrackNtuple.Fill(erObj->DiffX[p],
+					erObj->DiffY[p],
+					erObj->DiffZ[p]);
+	 } // End For Diff Coord errors	    
+	    
+     } // End For TrackErrors.size()
 	  
+     for(size_t r = 0; r < TrackErrors->size(); ++r) {
+       delete TrackErrors->at(r);
+     }	  
+     delete TrackErrors;
 	  
-	ErrorNtuple.Fill(MC_match_error->NumberOfMCTracks,
-			 MC_match_error->NumberOfTracklets,
-			 MC_match_error->Error_underMerge,
-			 MC_match_error->Error_overMerge,
-			 MC_match_error->TotalError,
-			 MC_match_error->Error_underMergeNorm,
-			 MC_match_error->Error_overMergeNorm,
-			 MC_match_error->TotalErrorNorm);
-	delete MC_match_error;
-	  
-	  //	} 
+   } // End If Writing errors 
+	
 
-	//	dbgtrkerror("Error per track");
+   #endif // End IF error computation
 
-	//std::vector < MCTrackObject* > *mcTracksCurrentEvent = MC_Tracks->at(k);
-	// SOrt MC tracks increasing length
-	//	std::sort(mcTracksCurrentEvent->begin(), mcTracksCurrentEvent->end(), greaterThanLength);
-	std::vector< MCMatchingErrorStruct* > *match_error2 =
-	  MatchPerTrackWithMCTracks(gr, mcTracksCurrentEvent, &tracklets, idComplex, matchedId);
-	if(match_error2 != 0) {
-	  for(size_t f = 0; f < match_error2->size(); ++f) {
-	    MCMatchingErrorStruct const *erObj = match_error2->at(f);
-	    ErrorNtuplePerTrack.Fill(static_cast<float>(erObj->Complex),
-				     static_cast<float>(erObj->isNotmatched),
-				     static_cast<float>(erObj->matchIndex),
-				     static_cast<float>(erObj->BestMatchMCLength),
-				     static_cast<float>(erObj->CurrentTrackLength),
-				     //  static_cast<float>(erObj->MCMinCurrentLength),
-				     //   static_cast<float>(erObj->CurrentMinMCLength),
-				     erObj->Jacardsingle,
-				     erObj->Jacardaverage,
-				     erObj->Error_underMerge,
-				     erObj->Error_overMerge,
-				     static_cast<float>(erObj->disX),
-				     static_cast<float>(erObj->disY),
-				     static_cast<float>(erObj->disZ));
-	    CurvNtuplePerTrack.Fill(erObj->MC_px, erObj->MC_py, erObj->MC_pz,
-				    erObj->MC_a, erObj->MC_b, erObj->MC_r,
-				    erObj->MC_E, erObj->tr_a, erObj->tr_b,
-				    erObj->tr_r, erObj->tr_E, erObj->tr_theta);
-	    if(!erObj->isNotmatched){
-	      for(size_t p = 0; p < erObj->alldisx.size(); p++){
-		ErrorNtupleDisPerTrack.Fill(erObj->alldisx[p],erObj->alldisy[p],erObj->alldisz[p]);
-	      }
-	    }
-	  }//
-	  // Clean memory for now. Maybe better to put all lists in a main
-	  // list and fill the ntuple later.(HINT FIXME later)
-	  for(size_t r = 0; r < match_error2->size(); ++r) {
-	    delete match_error2->at(r);
-	  }
-	  delete match_error2;
-	}
-	//}
 
-	#endif
+   // Cleaning
 
-      if(connectedComp != 0) {
-	for(size_t c = 0; c < connectedComp->size(); ++c) {
-	  delete connectedComp->at(c);
-	}
-	delete connectedComp;
-      }
+   if(RecoTracks.size()>0){
+     for(size_t c = 0; c < RecoTracks.size(); ++c) {
+       delete(RecoTracks[c]);
+     }
+     RecoTracks.clear();
+   }
+   
+   if(RecoTrackListDetID != 0) {
+     for(size_t c = 0; c < RecoTrackListDetID->size(); ++c) {
+       delete RecoTrackListDetID->at(c);
+     }
+     delete RecoTrackListDetID;
+   }
 
-      CollectGridToTree(gr, coord);
-      
-      gr.ResetGrid();
-      
-      //  Ingrid.clear();
-      free(visited);
+   CollectGridToTree(GridStruct, GridCoordNtuple);     
+   GridStruct.ResetGrid();
+   free(visited);
      
+   // if(nEvtProc == 15000)
 
-      // delete activeId;
-      //delete remaining;
-      // delete idToProcess;
-       if(nEvproc == 15000)
-	 //
-
-
-
-	 //if(nEvproc == 4950) // 4 evets batch
-	break;
+   if(nEvtProc == 4950) // 4 events batch
+     break;
   }
   #endif
   
   timer.Stop();
-
+  double timeTotal = std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - TimeAll ).count();
 
   ComponentPerEvt.Write();
   ConnectedCoord.Write();
   AnchorCCCoord.Write();
+  GridCoordNtuple.Write();
 
-
-  
-  // Write coordinates ntuple
-  coord.Write();
-
-  
   //Write error estimations.
-  ErrorNtuple.Write();
-  ErrorNtuplePerTrack.Write();
-  ErrorNtupleDisPerTrack.Write();
+  GlobalErrorNtuple.Write();
+  ErrorPerMCTrackNtuple.Write();
+  ErrorPerRecoTrackNtuple.Write();
+  CoordDiffPerTrackNtuple.Write();
+  CurvPerTrackNtuple.Write();
 
-  CurvNtuplePerTrack.Write();
-
-  Out_Put_File.Close();
-
-  for(size_t i = 0; i < Hit_coords->size(); ++i) {
-    std::vector<HitCoordinate*>* dd = (*Hit_coords)[i];
+  OutputFile.Close();
+  TFile DetecIDFile("LOTFRecoTrackIDs.root", "RECREATE",
+  		     "List of tube IDS per Reco and MC track, file created by floodingFilter macro", 9);
+  RecoDetID.Write();
+  MCDetID.Write();
+  DetecIDFile.Close();
+  
+  for(size_t i = 0; i < HitsData->size(); ++i) {
+    std::vector<HitCoordinate*>* dd = (*HitsData)[i];
     for(size_t j = 0; j < dd->size(); ++j) {
       delete dd->at(j);
     }
-    delete (*Hit_coords)[i];
+    delete (*HitsData)[i];
   }
-  Hit_coords->clear();
+  HitsData->clear();
  
-  for(size_t j = 0; j < MC_Tracks->size(); ++j) {
-    std::vector < MCTrackObject* >* MCtracksDel = MC_Tracks->at(j);
+  for(size_t j = 0; j < MCTracks->size(); ++j) {
+    std::vector < MCTrackObject* >* MCtracksDel = MCTracks->at(j);
     for(size_t k = 0; k < MCtracksDel->size(); ++k) {
       delete MCtracksDel->at(k);
     }
-    delete (MC_Tracks->at(j));
+    delete (MCTracks->at(j));
   }
-  delete MC_Tracks;
+  delete MCTracks;
 
-  info("Number of events processed is %d", nEvproc);
+  
   Double_t rtime = timer.RealTime();
   Double_t ctime = timer.CpuTime();
-  timing("Macro finished successfully. Time %lf s",  std::chrono::duration<double>( std::chrono::high_resolution_clock::now() - t2 ).count());
-  timing("Real time %f (s/Event), CPU time %f (s/Event).", (rtime), (ctime));
 
-  timing("Real time %f (s/Event), CPU time %f (s/Event).", (rtime/nEvproc), (ctime/nEvproc));
+  
+  printf("Macro finished successfully. \n");
+  printf("/************ LOTF Processing SUMMARY ****************/\n");
+  printf("Number of events processed is %d\n", nEvtProc);
+  printf("Number of tracks processed is %d\n", nTrkProc);
+  printf("Number of hits processed is %d\n", nHitsProc);
+  printf("Reconstruction time %.5lf s, (%.0lf hits/s, %.5f s/Event)\n",
+	 RecTotalTime, nHitsProc/RecTotalTime, RecTotalTime/nEvtProc);
+  printf("Real time including other processes: %.5f s (%.5f s/Event).\n", (rtime), (rtime/nEvtProc));
+  printf("CPU time %.5f s (%.5f s/Event).\n", (ctime), (ctime/nEvtProc));
+  printf("/************ LOTF Processing ENDED ****************/\n");
+
 }
   // Extract MC track values
   

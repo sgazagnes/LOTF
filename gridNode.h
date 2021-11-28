@@ -124,9 +124,9 @@ struct GridNode {
 		     float const xin, float const yin, float const zin,
 		     TVector3 const& Wdirect, float const halfLength,
 		     size_t sector, size_t layer,
-		     bool const LayerLimit, int const SectorLimit,
+		     bool const LayerLimit, short const SectorLimit,
 		     std::vector<int> const &nghIDs, DetectorType type,
-		     short int const w);
+		     short const w);
   // Copy
   GridNode (GridNode const &ot);
 
@@ -210,55 +210,25 @@ struct GridNode {
   float m_y;   // Y coordinate
   float m_yDet;// Y coordinate(determined)
   float m_z;   // Z coordinate (tube half length)
-  float m_z_Det; // Z coordinate (determined)
+  float m_zDet; // Z coordinate (determined)
   float m_r;
-  float m_theta;
+  float m_thetaRad;
   float m_thetaDeg;
   TVector3 m_WireDirection;// Direction of the internal wire
   float  m_halfLength;// Tube half length
   float  m_Slope;// Slope of the tube in mounting frame.
-  size_t m_Sector;//Sector (note this is too large we may use unsigned short int)
-  size_t m_Layer;//Layer (note this is too large we may use unsigned short int)
+  size_t  m_Sector;//Sector (note this is too large we may use unsigned short int)
+  size_t  m_Layer;//Layer (note this is too large we may use unsigned short int)
+  short  m_SectorLimit;// If sector limit
   bool   m_LayerLimit;// If Layer limit
-  int    m_SectorLimit;// If sector limit
+
   // List of detector id's of the direct neigbors.
-  std::vector<int> m_neighbors;
+  std::vector<int> m_neighborsOri; // All list
+  std::vector<int> m_neighbors; // List per event
   DetectorType m_type;// Node type
   short int m_weight;//
-  size_t m_length;// Total Path length
-  size_t m_lengthFW;// Forward path length
-  size_t m_lengthBW;// Backward path length
-  bool   m_forwardVisited;// Visited in forward direction
-  bool   m_backwardVisited;// Visited in backward direction
-  size_t m_area;// Size of Area (opening)
-  bool   m_visited;// If has been added to area
-  bool   m_maxPathVisited;// Used for maximum path for a given direction.
-  bool   m_MVDAssigned;// If mvd node and if it has been assigned to a track
-  /* 
-   * Set of orientations in which this node is participating.
-   */
-  std::vector< NodeOrientation > m_orientations;// OuterToInner
-  std::vector< NodeOrientation > m_OrientBackWard;// InnerToOuter
-  size_t m_maxOrientVal;// Maximum responce value
-  size_t m_minOrientVal;// Minimum responce value
-  bool   m_orintVisited;// If node has been visited during current Att. Space computation
-  size_t m_maxOrientIndex;// Index of the maximum responce
-  size_t m_minOrientIndex;// Index of the minimum responce
-  unsigned int m_maxBackWardOrientIndex;
-  unsigned int m_maxBackwardOrientVal;
-  
-  // If visited for z-estimation
-  bool m_zestiVisited;
-  // How often a node is visited
-  size_t m_times_visited;
-  // Holding the goodness of the fit for the current node. How good
-  // this node fits in a given tracklet.
-  double m_fitValue;
-  float m_mahalanobisDist;
-  int visited;
-  int   parent;
+  int m_parent;
   std::vector<int> m_cm;
-
 
   //_________****************___________ 
   // protected:
@@ -284,16 +254,6 @@ inline std::vector<int> &GridNode::GetNeighbors()
   return this->m_neighbors;
 }
 
-inline std::vector<NodeOrientation> const& GridNode::GetOrientations(bool OuterToInner) const
-{
-  return (OuterToInner ? (this->m_orientations) : (this->m_OrientBackWard));
-}
-
-inline std::vector<NodeOrientation>& GridNode::GetOrientations(bool OuterToInner)
-{
-  return (OuterToInner ? (this->m_orientations) : (this->m_OrientBackWard));
-}
-
 bool GridNode::IsSTTSplitSkewedNode() const
 {
   return (this->m_type == GridNode::STT_TYPE_SPLIT_SKEW);
@@ -313,16 +273,6 @@ bool LessThanID(GridNode const &left, GridNode const &right)
 bool GreaterThanID(GridNode const &left, GridNode const &right)
 {
   return (left.m_detID > right.m_detID);
-}
-
-bool LessThanOrientLength(GridNode const &left, GridNode const &right)
-{
-  return (left.m_maxOrientVal < right.m_maxOrientVal);
-}
-
-bool GreaterThanOrientLength(GridNode const &left, GridNode const &right)
-{
-  return (left.m_maxOrientVal > right.m_maxOrientVal);
 }
 
 bool GrThanLayer(GridNode const &lf, GridNode const &rt)
@@ -347,13 +297,7 @@ bool LessThanSec(GridNode const &lf, GridNode const &rt)
 
 bool GrThanLayerSec(GridNode const &lf, GridNode const &rt)
 {
-  // if(lf.m_Layer > rt.m_Layer){
-  //  return true;
-  // }
-  // if(lf.m_Layer == rt.m_Layer) {
-  //  return (lf.m_Sector > rt.m_Sector);
-  // }
-  // return false;
+
   return (lf.m_Layer == rt.m_Layer) ? (lf.m_Sector > rt.m_Sector) : (lf.m_Layer > rt.m_Layer);
 }
 #endif//END of interface

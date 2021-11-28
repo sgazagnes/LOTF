@@ -137,9 +137,9 @@ void _logc(int level, const char* msg) {
     case MERGE:
       fprintf(stdout, WHT"%s " BLU "MERGE " WHT "%s\n" RESET, ts, msg); fflush(stdout); break;
     case TRKERROR:
-      fprintf(stdout, WHT"%s " MAG "TRKERROR " WHT "%s\n" RESET, ts, msg); fflush(stdout); break;
+      fprintf(stdout, WHT"%s " MAG "TRKQA " WHT "%s\n" RESET, ts, msg); fflush(stdout); break;
     case TRKZ:
-      fprintf(stdout, WHT"%s " BLU "Z COORD " WHT "%s\n" RESET, ts, msg); fflush(stdout); break;
+      fprintf(stdout, WHT"%s " BLU "Z REC " WHT "%s\n" RESET, ts, msg); fflush(stdout); break;
     default:
       fprintf(stderr, WHT"%s "  RED "INVALID LEVEL " WHT "%s\n" RESET, ts, msg); fflush(stderr); break;
     }

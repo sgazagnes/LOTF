@@ -15,10 +15,11 @@
 #include "CoordGrid.h"
 #include "logc.h"
 
-#define COORD_GRID_DEBUG 1
+#define COORD_GRID_DEBUG 0
 #if(COORD_GRID_DEBUG > 0)
 #include <cassert>
 #endif
+
 
 //_____ DEBUG
 #if (WRITE_GRID_TO_ASCII > 0)
@@ -36,9 +37,9 @@ struct ordering {
 
 // Constructor
 CoordGrid::CoordGrid()
-  : m_AttSpaceTolerance(0.0),
-    m_grid(std::vector< GridNode >()),
-    m_MVD_grid(std::vector< GridNode >())
+  : m_grid(std::vector< GridNode >()),
+    m_MVD_grid(std::vector< GridNode >()),
+    m_STT_idx(std::set< int >())
 {}
 
 // Destructor
@@ -46,6 +47,7 @@ CoordGrid::~CoordGrid()
 {
   m_grid.clear();
   m_MVD_grid.clear();
+  m_STT_idx.clear();
 }
 
 // Init Grid data structure.
@@ -56,43 +58,41 @@ void CoordGrid::Initialize(std::vector < GridNode > const &detNodes)
   // Clean structure:
    m_grid.clear();
    m_MVD_grid.clear();
-
+   m_STT_idx.clear();
    // Fill the Detector coordinates into the grid 
    for(size_t i = 0; i < detNodes.size(); ++i) {
      // Copy current node
      if( (detNodes[i].m_type == GridNode::STT_TYPE_PARA) ||
 	 (detNodes[i].m_type == GridNode::STT_TYPE_SKEW) ) {
        m_grid.push_back(detNodes[i]);
-
+       // error("%d, %d", i, detNodes[i].m_detID);
      }
      else if((detNodes[i].m_type == GridNode::MVD_TYPE_PIXEL) ||
 	     (detNodes[i].m_type == GridNode::MVD_TYPE_STRIP) ) {
        m_MVD_grid.push_back(detNodes[i]);
      }
    }
-   firstVirtIdx = m_grid.size();
-
+   firstVirtIdx = (int) m_grid.size()+1;
+   
    dbggrid("Total number of inserts CoordGrid: %lu, first id: %d, last id: %d", m_grid.size(), m_grid[0].m_detID, m_grid[ (m_grid.size() - 1) ].m_detID);
 }
 
 void CoordGrid::CorrectLayerLimit()
 {
   dbggrid("Correcting the layer Limit  variable");
-  int nLayerAdd = 0;
   for(size_t i = 0; i < m_grid.size(); ++i) {
     GridNode &node = m_grid[i];
     if(node.m_LayerLimit) continue;
-    int numNeigh =  node.m_neighbors.size();
     bool found =0;
-    for(size_t j =0; j < numNeigh; j++){
+    for(size_t j =0; j < node.m_neighbors.size(); j++){
       GridNode &neigh = m_grid[Find(node.m_neighbors[j])];
       if(neigh.m_Layer > node.m_Layer)
 	found = 1;
     }
     if(!found)
       node.m_LayerLimit = 1;
-  
   }
+  
 }
 
 	 
@@ -180,7 +180,10 @@ void  CoordGrid::FindNodeBetweenLayerNodePairs(std::vector< TubeLayerPairPropert
   dbggrid("Found %lu pairs and %lu valid ones", NodePairSet.size(), cnt);
 }
 //____________________ END FindNodeBetweenLayerNodePairs _____________
-
+bool compareByID(const GridNode &a, const GridNode &b)
+{
+    return a.m_detID < b.m_detID;
+}
 
 void CoordGrid::AddVirtualNodes(std::vector < GridNode > &VNodesLayer,  std::vector < GridNode > &VNodesSector)
 {
@@ -188,7 +191,7 @@ void CoordGrid::AddVirtualNodes(std::vector < GridNode > &VNodesLayer,  std::vec
   // Dummy local counters.
   int NumTubesAdded  = 0;
   // Start node ID for virtual nodes.
-  int StartVirtualID = START_VIRTUAL_ID;//6000;
+  int StartVirtualID = (int) firstVirtIdx;//START_VIRTUAL_ID;//6000;
 
   // List of all nodes available in the detector map.
   std::vector< GridNode > &Ingrid = m_grid;
@@ -312,12 +315,9 @@ void CoordGrid::AddVirtualNodes(std::vector < GridNode > &VNodesLayer,  std::vec
       }
     }
   }
-  for(size_t i = 0; i < Ingrid.size(); ++i) {
-    Ingrid[i].m_visited = false;
-  }
-
-  dbggrid(" Determined %d virtual tubes (neighborList)", NumTubesAdded);
-
+  std::sort(Ingrid.begin(), Ingrid.end(), compareByID);
+  dbggrid("Determined %d virtual tubes (neighborList)", NumTubesAdded);
+  // error("%lu", VNodesLayer[10].m_detID);
 }
 
 void CoordGrid::fixNeighboring()
@@ -330,6 +330,7 @@ void CoordGrid::fixNeighboring()
 
   // Tubes loop
   for(size_t i = 0; i < Ingrid.size()-1; ++i) {
+
     GridNode &first = Ingrid[i];
     // neighbor tubes loop
     for(size_t j = i+1; j < Ingrid.size(); ++j) {
@@ -372,11 +373,11 @@ void CoordGrid::isolateSectorAndLayerLimits(TNtuple &Sections, TNtuple &Layers)
 
   for(size_t i = 0; i < Ingrid.size(); ++i) {
     GridNode const &tube = Ingrid[i];
-    
+
     if( tube.m_LayerLimit &&
 	(tube.m_type != GridNode::VIRTUAL_NODE)
       ) {
-      Layers.Fill(tube.m_x, tube.m_y, tube.m_z_Det, tube.m_z);
+      Layers.Fill(tube.m_x, tube.m_y, tube.m_zDet, tube.m_z);
       countL++;
     }
     // it returns -1 if the tube is at the front, 1 if is at the back
@@ -385,7 +386,7 @@ void CoordGrid::isolateSectorAndLayerLimits(TNtuple &Sections, TNtuple &Layers)
     if( (tube.m_SectorLimit != 0)
 	&& (tube.m_type != GridNode::VIRTUAL_NODE)
       ) {
-      Sections.Fill(tube.m_x, tube.m_y, tube.m_z_Det, tube.m_z);
+      Sections.Fill(tube.m_x, tube.m_y, tube.m_zDet, tube.m_z);
       countS++;
     }
   }
@@ -413,7 +414,7 @@ void CoordGrid::FillGrid(std::vector < HitCoordinate* > const& hitcoords)
 {
   dbggrid("Fill grid with current tracks. Num input points %lu" , hitcoords.size());
             
-  unsigned int  sttCnt, vCnt, mvdCnt;
+  unsigned int  sttCnt, mvdCnt;
   sttCnt = 0;
   mvdCnt = 0;
   // FIXME for now we are adding MVD points dynamically to the
@@ -421,21 +422,16 @@ void CoordGrid::FillGrid(std::vector < HitCoordinate* > const& hitcoords)
   m_MVD_grid.clear();
 
   for(size_t i = 0; i < hitcoords.size(); ++i) {
+
     HitCoordinate const *hc = hitcoords[i];
     if( hc->type == HitCoordinate::STT_TYPE ) {
       int detID = hc->m_detID;
-      int idx = Find(detID);
-      //  info("Active %d, %d", detID,idx);
-      // //m_grid[index]
-	(m_grid[idx]).m_active = true;
-      /* for(size_t index = 0; index < m_grid.size(); ++index) {
-       	if( ( (m_grid[index]).m_Orig_detID == detID ) &&
-            ( (m_grid[index]).m_type != GridNode::VIRTUAL_NODE) ) {
-	  (m_grid[index]).m_active = true;
-      	  sttCnt++;
-       	}
-	}*/
+      //int idx = Find(detID);
+      m_STT_idx.insert(detID);
+      (m_grid[detID-1]).m_active = true;
+      sttCnt++;
     }// IF STT type
+    
     // For now it can only be MVD type
     else if( hc->type == HitCoordinate::MVD_TYPE ) {
       GridNode node;
@@ -444,18 +440,31 @@ void CoordGrid::FillGrid(std::vector < HitCoordinate* > const& hitcoords)
       node.m_x      = hc->x;
       node.m_y      = hc->y;
       node.m_z      = hc->z;
-      node.m_z_Det  = hc->z;
+      node.m_zDet   = hc->z;
       node.m_weight = 1;
       m_MVD_grid.push_back(node);
       mvdCnt++;
     }// if MVD type
   }// FOR hitcoordinates
 
-  vCnt = 0;
+  int vcnt = 0;
+  /* for(size_t i = (size_t) firstVirtIdx; i < m_grid.size(); i++){
+    GridNode &virt = m_grid[i];
+    int id1 =  virt.m_neighbors[0];
+    int id2 =  virt.m_neighbors[1];
+   
+    GridNode &virtN1 = m_grid[Find(id1)];
+    GridNode &virtN2 = m_grid[Find(id2)];
+    
+    virt.m_active = (virtN1.m_active + virtN2.m_active)/2;
+    vcnt += virt.m_active;
+  }*/
   // All real tubes are activated.  Now we need to activate virtual
   // tubes as well. Note that every virtual tube has ONLY two
   // neighbors. These are the parent neigbours.
-  info("Stored real STT points = %u,  %u virtual nodes, and %u MVD points", sttCnt,vCnt, mvdCnt);
+  dbggrid("Stored STT points = %u (indiv %u) and %u MVD points", sttCnt, m_STT_idx.size(), mvdCnt);
+  dbggrid("Virt poiints %d", vcnt);
+
 }
 
 bool Is_STT_SplitSkewedNode( GridNode const &node)
@@ -470,47 +479,28 @@ bool IsVirtualSplitNode( GridNode const &node)
 void CoordGrid::ResetGrid()
 {
   for(size_t i = 0; i < m_grid.size(); ++i) {
-    (m_grid[i]).m_active          = false;
-    (m_grid[i]).m_length          = 0;
-    (m_grid[i]).m_lengthFW        = 0;
-    (m_grid[i]).m_lengthBW        = 0;
-    (m_grid[i]).m_forwardVisited  = false;
-    (m_grid[i]).m_backwardVisited = false;
-    (m_grid[i]).m_area            = 0;
-    (m_grid[i]).m_visited         = false;
-    (m_grid[i]).m_maxPathVisited  = false;
-    ((m_grid[i]).m_orientations).clear();
-    (m_grid[i]).m_MVDAssigned  = false;
-    (m_grid[i]).m_maxOrientVal = 1;
-    (m_grid[i]).m_minOrientVal = 1;
-    (m_grid[i]).m_orintVisited = false;
-    (m_grid[i]).m_maxOrientIndex = 0;
-    (m_grid[i]).m_minOrientIndex = 0;
-    (m_grid[i]).m_zestiVisited = false;
-    (m_grid[i]).m_times_visited = 0;
-    // Fit value of the current node in a tracklet.
-    (m_grid[i]).m_fitValue = 0.00;
-    (m_grid[i]).m_mahalanobisDist = 0.00;
+    //if (i < 15) info("%d, %d", i, m_grid[i].m_detID);
+    (m_grid[i]).m_active       = false;
     // The z values for virtual tubes are computed and stored in the grid,
     // so we do not need to reset them
     if( (m_grid[i]).m_type == GridNode::STT_TYPE_PARA ) {
       (m_grid[i]).m_xDet  = (m_grid[i]).m_x;
       (m_grid[i]).m_yDet  = (m_grid[i]).m_y;
-      (m_grid[i]).m_z_Det = 0.00;
+      (m_grid[i]).m_zDet  = 0.00;
     }
     else if( (m_grid[i]).m_type == GridNode::STT_TYPE_SKEW ) {
       (m_grid[i]).m_xDet  = (m_grid[i]).m_x;
       (m_grid[i]).m_yDet  = (m_grid[i]).m_y;
-      (m_grid[i]).m_z_Det = (m_grid[i]).m_z;
+      (m_grid[i]).m_zDet  = (m_grid[i]).m_z;
     }
     else if( (m_grid[i]).m_type == GridNode::VIRTUAL_NODE ) {
-      (m_grid[i]).m_z_Det = (m_grid[i]).m_z;
+      (m_grid[i]).m_zDet  = (m_grid[i]).m_z;
     }
   }
   m_MVD_grid.clear();
+  m_STT_idx.clear();
   // Set tollerance to zero
-  m_AttSpaceTolerance = 0.0;
-
+  
   /* The following code segment needs to be replaced by a more
      efficient implementation of the grid. This is very slow as the
      nodes are created and removed for each event.*/
@@ -525,13 +515,6 @@ void CoordGrid::ResetGrid()
 }
 //___________________________ END ResetGrid ______________________
 
-void CoordGrid::ResetGridOrientations()
-{
-  for(size_t i = 0; i < m_grid.size(); ++i) {
-    (m_grid[i]).resetNodeOrientation();
-  }
-  m_AttSpaceTolerance = 0.0;
-}
 
 int CoordGrid::Find(int id) const
 {

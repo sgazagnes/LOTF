@@ -82,7 +82,7 @@ TNtuple* GridToNtuple(std::vector < GridNode > const &VNodes, std::string const 
   TNtuple* out = new TNtuple(name.c_str(),"Grid To Ntuple","x:y:det_z:z");
   for(size_t i = 0; i < VNodes.size(); ++i) {
     GridNode const &tube = VNodes[i];
-    out->Fill(tube.m_x, tube.m_y, tube.m_z_Det, tube.m_z);
+    out->Fill(tube.m_x, tube.m_y, tube.m_zDet, tube.m_z);
   }
   return out;
 }
@@ -431,7 +431,7 @@ double IntersectionPointTubes(GridNode &tubeA, GridNode &tubeB, GridNode &out, i
   TransA.m_xDet  = xymid ? (tubeA.m_x + tubeB.m_x)/2.0: (float) diff_x/2.;
   TransA.m_yDet  = xymid ? (tubeA.m_y + tubeB.m_y)/2.0: (float) diff_y/2.;
   TransA.m_z     = (float) diff_z/2.;
-  TransA.m_z_Det = (float) diff_z/2.;
+  TransA.m_zDet = (float) diff_z/2.;
 
   // Set node as virtual and weight becomes 0 (no added value for
   // the length or area size).
@@ -544,7 +544,7 @@ bool PointsLineIntersectLive( GridNode &tubeC, float x1, float x2, float y1, flo
   
   tubeC.m_xDet = xnom / denom;   
   tubeC.m_yDet = ynom / denom;
-  tubeC.m_z_Det = z3 + 2*tubeC.m_halfLength*dir[2]*(tubeC.m_yDet  - y3)/(2*tubeC.m_halfLength * dir[1]);
+  tubeC.m_zDet = z3 + 2*tubeC.m_halfLength*dir[2]*(tubeC.m_yDet  - y3)/(2*tubeC.m_halfLength * dir[1]);
   //if(!isfinite(ixOut) || !isfinite(iyOut)) //Probably a numerical issue
   //    return false;
 
@@ -588,7 +588,7 @@ bool PointsLineIntersectFinal( GridNode &tubeC, float x1, float x2, float y1, fl
 
       tubeC.m_xDet =  tubeC.m_x;// xnom / denom;   
       tubeC.m_yDet = tubeC.m_y;//;ynom / denom;
-      tubeC.m_z_Det = 0.0; //z3 + 2*tubeC.m_halfLength*dir[2]*(tubeC.m_yDet  - y3)/(2*tubeC.m_halfLength * dir[1]);
+      tubeC.m_zDet = 0.0; //z3 + 2*tubeC.m_halfLength*dir[2]*(tubeC.m_yDet  - y3)/(2*tubeC.m_halfLength * dir[1]);
       return false;
     }  else {
     distx3 = sqrt(pow(xnom/denom-x3,2) + pow(ynom/denom -y3,2));
@@ -598,11 +598,11 @@ bool PointsLineIntersectFinal( GridNode &tubeC, float x1, float x2, float y1, fl
       if(distx3<distx4){
 	tubeC.m_xDet = x3;   
 	tubeC.m_yDet = y3;
-	tubeC.m_z_Det = z3 + 2*tubeC.m_halfLength*dir[2]*(tubeC.m_yDet  - y3)/(2*tubeC.m_halfLength * dir[1]);
+	tubeC.m_zDet = z3 + 2*tubeC.m_halfLength*dir[2]*(tubeC.m_yDet  - y3)/(2*tubeC.m_halfLength * dir[1]);
       } else if (distx4<distx3){
 	tubeC.m_xDet = x4;   
 	tubeC.m_yDet = y4;
-	tubeC.m_z_Det = z3 + 2*tubeC.m_halfLength*dir[2]*(tubeC.m_yDet  - y3)/(2*tubeC.m_halfLength * dir[1]);
+	tubeC.m_zDet = z3 + 2*tubeC.m_halfLength*dir[2]*(tubeC.m_yDet  - y3)/(2*tubeC.m_halfLength * dir[1]);
       }
       // error("Point is not on the line", xnom / denom, x3, x4, ynom / denom, y3, y4);
       return true;
@@ -610,7 +610,7 @@ bool PointsLineIntersectFinal( GridNode &tubeC, float x1, float x2, float y1, fl
   }
   tubeC.m_xDet = xnom / denom;   
   tubeC.m_yDet = ynom / denom;
-  tubeC.m_z_Det = z3 + 2*tubeC.m_halfLength*dir[2]*(tubeC.m_yDet  - y3)/(2*tubeC.m_halfLength * dir[1]);
+  tubeC.m_zDet = z3 + 2*tubeC.m_halfLength*dir[2]*(tubeC.m_yDet  - y3)/(2*tubeC.m_halfLength * dir[1]);
   //if(!isfinite(ixOut) || !isfinite(iyOut)) //Probably a numerical issue
   //    return false;
 
@@ -729,11 +729,11 @@ void TubeIntersectionPointCoord(GridNode &tubeA, GridNode &tubeB)
 
   tubeA.m_xDet = ((1.0-sc) * startTubeA_x + sc * endTubeA_x);
   tubeA.m_yDet  = (1.0-sc) * startTubeA_y + sc * endTubeA_y;
-  tubeA.m_z_Det = (1.0-sc) * startTubeA_z + sc * endTubeA_z;
+  tubeA.m_zDet = (1.0-sc) * startTubeA_z + sc * endTubeA_z;
 
   tubeB.m_xDet = ((1.0-tc) * startTubeB_x + tc * endTubeB_x);
   tubeB.m_yDet  = (1.0-tc) * startTubeB_y + tc * endTubeB_y;
-  tubeB.m_z_Det = (1.0-tc) * startTubeB_z + tc * endTubeB_z;
+  tubeB.m_zDet = (1.0-tc) * startTubeB_z + tc * endTubeB_z;
 
   ////////////
   return;
@@ -768,8 +768,7 @@ void fit_circle(std::vector<point3D> const &pnts, CurvatureParameters &curvature
   // CircleFitByLevenbergMarquardtFull (circleD, cirini, 0.001, circle);
   curvature.m_a = circle.a;
   curvature.m_b = circle.b;
-  curvature.m_ra = circle.r;
-  curvature.m_r = (1.00/ circle.r);
+  curvature.m_r = circle.r;
   curvature.m_E = circle.s;
 
   

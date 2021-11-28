@@ -156,12 +156,12 @@ int fitNextId(CoordGrid &gr, std::vector< GridNode > &Ingrid, PathCandidate &can
   
   for (size_t i = 0; i < next.size(); i++){
     int curId = next[i];
-    GridNode *node = &Ingrid[gr.Find(curId)];
+    GridNode *node = &Ingrid[curId-1];
        // Replacing the node by the correct Intersection point based on its virtual node if it exists
     if(node->m_type == GridNode::VIRTUAL_NODE){
-      GridNode *neigh = &Ingrid[gr.Find(node->m_neighbors[0])];
+      GridNode *neigh = &Ingrid[node->m_neighbors[0]-1];
       if(neigh->m_cm.size()>0 && std::find(neigh->m_cm.begin(), neigh->m_cm.end(), cand.m_id) != neigh->m_cm.end()){
-	neigh = &Ingrid[gr.Find(node->m_neighbors[1])];
+	neigh = &Ingrid[node->m_neighbors[1]-1];
       }
       if(neigh->m_cm.size() > 0 && neigh->m_cm[0] == cand.m_id){
 	continue;	
@@ -251,8 +251,8 @@ int fitNextId(CoordGrid &gr, std::vector< GridNode > &Ingrid, PathCandidate &can
   
     for (size_t i = 0; i < tocheck->size(); i++){
       int curId = tocheck->at(i);
-      int curIdx = gr.Find(curId);
-      GridNode *node = &Ingrid[curIdx];
+      //  int curIdx = gr.FindcurId);
+      GridNode *node = &Ingrid[curId-1];
       double xdet = (double) node->m_xDet;
       double ydet = (double) node->m_yDet;  
    
@@ -292,8 +292,8 @@ void fittingPhase(CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
     if (curCand.m_finished == 3  ) continue;
     //|| curCand.m_length < 5
     // HEAD and TAIL nodes
-    GridNode &firstNode = Ingrid[gr.Find(curCand.m_tailNode)];
-    GridNode &lastNode  = Ingrid[gr.Find(curCand.m_headNode)];
+    GridNode &firstNode = Ingrid[curCand.m_tailNode-1];
+    GridNode &lastNode  = Ingrid[curCand.m_headNode-1];
 
     dbgfit("Tail node %d (num neigh %d),  head node %d (num neigh %d)",
 	   firstNode.m_detID, curCand.m_tailNeigh.size(), lastNode.m_detID, curCand.m_headNeigh.size());
@@ -329,7 +329,7 @@ void fittingPhase(CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 
 	  for(unsigned int n = 0; n < idToProcess.size(); ++n) {
 	    int testID 		= idToProcess[n].first;
-	    GridNode &testNode  = Ingrid[gr.Find(testID)];
+	    GridNode &testNode  = Ingrid[testID-1];
 	    float currDist      = sqrt((prevNode->m_x - testNode.m_x) * (prevNode->m_x - testNode.m_x) +
 				 (prevNode->m_y - testNode.m_y) * (prevNode->m_y - testNode.m_y));
 
@@ -346,8 +346,8 @@ void fittingPhase(CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 	
 	    if (testCand.m_finished == 3 || n == l) continue;
 
-	    GridNode &tailNode = Ingrid[gr.Find(testCand.m_tailNode)];
-	    GridNode &headNode = Ingrid[gr.Find(testCand.m_headNode)];
+	    GridNode &tailNode = Ingrid[testCand.m_tailNode-1];
+	    GridNode &headNode = Ingrid[testCand.m_headNode-1];
 	    GridNode Dummy;
 	    
 	    double currDistTail = IntersectionPointTubes(*prevNode, tailNode, Dummy);
@@ -386,7 +386,7 @@ void fittingPhase(CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 
 	//	int potCm = -1;
 	int id = k == 1? trk->at(trk->size() - 2) : 1;
-	GridNode &node = Ingrid[gr.Find(id)];		
+	GridNode &node = Ingrid[id-1];		
 	   
 	// Starting the big loop
 
@@ -394,7 +394,7 @@ void fittingPhase(CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 
 	  std::vector<int> idToRemove;	
 	  for(size_t i = 0; i  < next.size(); i++){ 
-	    GridNode &node = Ingrid[gr.Find(next[i])];
+	    GridNode &node = Ingrid[next[i]-1];
 	    if(node.m_type == GridNode::VIRTUAL_NODE){
 	      // Remove second order neighbors from virtual
 	      idToRemove.push_back(node.m_neighbors[0]);
@@ -422,16 +422,16 @@ void fittingPhase(CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 	    break;
 	  }
 
-	  goodNode = &Ingrid[gr.Find(goodId)];
+	  goodNode = &Ingrid[goodId-1];
 
 	  //Check that we did not forget a virtual node before
 	    
 	  if(goodNode->m_type != GridNode::VIRTUAL_NODE){
 	    for(size_t i = 0; i < goodNode->m_neighbors.size(); i++){
 	      int neighId = goodNode->m_neighbors[i];
-	      GridNode *comNode = &Ingrid[gr.Find(neighId)];
+	      GridNode *comNode = &Ingrid[neighId-1];
 	      if(prevNode->IsNeighboring(neighId) && comNode->m_type == GridNode::VIRTUAL_NODE){
-		curCand.insertNewNode(gr, Ingrid, &Ingrid[gr.Find(neighId)], k == 0? curCand.m_memberList->begin(): curCand.m_memberList->end());
+		curCand.insertNewNode(gr, Ingrid, &Ingrid[neighId-1], k == 0? curCand.m_memberList->begin(): curCand.m_memberList->end());
 		visited[neighId] = 1;
 	      }
 	    }
@@ -543,17 +543,17 @@ void fittingPhase(CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 	  for(size_t i = 0; i < goodNode->m_neighbors.size(); i++){	      
 	    int neighId = goodNode->m_neighbors[i];
 	    if(curCand.isInCandidate(neighId)) continue;	      
-	    int neighIdx = gr.Find(neighId);
-	    GridNode *neighNode = &Ingrid[neighIdx];
+	    //   int neighIdx = gr.Find(neighId);
+	    GridNode *neighNode = &Ingrid[neighId-1];
 	    dbgfit("Pushing this node %d to the list", neighId );
 	    next.push_back(neighId);		
 	  }
 
 	  // If the node had a parent from an other track but we decided not to match
 	  // with the track, then we should add this parent	  
-	  if(goodNode->parent != -1){
-	    next.push_back(goodNode->parent);
-	    dbgfit("Adding the parent node %d", goodNode->parent );
+	  if(goodNode->m_parent != -1){
+	    next.push_back(goodNode->m_parent);
+	    dbgfit("Adding the parent node %d", goodNode->m_parent );
 	  }
 
 	  // If we found some neighbors, then we can continue;

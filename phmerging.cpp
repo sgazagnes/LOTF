@@ -13,11 +13,10 @@
 #include "TStopwatch.h"
 #include "TH1.h"
 
-#include "gridNode.h"
+#include "phmerging.h"
 #include "logc.h"
 #include "auxfunctions.h"
 //#include "path_queue.h"
-#include "phmerging.h"
 
 
 void addTracklets (CoordGrid &gr, std::vector< GridNode > &Ingrid, PathCandidate *newCand, PathCandidate &mergeCand,  int curdir, int mergedir){
@@ -28,8 +27,8 @@ void addTracklets (CoordGrid &gr, std::vector< GridNode > &Ingrid, PathCandidate
       int curid = (mergeCand.m_memberList)->at(i);
       //   debug("adding id %d", curid);
       if(newCand->isInCandidate(curid)) continue;
-      int curidx = gr.Find(curid);
-      GridNode* node = &Ingrid[curidx];
+      //int curidx = gr.Find(curid);
+      GridNode* node = &Ingrid[curid-1];
       newCand->insertNewNode(gr, Ingrid, node, curdir == 1? newCand->m_memberList->end(): newCand->m_memberList->begin());
     }
     
@@ -40,8 +39,8 @@ void addTracklets (CoordGrid &gr, std::vector< GridNode > &Ingrid, PathCandidate
       // debug("adding id %d", curid);
 
       if(newCand->isInCandidate(curid)) continue;
-      int curidx = gr.Find(curid);
-      GridNode* node = &Ingrid[curidx];
+      //   int curidx = gr.Find(curid);
+      GridNode* node = &Ingrid[curid-1];
       newCand->insertNewNode(gr, Ingrid, node, curdir == 1? newCand->m_memberList->end(): newCand->m_memberList->begin());
     }
   }
@@ -73,8 +72,8 @@ void mergeTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 	  
       for(size_t i = 0; i < (curCand.m_memberList)->size(); i++){
 	int curid = (curCand.m_memberList)->at(i);
-	int curidx = gr.Find(curid);
-	GridNode* node = &Ingrid[curidx];
+	//int curidx = gr.Find(curid);
+	GridNode* node = &Ingrid[curid-1];
 	newCand->insertNewNodeFinal(gr, Ingrid, node,newCand->m_memberList->end());
       }
 
@@ -123,8 +122,8 @@ void mergeTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 	  
       for(size_t i = 0; i < (curCand.m_memberList)->size(); i++){
 	int curid = (curCand.m_memberList)->at(i);
-	int curidx = gr.Find(curid);
-	GridNode* node = &Ingrid[curidx];
+	//	int curidx = gr.Find(curid);
+	GridNode* node = &Ingrid[curid-1];
 	newCand->insertNewNodeFinal(gr, Ingrid, node,newCand->m_memberList->end());
       }
 
@@ -198,7 +197,7 @@ void mergeTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 	    if(mergeCand.m_toMergeTail.size() > 0 ){
 	      curCandId = mergeCand.m_id;
 	      idToMerge = mergeCand.m_toMergeTail[0];
-	      if(idToMerge == curCand.m_id)
+	      if(idToMerge ==  curCand.m_id)
 		cond = false;
 	      dbgmerge("ONE MORE TO PUSH %d (not implemented yet)", idToMerge);
 	    } else
@@ -212,7 +211,7 @@ void mergeTracks (CoordGrid &gr, std::vector< GridNode > &Ingrid, std::vector < 
 	    if(mergeCand.m_toMergeHead.size() > 0){
 	      curCandId = mergeCand.m_id;
 	      idToMerge = mergeCand.m_toMergeHead[0];
-	      if(idToMerge == curCand.m_id)
+	      if(idToMerge ==  curCand.m_id)
 		cond = false;
 	      dbgmerge("ONE MORE TO PUSH %d (not implemented yet)", idToMerge);
 	    } else
