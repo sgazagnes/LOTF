@@ -5,9 +5,9 @@
  * ********************************/
 #include "loadLibs.C"
 
-void runCollector( std::string const &OutFileName = "Tracks_output.root",		   
+void runCollector( std::string const &OutFileName = "LOTFAnalysis.root",		   
 		   int firstEvt =0, //9, //0,190
-		   int lastEvt =20000
+		   int lastEvt =10
 		   )//50->61, 4->5
 {
   // Load basic libs and headers.
