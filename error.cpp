@@ -591,7 +591,12 @@ std::vector< TrackErrorStruct* >* PandaErrorMetric(CoordGrid const &hitMap,
 
   std::set<int>::iterator compIt;
 
-  int *MCfound = (int*) calloc(MCTracks->size(), sizeof(int));
+  int *MCfound      = (int*) calloc(MCTracks->size(), sizeof(int));
+  int *MCBestID     = (int*) calloc(MCTracks->size(), sizeof(int));
+  int *MCBestRank   = (int*) calloc(MCTracks->size(), sizeof(int));
+  int *RecoRank     = (int*) calloc(RecoTracks->size(), sizeof(int));
+  int *RecoIDMatch  = (int*) calloc(RecoTracks->size(), sizeof(int));
+
   int FullyPure = 0, FullyImpure = 0, PartiallyPure = 0, PartiallyImpure = 0, Ghosts = 0, Clones = 0;
 
   for(size_t i = 0; i < RecoTracks->size(); ++i) {
@@ -610,14 +615,16 @@ std::vector< TrackErrorStruct* >* PandaErrorMetric(CoordGrid const &hitMap,
       }
     }
     
-    if(Cur_Comp_list.size() <= 5)
+    if(Cur_Comp_list.size() <= 5){
+      RecoIDMatch[i] = -1;
       continue;
+    }
     
     float RecoLength = Cur_Comp_list.size();
     std::sort(Cur_Comp_list.begin(), Cur_Comp_list.end());
     
     // Find which MC track has the largest overlap
-    int IDMatchedMC;
+    int IDMatchedMC = -1;
     for(size_t j = 0; j < MCTracks->size(); ++j) {
       // Current MC track
       MCTrackObject const *MCtrack = MCTracks->at(j);
@@ -647,52 +654,84 @@ std::vector< TrackErrorStruct* >* PandaErrorMetric(CoordGrid const &hitMap,
 
     dbgtrkerror("Matched track %d with MC %d", i, IDMatchedMC);
     dbgtrkerror("MatchValue = %.0f, MCLength = %.0f, RecoLength %.0f", MatchValue,MCLength, RecoLength);
+    RecoIDMatch[i] = IDMatchedMC;
     
     if(MatchValue == MCLength  && MatchValue == RecoLength){
-      dbgtrkerror("Track %d is fully pure", i);
+      //dbgtrkerror("Track %d is fully pure", i);
       FullyPure++;
       TrkRank = 1;
     } else if(MatchValue == MCLength && MatchValue/RecoLength >= 0.7){
-      dbgtrkerror("Track %d is fully impure", i);
+      //dbgtrkerror("Track %d is fully impure", i);
       FullyImpure++;
       TrkRank = 2;
     } else if(MatchValue == RecoLength && MatchValue/MCLength > 0.7){
-      dbgtrkerror("Track %d is partially pure", i);
+      // dbgtrkerror("Track %d is partially pure", i);
       PartiallyPure++;
       TrkRank = 3;
     } else if(MatchValue/RecoLength >= 0.7){
-      dbgtrkerror("Track %d is partially impure", i);
+      // dbgtrkerror("Track %d is partially impure", i);
       PartiallyImpure++;
       TrkRank = 4;
     } else if(MatchValue/RecoLength <0.7){
-      dbgtrkerror("Track %d is a ghost", i);
+      //dbgtrkerror("Track %d is a ghost", i);
       Ghosts++;
       TrkRank = 5;
     } else
       error("Not assigned");
 
-    if(MCfound[IDMatchedMC]>=1){
-      dbgtrkerror("MC track %d already matched, we have a clone here!");
+    RecoRank[i]= TrkRank;
+    
+    /*  if(MCfound[IDMatchedMC]>=1){
+      dbgtrkerror("MC track %d already matched, we might have a clone here!");
       isTrackClone = 1;
       Clones++;
-    }
+      }*/
     
     MCfound[IDMatchedMC]++;
-    
-    TrackErrorStruct *erroObject = new TrackErrorStruct();
-    erroObject->tr_rank = TrkRank;
-    erroObject->tr_isClone = isTrackClone;
-    dbgtrkerror(" ");
-    outPutPar->push_back(erroObject);
+    if(TrkRank < MCBestRank[IDMatchedMC] || MCBestRank[IDMatchedMC] == 0){
+      MCBestRank[IDMatchedMC] =  TrkRank;
+      MCBestID[IDMatchedMC]   = i;
+    }
 
+    dbgtrkerror(" ");
+
+    
+  }
+
+
+    
+  for(size_t j = 0; j < MCTracks->size(); ++j) {
+    //dbgtrkerror("Track %d has been found %d times", j, MCfound[j]);
+    if(MCfound[j]>1){
+      Clones += MCfound[j]-1;
+      for(size_t i = 0; i < RecoTracks->size(); ++i) {
+	if( RecoIDMatch[i] == j && i != MCBestID[j] && RecoRank[i] != 5){
+	  // dbgtrkerror("Track %d updated to Clone", i);
+	  RecoRank[i]= 6;
+	}
+      }
+    }
+  }
+
+  for(size_t i = 0; i < RecoTracks->size(); ++i) {
+    if( RecoIDMatch[i] != -1){
+      TrackErrorStruct *erroObject = new TrackErrorStruct();
+      erroObject->tr_rank = RecoRank[i];
+      dbgtrkerror("Track %d rank is %d", i, RecoRank[i]);
+
+      //erroObject->tr_isClone = isTrackClone;
+      outPutPar->push_back(erroObject);
+    }
   }
   
-  for(size_t j = 0; j < MCTracks->size(); ++j) {
-    dbgtrkerror("Track %d has been found %d times", j, MCfound[j]);
-    if(MCfound[j]>1)
-      Clones += MCfound[j]-1;
-  }
   dbgtrkerror("End of PANDA Error metric function \n");
+  delete(MCfound);
+  delete(MCBestRank);
+  delete(MCBestID);
+  delete(RecoRank);
+  delete(RecoIDMatch);
+    
+
   return outPutPar;
 }
 //__________________

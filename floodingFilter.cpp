@@ -43,8 +43,8 @@
 #define INCLUDE_MVD_INOUTPUT_TRACK 0
 #define WRITE_CONNECTED_COMPONENTS_JSON 0
 #define WRITE_CM_ASCII_FILE 0
-#define WRITE_TIME_ASCII_FILE 1
-#define WRITE_LIST_RECO_ID 1
+#define WRITE_TIME_ASCII_FILE 0
+#define WRITE_LIST_RECO_ID 0
 
 void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 {
@@ -102,12 +102,12 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   // Setting verbosity level, put 1 for the debug you want
   // {error,time,info,collect,grid,connect,fit,merge,trkz,trkerror}
   // examples: {0,0,0,0,0,0,0,0,1,1}{1,1,1,0,0,0,0,0,0,0};
-  bool v[10] = {1,1,1,0,0,0,0,0,0,1};
+  bool v[10] = {0,1,0,0,0,0,0,0,0,0};
   set_verbosity(v);
   
 
   // Reading the parameters of given simulations
-  char *SimName = "../rootfiles/evtcomplete20000";   
+  char *SimName = "../rootfiles/evtcomplete20000Beam3";   
   // geo 2 1572086365
   // geo 1 1583944737
   // Muon_z0 1611761510
@@ -121,7 +121,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   // Read all data directly from sim, digi and parameter files 
   std::vector < GridNode > DetectorNodes;
   std::vector < std::vector<HitCoordinate*>* >* HitsData = 
-    CollectSttMvdPoints(DetectorNodes, SimName, OutputFile, 1614788215, firstEvt, lastEvt);
+    CollectSttMvdPoints(DetectorNodes, SimName, OutputFile, 1618615353, firstEvt, lastEvt);
   
   std::vector< std::vector < MCTrackObject* >* > *MCTracks = MCTrackPoints(*HitsData);
   
@@ -1057,7 +1057,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
    TimeNow      =std::chrono::high_resolution_clock::now() ;
    EvtTotalTime = std::chrono::duration<double>(TimeNow - TimeEvt).count();
    RecTotalTime += EvtTotalTime;
-   timing("Time elapsed for this event (%d hits, %d tracks): %.6lf s", totHits, nMCTracks, EvtTotalTime);
+   timing("Time elapsed for event %d (%d hits, %d tracks): %.6lf s",
+	  evt+firstEvt, totHits, nMCTracks, EvtTotalTime);
 
    std::vector<int> BestRecoMCMatchIDs = MatchBestRecoToMC( GridStruct, MCTracksEvt, &RecoTracks);
 

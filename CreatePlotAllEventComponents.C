@@ -68,7 +68,7 @@ int selectCompColour(size_t compNum, size_t numColours) {
  * Infile contains the ntuples
  * evtNum is the event number from which we want to draw the results.
  */
-void CreatePlotAllEventComponents(std::string const &InoutFile = "Tracks_output.root",
+void CreatePlotAllEventComponents(std::string const &InoutFile = "LOTFAnalysis.root",
 				  std::string const &dirName   = "PlotsCanvas",
 				  Double_t const ww = 600.00,
 				  Double_t const hh = 600.00,
