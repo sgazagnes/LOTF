@@ -392,7 +392,7 @@ CollectSttMvdPoints( std::vector < GridNode >& detNodes, char *inFile, TFile &Ou
   }
 
   // THIS IS WHERE TO CHANGE THE NUMBER OF EVENTS PER BATCH
-  int nevtbatch = 4;
+  int nevtbatch = 1;
   int curevt = -1;
   int oldTrackID =-1, curTrackID = 0;
 

@@ -90,7 +90,8 @@ EvtErrorStruct* ComputeGlobalEvtErrors(CoordGrid &gr,
 
   dbgtrkerror("Computing event errors based on Babai+16 paper");
     
-  
+  int nMC = 0;
+
   if( (MCTracks == 0) || (RecoTracks->size() == 0) ) {
     error("One of the input parameters for matching is empty.");
     return 0;
@@ -107,7 +108,6 @@ EvtErrorStruct* ComputeGlobalEvtErrors(CoordGrid &gr,
   float Error_overMergeNorm  = 0;
   float TotalErrorNorm = 0;
   
-  int nMC = 0;
   
   // Determine the total area of the all tracks in the current event.
   for(size_t i = 0; i < MCTracks->size(); ++i) {
@@ -139,7 +139,7 @@ EvtErrorStruct* ComputeGlobalEvtErrors(CoordGrid &gr,
 
     //   std::sort(Cur_Comp_list.begin(), Cur_Comp_list.end());
 
-    if(Cur_Comp_list.size() <= 5) // Discarding CC with less thhan 5 hits
+    if(Cur_Comp_list.size() < 5) // Discarding CC with less thhan 5 hits
       continue;
 
     float MatchValue = 0, UnionValue = 0, MCLength = 0;
@@ -262,7 +262,7 @@ std::vector< TrackErrorStruct* >* ComputeErrorPerRecoTrack(CoordGrid const &hitM
     std::vector<int>     MCSttCompVect(MCtrack->m_STT_Component);
 
     // We only care about tracks with > 5 hits
-    if( (MCSttComp.size() > 5) ) { 
+    if( (MCSttCompVect.size() > 5) ) { 
       //If track has been identified as complex
       if(std::find(ListIDComplex.begin(), ListIDComplex.end(), MCtrack->m_trackID) != ListIDComplex.end())
 	TrkComplex = 1;
@@ -575,7 +575,7 @@ std::vector< TrackErrorStruct* >* PandaErrorMetric(CoordGrid const &hitMap,
   dbgtrkerror("Computing track errors based on PANDA QA");
 
   if( (MCTracks == 0) || (RecoTracks->size() == 0) ) {
-    error("One of the input parameters for matching is empty.");
+    error("PANDA QA: One of the input parameters for matching is empty.");
     return 0;
   }
   
@@ -615,7 +615,7 @@ std::vector< TrackErrorStruct* >* PandaErrorMetric(CoordGrid const &hitMap,
       }
     }
     
-    if(Cur_Comp_list.size() <= 5){
+    if(Cur_Comp_list.size() < 5){
       RecoIDMatch[i] = -1;
       continue;
     }
@@ -763,7 +763,7 @@ std::vector< int > MatchBestRecoToMC( CoordGrid const &hitMap,
     std::set<int> MCSttComp((MCtrack->m_STT_Component).begin(), (MCtrack->m_STT_Component).end());
     std::vector<int> MCSttCompVect(MCtrack->m_STT_Component);
 
-    if( MCSttComp.size() > 5 ) {
+    if( MCSttCompVect.size() > 5 ) {
  
       int    MatchTrackIndex = -1;
       float  MatchLength  = 0;

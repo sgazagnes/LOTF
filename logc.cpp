@@ -8,7 +8,7 @@
 #include "logc.h"
 
 void _error(const char* msg) {
-  _logc(ERROR, msg);
+  _logc(ERROR_, msg);
 }
 
 void error(const char* fmt, ...) {
@@ -34,7 +34,7 @@ void timing(const char* fmt, ...) {
 }
 
 void _info(const char* msg) {
-  _logc(INFO, msg);
+  _logc(INFO_, msg);
 }
 
 void info(const char* fmt, ...) {
@@ -120,11 +120,11 @@ void _logc(int level, const char* msg) {
     char *ts = timestamp();
   
     switch (level) {
-    case ERROR:
+    case ERROR_:
       fprintf(stderr, WHT"%s " RED "ERROR " WHT "%s\n" RESET, ts, msg); fflush(stderr); break;
     case TIME:
       fprintf(stdout, WHT"%s " YEL "TIME  " WHT "%s\n" RESET, ts, msg); fflush(stdout); break;
-    case INFO:
+    case INFO_:
      fprintf(stdout, WHT"%s "  GRN "INFO  " WHT "%s\n" RESET, ts, msg); fflush(stdout); break;
     case COLLECT:
       fprintf(stdout, WHT"%s " CYN "COLLECT " WHT "%s\n" RESET, ts, msg); fflush(stdout); break;

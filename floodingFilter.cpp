@@ -22,6 +22,8 @@
 
 // Local headers
 #include "auxfunctions.h"
+#include "gridNode.h"
+#include "CoordGrid.h"
 #include "CollectSttMvdPoints.h"
 #include "hitcoordinate.h"
 #include "error.h"
@@ -43,7 +45,7 @@
 #define INCLUDE_MVD_INOUTPUT_TRACK 0
 #define WRITE_CONNECTED_COMPONENTS_JSON 0
 #define WRITE_CM_ASCII_FILE 0
-#define WRITE_TIME_ASCII_FILE 0
+#define WRITE_TIME_ASCII_FILE 1
 #define WRITE_LIST_RECO_ID 0
 
 void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
@@ -102,12 +104,12 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   // Setting verbosity level, put 1 for the debug you want
   // {error,time,info,collect,grid,connect,fit,merge,trkz,trkerror}
   // examples: {0,0,0,0,0,0,0,0,1,1}{1,1,1,0,0,0,0,0,0,0};
-  bool v[10] = {0,1,0,0,0,0,0,0,0,0};
+  bool v[10] = {0,0,0,0,0,0,0,0,0,0};
   set_verbosity(v);
   
 
   // Reading the parameters of given simulations
-  char *SimName = "../rootfiles/evtcomplete20000Beam3";   
+  char *SimName = "../rootfiles/evtcomplete20000Beam15";   
   // geo 2 1572086365
   // geo 1 1583944737
   // Muon_z0 1611761510
@@ -212,8 +214,11 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 
   #if(DO_RECONSTRUCTION == 1)
   timer.Start();
+  int lastevtID = -1;
   int nEvtProc  = 0;
   int nTrkProc  = 0;
+  int nTrk5hitsProc  = 0;
+
   int nHitsProc = 0;
 
   // Open file to write timings
@@ -239,7 +244,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     RecOutTxtFile << Recoheader; 
   #endif
   
-  // Checking that the event has enough number of hits to process (10 minimum)
+  // Checking that the event has enough number of hits to process (5 minimum)
   for(size_t evt = 0; evt < HitsData->size(); ++evt) {
     int totHits = 0;
     std::set<int> nIndTubes;
@@ -255,15 +260,24 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
     if(totHits == 0){ // 
       info("This event did not contain any tracks");
       continue;
-    } else if( totHits <= 10){
+    } else if( totHits < 5){
       info("This event contains only %d hits, skip", totHits);
       continue;
     } else {
       info("Processing event: %d", evt);
       nHitsProc += totHits;
       nTrkProc  += MCTracks->at(evt)->size();
+      for(size_t i = 0; i < MCTracks->at(evt)->size(); ++i) {
+	MCTrackObject const *MCtrack = MCTracks->at(evt)->at(i);
+	std::set<int> MCSttComp((MCtrack->m_STT_Component).begin(), (MCtrack->m_STT_Component).end());
+    
+	if(MCtrack->m_STT_Component.size()>5){ // Only considering MC tracks with >5 hits
+	  nTrk5hitsProc++;
+	}
+      }
       nIndTubes.clear();
       nEvtProc++;
+      lastevtID = evt;
     }
 
     
@@ -339,7 +353,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
      } // End while GridStruct
 
     
-    dbgconnect("Found %d active detectors (%d with virtuals)", GridStruct.m_STT_idx.begin(), nTubesFired);
+    dbgconnect("Found %d active detectors (%d with virtuals)",ListActiveTubes.size(), nTubesFired);
     sort(ListPrioTubes.begin(), ListPrioTubes.end(), sortbysec);
 
     ListActiveTubes.insert( ListActiveTubes.begin(), ListOtherTubes.begin(), ListOtherTubes.end() );
@@ -1164,8 +1178,9 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 	
    #if(EVALUATE_ERROR)
 	
-   EvtErrorStruct *EvtError =  ComputeGlobalEvtErrors(GridStruct, MCTracksEvt, RecoTrackListDetID);	  
-   GlobalErrorNtuple.Fill(static_cast<float>(evt+firstEvt),
+   EvtErrorStruct *EvtError =  ComputeGlobalEvtErrors(GridStruct, MCTracksEvt, RecoTrackListDetID);
+   if(EvtError != 0){
+     GlobalErrorNtuple.Fill(static_cast<float>(evt+firstEvt),
 			  static_cast<float>(EvtError->nMCTracks),
 			  static_cast<float>(EvtError->nRecoTracks),
 			  static_cast<float>(EvtError->UnderMerge),
@@ -1175,8 +1190,18 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 			  static_cast<float>(EvtError->OverMergeNorm),
 			  static_cast<float>(EvtError->TotalErrorNorm));
 	
-   delete EvtError;
-
+     delete EvtError;
+   } else {
+     GlobalErrorNtuple.Fill(static_cast<float>(evt+firstEvt),
+			    static_cast<float>(nMCTracks),
+			    static_cast<float>(0),
+			    static_cast<float>(1),
+			    static_cast<float>(0),
+			    static_cast<float>(1),
+			    static_cast<float>(1),
+			    static_cast<float>(0),
+			    static_cast<float>(1));
+   }
 
    std::vector< TrackErrorStruct* > *PandaErrors = PandaErrorMetric(GridStruct, MCTracksEvt, &RecoTracks);
 
@@ -1187,10 +1212,11 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
 				    static_cast<float>(erPandaObj->tr_rank),
 				    static_cast<float>(erPandaObj->tr_isClone));
      }
-   }
+   
 
-   for(size_t r = 0; r < PandaErrors->size(); ++r) {
-     delete PandaErrors->at(r);
+     for(size_t r = 0; r < PandaErrors->size(); ++r) {
+       delete PandaErrors->at(r);
+     }
    }
    delete PandaErrors;
 	
@@ -1253,7 +1279,7 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
    if(RecoTracks.size()>0){
      for(size_t c = 0; c < RecoTracks.size(); ++c) {
        delete(RecoTracks[c]);
-     }
+     } 
      RecoTracks.clear();
    }
    
@@ -1268,9 +1294,9 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
    GridStruct.ResetGrid();
    free(visited);
      
-   // if(nEvtProc == 15000)
+   if(nEvtProc == 15000)
 
-   if(nEvtProc == 4950) // 4 events batch
+     //if(nEvtProc == 4950) // 4 events batch
      break;
   }
   #endif
@@ -1283,16 +1309,19 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   AnchorCCCoord.Write();
   GridCoordNtuple.Write();
 
+  #if(EVALUATE_ERROR)
+
   //Write error estimations.
   GlobalErrorNtuple.Write();
   ErrorPerMCTrackNtuple.Write();
   ErrorPerRecoTrackNtuple.Write();
   CoordDiffPerTrackNtuple.Write();
   CurvPerTrackNtuple.Write();
-
+  #endif
+  
   OutputFile.Close();
   TFile DetecIDFile("LOTFRecoTrackIDs.root", "RECREATE",
-  		     "List of tube IDS per Reco and MC track, file created by floodingFilter macro", 9);
+   		     "List of tube IDS per Reco and MC track, file created by floodingFilter macro", 9);
   RecoDetID.Write();
   MCDetID.Write();
   DetecIDFile.Close();
@@ -1322,8 +1351,8 @@ void floodingFilter(std::string const &OutFileName,int firstEvt, int lastEvt)
   
   printf("Macro finished successfully. \n");
   printf("/************ LOTF Processing SUMMARY ****************/\n");
-  printf("Number of events processed is %d\n", nEvtProc);
-  printf("Number of tracks processed is %d\n", nTrkProc);
+printf("Number of events processed is %d (last evt id %d)\n", nEvtProc, lastevtID);
+printf("Number of tracks processed is %d (with > 5 hits %d)\n", nTrkProc, nTrk5hitsProc);
   printf("Number of hits processed is %d\n", nHitsProc);
   printf("Reconstruction time %.5lf s, (%.0lf hits/s, %.5f s/Event)\n",
 	 RecTotalTime, nHitsProc/RecTotalTime, RecTotalTime/nEvtProc);
