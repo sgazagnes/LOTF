@@ -28,10 +28,11 @@ void runCollector( std::string const &OutFileName = "LOTFAnalysis.root",
   gSystem->CompileMacro("phfitting.cpp","kO");
   gSystem->CompileMacro("phmerging.cpp","kO");
   gSystem->CompileMacro("phzinterp.cpp","kO");
-  gSystem->CompileMacro("floodingFilter.cpp","kO");
   gSystem->CompileMacro("error.cpp","kO");
   gSystem->CompileMacro("circle.cpp","kO");
   gSystem->CompileMacro("CreatePlotAllEventComponents.C","kO");
+  
+  gSystem->CompileMacro("floodingFilter.cpp","kO");
 
   gROOT->ProcessLine(Form("floodingFilter(\"%s\", %d, %d);", OutFileName.c_str(), firstEvt, lastEvt));
 }
