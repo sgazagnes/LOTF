@@ -6,8 +6,8 @@
 #include "loadLibs.C"
 
 void runCollector( std::string const &OutFileName = "LOTFAnalysis.root",		   
-		   int firstEvt =0, //9, //0,190
-		   int lastEvt =20000
+		   int firstEvt =1, //9, //0,190
+		   int lastEvt =2
 		   )//50->61, 4->5
 {
   // Load basic libs and headers.

@@ -456,6 +456,7 @@ std::vector< TrackErrorStruct* >* ComputeErrorPerRecoTrack(CoordGrid const &hitM
 	MeanDiffX /= (double)RecoMatchHitsX.size();
 	MeanDiffY /= (double)RecoMatchHitsY.size();
 	MeanDiffZ /= (double)RecoMatchHitsZ.size();
+	dbgtrkerror("Mean diff Z score %.3f", MeanDiffZ);
 
 	erroObject->MeanDiffX = MeanDiffX;
 	erroObject->MeanDiffY = MeanDiffY;
