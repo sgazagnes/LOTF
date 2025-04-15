@@ -26,8 +26,10 @@ LOTF is a fast and robust track reconstruction algorithm optimized for the PANDA
 - A system of **virtual nodes** to recover z-information from skewed layers
 - A low computational complexity, achieving **68,000 hits/s** without parallelization
 
-Example figures:
+Result figures:
 ----------------
+
+
 1. STT Geometry and Skewed Layers:
 
    .. raw:: html
@@ -75,7 +77,8 @@ Example figures:
 
 Notes:
 ------
-ROOT filess containing the analysis results are included as a zenodo repository.
+ROOT files containing the analysis results are included as a zenodo repository.
+- `Root files <https://zenodo.org/records/15223160>`_ 
 
 AUTHOR
 ------
