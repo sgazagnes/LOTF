@@ -77,7 +77,7 @@ Result figures:
 
 Notes:
 ------
-ROOT files containing the analysis results are included as a zenodo repository.
+ROOT files containing the analysis results are available on Zenodo.
 - `Root files <https://zenodo.org/records/15223160>`_ 
 
 AUTHOR
