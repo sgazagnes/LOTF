@@ -39,16 +39,39 @@ Example figures:
 
 2. Simulation setup:
 
-   .. image:: Publication material/Figures/ntrackpsimAll.png
-      :alt: Track reconstruction
+   .. raw:: html
+
+      <div style="display: flex; justify-content: space-between;">
+          <img src="Publication material/Figures/ntrackpsimAll.png" width="100%" />
+      </div>
+
 
 3. Track reconstruction performance comparison:
 
-   .. image:: Publication material/Figures/PandaQA3GevV2.png
-      :alt: Performance
+   .. raw:: html
 
-   .. image:: Publication material/Figures/PandaQA15GevV2.png
-      :alt: Performance
+      <div style="display: flex; justify-content: space-between;">
+          <img src="Publication material/Figures/PandaQA3GevV2.png" width="45%" />
+          <img src="Publication material/Figures/PandaQA15GevV2.png" width="45%" />
+      </div>
+
+4. Event-mixing drop off performance
+
+   .. raw:: html
+
+      <div style="display: flex; justify-content: space-between;">
+          <img src="Publication material/Figures/PandaQAEvtMixV2.png" width="100%" />
+      </div>
+
+5. Time and recontruction rate
+
+   .. raw:: html
+
+
+      <div style="display: flex; justify-content: space-between;">
+          <img src="Publication material/Figures/AllTime.png" width="45%" />
+          <img src="Publication material/Figures/Allhitsrate.png" width="45%" />
+      </div>
 
 Notes:
 ------
