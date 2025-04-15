@@ -27,7 +27,7 @@ LOTF is a fast and robust track reconstruction algorithm optimized for the PANDA
 - A low computational complexity, achieving **68,000 hits/s** without parallelization
 
 Result figures:
-----------------
+---------------
 
 
 1. STT Geometry and Skewed Layers:
