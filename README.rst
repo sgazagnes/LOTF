@@ -42,7 +42,7 @@ Example figures:
    .. raw:: html
 
       <div style="display: flex; justify-content: space-between;">
-          <img src="Publication material/Figures/ntrackpsimAll.png" width="100%" />
+          <img src="Publication material/Figures/ntrackpsimAll.png" width="85%" />
       </div>
 
 
@@ -51,8 +51,8 @@ Example figures:
    .. raw:: html
 
       <div style="display: flex; justify-content: space-between;">
-          <img src="Publication material/Figures/PandaQA3GevV2.png" width="45%" />
-          <img src="Publication material/Figures/PandaQA15GevV2.png" width="45%" />
+          <img src="Publication material/Figures/PandaQA3GevV2.png" width="40%" />
+          <img src="Publication material/Figures/PandaQA15GevV2.png" width="40%" />
       </div>
 
 4. Event-mixing drop off performance
@@ -60,7 +60,7 @@ Example figures:
    .. raw:: html
 
       <div style="display: flex; justify-content: space-between;">
-          <img src="Publication material/Figures/PandaQAEvtMixV2.png" width="100%" />
+          <img src="Publication material/Figures/PandaQAEvtMixV2.png" width="40%" />
       </div>
 
 5. Time and recontruction rate
