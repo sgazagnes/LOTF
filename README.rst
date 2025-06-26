@@ -84,3 +84,6 @@ AUTHOR
 ------
 
 - Simon Gazagnes <sgsgazagnes@gmail.com>
+
+![GitHub stats](https://github-readme-stats.vercel.app/api?sgazagnes&show_icons=true&hide=jupyter%20notebook)
+
